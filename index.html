@@ -237,17 +237,13 @@
           <div id="lost-item-result" class="tool-result hidden">
             <h4>占卜結果</h4>
             <div class="card-list small" id="lost-item-cards"></div>
-            <div class="tool-interpretation" id="lost-item-interpretation"></div>
 
-            <details class="tool-note">
+            <!-- 把解釋區放進 details 裡 -->
+            <details class="tool-note" id="lost-item-details">
               <summary>這個結果怎麼看？</summary>
-              <p>
-                三張牌會分別對應：<br />
-                ① 物品現在的大致狀態<br />
-                ② 比較有機會出現的環境 / 場域<br />
-                ③ 你接下來最有效率的找法
-              </p>
+              <div class="tool-interpretation" id="lost-item-interpretation"></div>
             </details>
+            
             <!-- 失物占卜回饋區（只存在本機） -->
             <div class="tool-feedback">
                 <h5>這次結果有幫上忙嗎？（實驗紀錄用）</h5>
