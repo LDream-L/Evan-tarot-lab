@@ -39,6 +39,13 @@ body {
 
 /* Layout */
 
+.tool-feedback-message {
+  margin-top: 6px;
+  font-size: 0.82rem;
+  color: var(--accent-strong);
+}
+
+
 .container {
   width: 100%;
   max-width: 1080px;

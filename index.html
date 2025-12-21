@@ -34,6 +34,7 @@
         <p>
           這裡是 Evan 的塔羅工作台。<br />
           我用牌組看關係、工作與人生節奏，也用資料與小工具，把「直覺」整理成可回頭檢視的路線。
+          塔羅不只是抽象更是貼近生活的一部份。
         </p>
         <div class="hero-cta">
           <a href="#booking" class="btn primary">我要預約占卜</a>
@@ -64,18 +65,20 @@
       <h2>關於 Evan</h2>
       <p class="section-lead">
         接觸塔羅超過數年，習慣把「感覺」拆成結構，<br />
-        用牌面說實話，但節奏與資訊量會依照對方能承接的程度調整。
+        用牌面說實話，節奏與資訊量可能會爆擊你的心靈，<br />
+        但絕對不會有任何欺瞞。
       </p>
       <div class="intro-grid">
         <div class="intro-block">
           <h3>風格</h3>
           <p>
             不走恐嚇、不亂灌雞湯。<br />
-            比較像一起檢視情境、資源與可行選項，而不是被命運宣判。
+            比較像一起檢視情境、資源與可行選項，<br />
+            改變命運而不是被命運宣判。
           </p>
         </div>
         <div class="intro-block">
-          <h3>擅長主題</h3>
+          <h3>主題</h3>
           <ul>
             <li>人際 & 感情動態（誰推、誰拉、誰在冷處理）</li>
             <li>職場合作、團隊氣氛、轉職節奏</li>
@@ -83,7 +86,7 @@
           </ul>
         </div>
         <div class="intro-block">
-          <h3>目前在做的事</h3>
+          <h3>目標</h3>
           <ul>
             <li>把塔羅占卜流程「系統化」與「可回顧化」</li>
             <li>開發各種塔羅小工具（你現在看到的尋物就是其中一個）</li>
@@ -99,7 +102,7 @@
     <div class="container">
       <h2>目前開放的占卜形式</h2>
       <p class="section-lead">
-        每一場占卜都會以「現況 → 卡點 → 可行調整」為主軸，<br />
+        每一場占卜都會以「現況 → 問題 → 可行調整」為主軸，<br />
         不是只給一句「吉凶」，而是一起看可以怎麼動。
       </p>
       <div class="card-grid">
@@ -126,7 +129,7 @@
         </article>
 
         <article class="card">
-          <h3>主題深度占卜（客製）</h3>
+          <h3>主題深度占卜</h3>
           <p>
             針對你當下最在意的一個核心主題，做較完整的牌陣與路線規劃，可合併人際、工作與自我。
           </p>
@@ -144,8 +147,7 @@
     <div class="container">
       <h2>塔羅記事 / 文章</h2>
       <p class="section-lead">
-        這裡會放一些關於塔羅、實驗過程、以及我怎麼思考「占卜 × 系統」的短文。<br />
-        之後也可以放你在 Dcard / IG 的文章延伸閱讀連結。
+        這裡會放一些關於塔羅、實驗過程、可公開的匿名各占以及我怎麼思考「占卜 × 系統」的短文。<br />
       </p>
 
       <div class="card-grid article-grid">
@@ -243,36 +245,44 @@
               <summary>這個結果怎麼看？</summary>
               <div class="tool-interpretation" id="lost-item-interpretation"></div>
             </details>
-            
+
             <!-- 失物占卜回饋區（只存在本機） -->
             <div class="tool-feedback">
-                <h5>這次結果有幫上忙嗎？（實驗紀錄用）</h5>
-                <form id="lost-item-feedback-form" class="tool-form">
+              <h5>這次結果有幫上忙嗎？（實驗紀錄用）</h5>
+              <form id="lost-item-feedback-form" class="tool-form">
                 <div class="tool-feedback-options">
-                    <label class="feedback-pill">
-                        <input type="radio" name="found-status" value="found" />
-                        <span>最後有找到</span>
-                    </label>
+                  <label class="feedback-pill">
+                    <input type="radio" name="found-status" value="找到" />
+                    <span>最後有找到</span>
+                  </label>
 
-                    <label class="feedback-pill">
-                        <input type="radio" name="found-status" value="not_found" />
-                        <span>暫時還沒找到</span>
-                    </label>
+                  <label class="feedback-pill">
+                    <input type="radio" name="found-status" value="尚未找到" />
+                    <span>暫時還沒找到</span>
+                  </label>
                 </div>
 
                 <label>
-                    補充說明（可選）
-                    <textarea id="found-notes" rows="2"
-                        placeholder="例如：最後是在沙發縫找到，跟第二張牌說的場域很像。"></textarea>
+                  補充說明（可選）
+                  <textarea id="found-notes" rows="2"
+                    placeholder="例如：最後是在沙發縫找到，跟第二張牌說的場域很像。"></textarea>
                 </label>
 
                 <button type="submit" class="btn ghost full">
-                    回饋
+                  回饋
                 </button>
-                <p class="tool-note-small">
-                    ※ 目前只會儲存在你自己的瀏覽器，不會上傳到雲端或 Google Sheet。
+
+                <!-- ✅ 新增：送出後顯示感謝訊息 -->
+                <p id="lost-item-feedback-message"
+                  class="tool-feedback-message hidden">
+                  感謝你的回饋。
                 </p>
-            </form>
+
+                <!-- ✅ 更新說明：不再提到「只存在本機」 -->
+                <p class="tool-note-small">
+                </p>
+              </form>
+            </div>
           </div>
         </div>
       </div>
@@ -330,7 +340,6 @@
 
         <button type="submit" class="btn primary full">送出預約意願</button>
         <p class="booking-note">
-          ※ 目前這個表單是示意用，正式導入後可以串接：Email、Google 表單、Notion 或你習慣的接案系統。
         </p>
       </form>
     </div>

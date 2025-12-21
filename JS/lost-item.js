@@ -21,6 +21,17 @@
 // 基本設定
 // ==============================
 
+// 台灣固定 UTC+8（無夏令時間）
+const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+// 台灣年月日+時間：2025-12-21 22:26
+function nowTaipeiStamp() {
+  const d = new Date(Date.now() + TAIPEI_OFFSET_MS);
+  return d.toISOString().slice(0, 16).replace("T", " ");
+}
+
+
+
 // localStorage 存放 key
 const LOST_FEEDBACK_STORAGE_KEY = "evanLostItemFeedback";
 
@@ -42,6 +53,73 @@ function escapeHtmlInline(str) {
     .replace(/\"/g, "&quot;")
     .replace(/'/g, "&#39;");
 }
+
+// ★ 跟留言共用「Evan Tarot 網站回饋」表單
+const LOST_ITEM_FEEDBACK_FORM = {
+  url: "https://docs.google.com/forms/d/e/1FAIpQLScdDR6CrMrs_G7HVMAbQYo95s4AaH5b3KDupUZ9TlD5e5yKLQ/formResponse",
+  fields: {
+    type: "entry.1980954123",        // 回饋類型
+    title: "entry.2042241666",       // ✅ 標題/物品名稱（拿來放 itemName）
+    note: "entry.243999010",         // ✅ 留言內容/補充（放 item-notes + 回饋補充）
+    lastLocation: "entry.1220725361",// ✅ 最後位置
+    status: "entry.2036025518",      // ✅ 失物狀態（找到/尚未找到）
+    feedbackAt: "entry.1203451900",  // ✅ 建立時間
+  },
+};
+
+
+
+
+
+/**
+ * 共用的 Google Form POST（跟 comments.js 類似）
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ */
+function postToGoogleForm(url, formData) {
+  return fetch(url, {
+    method: "POST",
+    mode: "no-cors",
+    body: formData,
+  });
+}
+
+/**
+ * 把失物回饋紀錄組成 FormData
+ */
+function buildLostItemFeedbackFormData(record) {
+  const fd = new FormData();
+  const f = LOST_ITEM_FEEDBACK_FORM.fields;
+
+  // type
+  fd.append(f.type, "lost_item");
+
+  // ✅ 物品名稱 → 放到「標題/物品名稱」
+  fd.append(f.title, record.itemName || "");
+
+  // ✅ 最後位置（你指定：要連結到「簡單描述一下狀況」）
+  // 也順便把真正的「最後位置」一起附上，避免資訊消失
+  const lastLocParts = [];
+  if (record.itemNotes) lastLocParts.push(`狀況描述：${record.itemNotes}`);
+  if (record.lastLocation) lastLocParts.push(`最後位置：${record.lastLocation}`);
+
+  // ✅ 最後位置：只放「簡單描述」
+  fd.append(f.lastLocation, record.lastLocation || record.itemNotes || "");
+
+  // ✅ 留言內容/補充說明：只放「回饋補充」
+  fd.append(f.note, record.feedbackNote || "");
+
+  // ✅ 失物狀態
+  fd.append(f.status, record.foundStatus || "");
+
+  // ✅ 建立時間
+  fd.append(f.feedbackAt, record.feedbackAt || nowTaipeiStamp());
+
+  fd.append("submit", "Submit");
+  return fd;
+}
+
+
 
 // ==============================
 // 儲存回饋到 localStorage
@@ -123,7 +201,7 @@ function downloadLostItemFeedbackRecord(record) {
 // 時間複雜度：O(1)（固定 3 張牌）
 // 空間複雜度：O(1)
 function renderLostItemResult(ctx) {
-  const { itemName, notes, cards } = ctx;
+  const { itemName, notes, lastLocation, cards } = ctx;
 
   const resultSection = document.getElementById("lost-item-result");
   const cardsContainer = document.getElementById("lost-item-cards");
@@ -207,8 +285,9 @@ function renderLostItemResult(ctx) {
   window.lastLostItemContext = {
     itemName,
     notes,
+    lastLocation,
     cards,
-    createdAt: new Date().toISOString()
+    createdAt: nowTaipeiStamp()
   };
 
   resultSection.classList.remove("hidden");
@@ -228,10 +307,15 @@ window.handleLostItemForm = async function handleLostItemForm(event) {
   const notesInput = document.getElementById("item-notes");
   const itemName = itemNameInput ? itemNameInput.value.trim() : "";
   const notes = notesInput ? notesInput.value.trim() : "";
+  // 你指定：把「簡單描述一下狀況」當作表單的「最後位置」
+  const lastLocation = notes;
+
 
   if (!itemName) {
+    itemNameInput?.focus();
     return;
   }
+
 
   try {
     // 確保 mapping 已載入
@@ -260,55 +344,64 @@ window.handleLostItemForm = async function handleLostItemForm(event) {
       return;
     }
 
-    renderLostItemResult({ itemName, notes, cards });
+    renderLostItemResult({ itemName, notes, lastLocation, cards });
   } catch (e) {
     console.error("[lost-item] 占卜流程錯誤", e);
     alert("占卜過程發生錯誤，請稍後再試一次。");
   }
 };
 
-// ==============================
-// 回饋表單送出
-// ==============================
+// 主要：失物回饋表單 submit
+// 時間複雜度：O(1)
+// 空間複雜度：O(1)
 //
-// 時間複雜度：O(n)（含一次寫入 localStorage）
-// 空間複雜度：O(n)
-window.handleLostItemFeedbackForm = function handleLostItemFeedbackForm(
-  event
-) {
+// 暴力法：同時存 localStorage + 下載 txt + alert。
+// 優化法（本實作）：只送 Google Form，頁面內顯示簡短提示，
+//                  不在使用者裝置留下額外檔案或本機紀錄。
+window.handleLostItemFeedbackForm = function handleLostItemFeedbackForm(event) {
   event.preventDefault();
+  const form = event.target;
+
+  const statusInput = form.querySelector('input[name="found-status"]:checked');
+  const status = statusInput ? statusInput.value : "";
+  const notes =
+    document.getElementById("found-notes")?.value.trim() || "";
 
   const ctx = window.lastLostItemContext;
+
   if (!ctx || !ctx.itemName) {
-    alert("請先進行一次失物占卜，再填寫回饋。");
+    const msgEl = document.getElementById("lost-item-feedback-message");
+    if (msgEl) {
+      msgEl.textContent = "請先抽牌產生結果後再回饋。";
+      msgEl.classList.remove("hidden");
+    }
     return;
   }
 
-  const form = event.target;
-  const statusInput = form.querySelector('input[name="found-status"]:checked');
-  const status = statusInput ? statusInput.value : null;
-  const notesEl = document.getElementById("found-notes");
-  const notes = notesEl ? notesEl.value.trim() : "";
-
-  if (!status) {
-    alert("請選擇「最後有找到」或「暫時還沒找到」。");
-    return;
-  }
 
   const record = {
-    ...ctx,
-    resultStatus: status, // "found" 或 "not_found"
-    feedbackNote: notes,
-    feedbackAt: new Date().toISOString()
+    foundStatus: status,                          // "找到" / "尚未找到"
+    feedbackNote: notes,                          // 回饋補充
+    feedbackAt: nowTaipeiStamp(),                 // ✅ 建立時間（真的時間）
+    itemName: ctx.itemName || "",                 // ✅ 物品名稱
+    itemNotes: ctx.notes || "",                   // ✅ 簡述狀況（你原本的 item-notes）
+    lastLocation: ctx.lastLocation || ""          // ✅ 最後位置
   };
 
-  // 1. 存到瀏覽器本機
-  saveLostItemFeedback(record);
 
-  // 2. 下載一份文字紀錄檔（你如果不想強制下載，可以註解掉這行）
-  downloadLostItemFeedbackRecord(record);
+
+  // ✅ 只送到 Google Form，不再存 localStorage / 下載文字檔
+  const fd = buildLostItemFeedbackFormData(record);
+  postToGoogleForm(LOST_ITEM_FEEDBACK_FORM.url, fd).catch((e) => {
+    console.warn("失物回饋送到 Google 失敗：", e);
+  });
 
   form.reset();
 
-  alert("已將這次結果記錄在本機（僅存在這台裝置），並下載一份文字紀錄檔。");
+  // ✅ 不用 alert，改在頁面上顯示「感謝你的回饋」
+  const msgEl = document.getElementById("lost-item-feedback-message");
+  if (msgEl) {
+    msgEl.textContent = "感謝你的回饋。";
+    msgEl.classList.remove("hidden");
+  }
 };
