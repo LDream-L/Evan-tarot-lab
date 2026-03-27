@@ -40,6 +40,9 @@ document.addEventListener("DOMContentLoaded", () => {
   // 初始渲染留言
   window.renderComments();
 
+  // 初始化占卜驗證圖譜
+  window.initDivinationMap?.();
+
   // 錨點平滑滾動
   document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
     anchor.addEventListener("click", function (e) {

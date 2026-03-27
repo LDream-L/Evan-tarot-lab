@@ -268,6 +268,187 @@
               </div>
             </div>
           </div>
+
+          <div class="tool-card map-tool-card">
+            <div class="tool-header">
+              <h3>占卜驗證圖譜（Beta）</h3>
+              <p>把每次占卜、後續事件與驗證結果，整理成可拖曳的圖譜與時間軸。</p>
+            </div>
+
+            <div id="divination-map-app" class="map-tool-layout">
+              <div class="map-toolbar" aria-label="占卜驗證圖譜工具列">
+                <div class="map-toolbar-group">
+                  <button type="button" id="map-add-reading" class="btn primary">新增占卜案例</button>
+                  <button type="button" id="map-add-event" class="btn ghost">新增事件</button>
+                </div>
+
+                <div class="map-toolbar-group map-toolbar-filters">
+                  <label>
+                    驗證狀態
+                    <select id="map-filter-status">
+                      <option value="all">全部狀態</option>
+                      <option value="pending">尚未驗證</option>
+                      <option value="partial">部分驗證</option>
+                      <option value="verified">驗證成立</option>
+                      <option value="missed">未應驗</option>
+                    </select>
+                  </label>
+
+                  <label>
+                    主題分類
+                    <select id="map-filter-category">
+                      <option value="all">全部主題</option>
+                    </select>
+                  </label>
+
+                  <label class="map-search-field">
+                    關鍵字搜尋
+                    <input
+                      type="search"
+                      id="map-search"
+                      placeholder="搜尋問題、人物、牌名、事件"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              <div class="map-workspace">
+                <section class="map-canvas-shell" aria-label="占卜圖譜畫布">
+                  <div class="map-canvas-topbar">
+                    <div id="map-stats" class="map-stats" aria-live="polite"></div>
+
+                    <div class="map-view-controls">
+                      <button type="button" id="map-zoom-out" class="map-icon-btn" aria-label="縮小畫布">－</button>
+                      <button type="button" id="map-zoom-reset" class="map-icon-btn" aria-label="重設視圖">100%</button>
+                      <button type="button" id="map-zoom-in" class="map-icon-btn" aria-label="放大畫布">＋</button>
+                      <button type="button" id="map-export-json" class="map-icon-btn map-text-btn">下載 JSON</button>
+                      <button type="button" id="map-reset-data" class="map-icon-btn map-text-btn map-danger-btn">清空資料</button>
+                    </div>
+                  </div>
+
+                  <div id="map-viewport" class="map-viewport" tabindex="0" aria-label="可平移與縮放的圖譜畫布">
+                    <div id="map-scene" class="map-scene">
+                      <svg id="map-connections" class="map-connections" aria-hidden="true"></svg>
+                      <div id="map-canvas" class="map-canvas"></div>
+                    </div>
+                  </div>
+
+                  <p class="tool-note-small">
+                    操作方式：拖曳節點可移動位置；拖曳空白區可平移視窗；滑鼠滾輪可縮放；點節點可編輯細節。
+                  </p>
+                </section>
+
+                <aside class="map-sidebar" aria-label="節點詳細資料">
+                  <div id="map-empty-state" class="map-empty-state">
+                    <h4>先新增一筆占卜案例</h4>
+                    <p>你可以先建立一個問題，之後再把事件接上去，並沿著時間軸驗證是否應驗。</p>
+                  </div>
+
+                  <form id="map-detail-form" class="map-detail-form hidden">
+                    <div class="map-form-header">
+                      <div>
+                        <p class="map-form-kicker" id="map-detail-type-label">占卜案例</p>
+                        <h4 id="map-detail-title">節點內容</h4>
+                      </div>
+                      <span id="map-selected-id" class="map-id-pill"></span>
+                    </div>
+
+                    <input type="hidden" id="map-detail-id" />
+
+                    <div class="form-row">
+                      <label>
+                        標題 / 問題
+                        <input type="text" id="map-field-title" placeholder="例如：他接下來會不會主動靠近" />
+                      </label>
+
+                      <label>
+                        日期
+                        <input type="date" id="map-field-date" />
+                      </label>
+                    </div>
+
+                    <div class="form-row">
+                      <label>
+                        主題分類
+                        <select id="map-field-category">
+                          <option value="relationship">人際 / 感情</option>
+                          <option value="career">工作 / 職涯</option>
+                          <option value="self">自我成長</option>
+                          <option value="money">金錢 / 資源</option>
+                          <option value="study">學習 / 考試</option>
+                          <option value="family">家庭 / 關係</option>
+                          <option value="other">其他</option>
+                        </select>
+                      </label>
+
+                      <label data-reading-only>
+                        對象 / 關鍵人物
+                        <input type="text" id="map-field-subject" placeholder="例如：A、同事、合作對象" />
+                      </label>
+
+                      <label data-event-only class="hidden">
+                        關聯占卜案例
+                        <select id="map-field-related-reading">
+                          <option value="">未連結</option>
+                        </select>
+                      </label>
+                    </div>
+
+                    <label data-reading-only>
+                      牌組 / 牌陣（可一行一張）
+                      <textarea id="map-field-cards" rows="3" placeholder="例如：\n權杖六正位｜現況\n寶劍侍者正位｜對方想法"></textarea>
+                    </label>
+
+                    <label data-reading-only>
+                      解讀
+                      <textarea id="map-field-interpretation" rows="4" placeholder="寫下你當下的解讀。"></textarea>
+                    </label>
+
+                    <label data-reading-only>
+                      推測 / 驗證重點
+                      <textarea id="map-field-predictions" rows="3" placeholder="例如：\n短期會有靠近跡象\n先觀察，不一定直接表態"></textarea>
+                    </label>
+
+                    <label data-event-only class="hidden">
+                      事件描述
+                      <textarea id="map-field-event-description" rows="4" placeholder="寫下實際發生的事件。"></textarea>
+                    </label>
+
+                    <div class="form-row">
+                      <label>
+                        驗證狀態
+                        <select id="map-field-status">
+                          <option value="pending">尚未驗證</option>
+                          <option value="partial">部分驗證</option>
+                          <option value="verified">驗證成立</option>
+                          <option value="missed">未應驗</option>
+                        </select>
+                      </label>
+
+                      <label>
+                        驗證備註
+                        <input type="text" id="map-field-note" placeholder="例如：有靠近，但不是直接表態" />
+                      </label>
+                    </div>
+
+                    <div class="map-form-actions">
+                      <button type="submit" class="btn primary">儲存內容</button>
+                      <button type="button" id="map-delete-node" class="btn ghost">刪除此節點</button>
+                    </div>
+                  </form>
+                </aside>
+              </div>
+
+              <section class="map-timeline-block" aria-label="事件時間軸">
+                <div class="map-timeline-header">
+                  <h4>事件時間軸</h4>
+                  <p>依日期排序，回看占卜之後發生了什麼。</p>
+                </div>
+                <div id="map-timeline" class="map-timeline"></div>
+              </section>
+            </div>
+          </div>
+
         </div>
       </div>
     </section>
@@ -343,6 +524,7 @@
   <script src="JS/comments.js"></script>
   <script src="JS/booking.js"></script>
   <script src="JS/ripple-effect.js"></script>
+  <script src="JS/divination-map.js"></script>
   <script src="JS/main.js"></script>
 </body>
 </html>
