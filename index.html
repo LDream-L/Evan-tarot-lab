@@ -271,8 +271,8 @@
 
           <div class="tool-card map-tool-card">
             <div class="tool-header">
-              <h3>占卜驗證圖譜（Beta）</h3>
-              <p>把每次占卜、後續事件與驗證結果，整理成可拖曳的圖譜與時間軸。</p>
+              <h3>占卜時間流（Beta）</h3>
+              <p>把每次占卜、後續事件與驗證結果，沿著日期排成可回看、可驗證的時間流。</p>
             </div>
 
             <div id="divination-map-app" class="map-tool-layout">
@@ -334,14 +334,14 @@
                   </div>
 
                   <p class="tool-note-small">
-                    操作方式：拖曳節點可移動位置；拖曳空白區可平移視窗；滑鼠滾輪可縮放；點節點可編輯細節。
+                    操作方式：節點會依日期自動排成時間流；拖曳節點可微調；拖曳空白區可平移；滑鼠滾輪可縮放。
                   </p>
                 </section>
 
                 <aside class="map-sidebar" aria-label="節點詳細資料">
                   <div id="map-empty-state" class="map-empty-state">
-                    <h4>先新增一筆占卜案例</h4>
-                    <p>你可以先建立一個問題，之後再把事件接上去，並沿著時間軸驗證是否應驗。</p>
+                    <h4>先建立一條時間流起點</h4>
+                    <p>你可以先建立一個問題，後續事件會依日期接在時間流上，更容易回看應驗順序。</p>
                   </div>
 
                   <form id="map-detail-form" class="map-detail-form hidden">
@@ -439,10 +439,10 @@
                 </aside>
               </div>
 
-              <section class="map-timeline-block" aria-label="事件時間軸">
+              <section class="map-timeline-block" aria-label="下方驗證時間軸">
                 <div class="map-timeline-header">
-                  <h4>事件時間軸</h4>
-                  <p>依日期排序，回看占卜之後發生了什麼。</p>
+                  <h4>下方驗證時間軸</h4>
+                  <p>主畫布看時間流，下方列表看逐條事件，兩邊同步。</p>
                 </div>
                 <div id="map-timeline" class="map-timeline"></div>
               </section>

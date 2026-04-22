@@ -764,7 +764,7 @@ main,
 
 
 
-/* ===== 占卜驗證圖譜 Beta ===== */
+/* ===== 占卜時間流 Beta ===== */
 .tool-grid {
   grid-template-columns: minmax(0, 1fr);
 }
@@ -839,7 +839,7 @@ main,
 
 .map-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.95fr);
+  grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.92fr);
   gap: 16px;
 }
 
@@ -908,18 +908,30 @@ main,
 
 .map-viewport {
   position: relative;
-  height: 560px;
+  height: 720px;
   overflow: hidden;
-  border-radius: 16px;
+  border-radius: 18px;
   background:
-    radial-gradient(circle at top, rgba(139, 123, 255, 0.18), transparent 46%),
-    linear-gradient(rgba(120, 128, 255, 0.06) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(120, 128, 255, 0.05) 1px, transparent 1px),
-    rgba(3, 4, 18, 0.95);
-  background-size: auto, 28px 28px, 28px 28px, auto;
+    radial-gradient(circle at 50% 16%, rgba(255, 171, 248, 0.14), transparent 22%),
+    radial-gradient(circle at 50% 52%, rgba(123, 112, 255, 0.14), transparent 28%),
+    linear-gradient(rgba(120, 128, 255, 0.055) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(120, 128, 255, 0.04) 1px, transparent 1px),
+    rgba(3, 4, 18, 0.98);
+  background-size: auto, auto, 30px 30px, 30px 30px, auto;
   border: 1px solid rgba(120, 120, 190, 0.55);
   cursor: grab;
   user-select: none;
+}
+
+.map-viewport::before {
+  content: "";
+  position: absolute;
+  inset: 14px 50% 14px auto;
+  width: 2px;
+  transform: translateX(1px);
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(177, 150, 255, 0.5), rgba(109, 236, 255, 0.34), rgba(255,255,255,0.02));
+  box-shadow: 0 0 24px rgba(177, 150, 255, 0.24);
+  pointer-events: none;
 }
 
 .map-viewport.is-panning {
@@ -930,8 +942,8 @@ main,
   position: absolute;
   left: 0;
   top: 0;
-  width: 2400px;
-  height: 1600px;
+  width: 1680px;
+  min-height: 1500px;
   transform-origin: top left;
   will-change: transform;
 }
@@ -949,13 +961,51 @@ main,
   pointer-events: none;
 }
 
-.map-link-line {
-  stroke: rgba(168, 169, 255, 0.55);
-  stroke-width: 2.2;
+.map-stream-axis {
+  stroke: rgba(189, 159, 255, 0.52);
+  stroke-width: 4;
+  stroke-linecap: round;
 }
 
-.map-link-dot {
-  fill: rgba(183, 148, 255, 0.95);
+.map-stream-glow {
+  fill: rgba(115, 102, 255, 0.07);
+}
+
+.map-stream-tick {
+  stroke: rgba(187, 163, 255, 0.42);
+  stroke-width: 2;
+}
+
+.map-stream-marker {
+  fill: rgba(255, 192, 245, 0.94);
+  stroke: rgba(98, 236, 255, 0.4);
+  stroke-width: 4;
+}
+
+.map-stream-date-label {
+  fill: rgba(231, 224, 255, 0.9);
+  font-size: 18px;
+  letter-spacing: 0.02em;
+}
+
+.map-stream-branch {
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+
+.map-stream-branch.reading {
+  stroke: rgba(255, 192, 245, 0.35);
+}
+
+.map-stream-branch.event {
+  stroke: rgba(109, 236, 255, 0.28);
+}
+
+.map-link-line {
+  fill: none;
+  stroke: rgba(168, 169, 255, 0.46);
+  stroke-width: 2;
+  stroke-dasharray: 9 8;
 }
 
 .map-canvas {
@@ -964,11 +1014,10 @@ main,
 
 .map-node {
   position: absolute;
-  min-height: 112px;
-  padding: 12px;
-  border-radius: 16px;
+  padding: 14px 14px 12px;
+  border-radius: 18px;
   border: 1px solid rgba(120, 120, 190, 0.72);
-  background: linear-gradient(180deg, rgba(17, 18, 48, 0.96), rgba(9, 10, 28, 0.98));
+  background: linear-gradient(180deg, rgba(20, 21, 54, 0.98), rgba(8, 10, 28, 0.99));
   box-shadow: 0 18px 34px rgba(0, 0, 0, 0.5);
   pointer-events: auto;
   cursor: grab;
@@ -977,21 +1026,23 @@ main,
 
 .map-node:hover {
   transform: translateY(-2px);
-  border-color: rgba(183, 148, 255, 0.9);
-}
-
-.map-node.is-selected {
-  border-color: rgba(255, 192, 245, 0.95);
-  box-shadow: 0 0 0 1px rgba(255, 192, 245, 0.25), 0 18px 40px rgba(0, 0, 0, 0.62);
 }
 
 .map-node.reading {
-  width: 230px;
+  width: 272px;
+  min-height: 154px;
+  border-color: rgba(255, 184, 244, 0.48);
 }
 
 .map-node.event {
-  width: 208px;
-  min-height: 96px;
+  width: 248px;
+  min-height: 136px;
+  border-color: rgba(113, 232, 255, 0.35);
+}
+
+.map-node.is-selected {
+  border-color: rgba(255, 223, 246, 0.98);
+  box-shadow: 0 0 0 1px rgba(255, 192, 245, 0.24), 0 18px 40px rgba(0, 0, 0, 0.62);
 }
 
 .map-node-header {
@@ -1002,7 +1053,8 @@ main,
   margin-bottom: 8px;
 }
 
-.map-node-type {
+.map-node-type,
+.map-node-flow-tag {
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
@@ -1012,26 +1064,45 @@ main,
   color: var(--text-muted);
 }
 
+.map-node-date-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: rgba(139, 123, 255, 0.14);
+  border: 1px solid rgba(139, 123, 255, 0.22);
+  font-size: 0.74rem;
+  color: rgba(236, 231, 255, 0.96);
+}
+
 .map-node h5 {
   margin: 0;
-  font-size: 0.94rem;
-  line-height: 1.3;
+  font-size: 0.98rem;
+  line-height: 1.32;
 }
 
 .map-node-meta,
 .map-node-preview {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
 }
 
 .map-node-preview {
   margin-top: 8px;
-  line-height: 1.45;
+  line-height: 1.46;
+}
+
+.map-node-footer {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .map-node-status {
-  margin-top: 10px;
   display: inline-flex;
   align-items: center;
   padding: 3px 9px;
@@ -1115,7 +1186,7 @@ main,
 .map-timeline {
   margin-top: 14px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
 }
 
 .map-timeline-empty {
@@ -1125,7 +1196,7 @@ main,
 
 .map-timeline-item {
   position: relative;
-  padding: 14px 14px 14px 18px;
+  padding: 14px 14px 14px 20px;
   border-radius: 14px;
   border: 1px solid rgba(108, 108, 185, 0.68);
   background: rgba(12, 12, 38, 0.94);
@@ -1142,6 +1213,11 @@ main,
   border-radius: 50%;
   background: rgba(183, 148, 255, 0.95);
   box-shadow: 0 0 0 6px rgba(183, 148, 255, 0.08);
+}
+
+.map-timeline-item.event::before {
+  background: rgba(109, 236, 255, 0.95);
+  box-shadow: 0 0 0 6px rgba(109, 236, 255, 0.08);
 }
 
 .map-timeline-top {
@@ -1194,6 +1270,10 @@ main,
   }
 
   .map-viewport {
-    height: 480px;
+    height: 560px;
+  }
+
+  .map-viewport::before {
+    right: 50%;
   }
 }

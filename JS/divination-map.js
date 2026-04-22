@@ -1,31 +1,33 @@
 // ==============================
 // divination-map.js
-// 占卜驗證圖譜 Beta
+// 占卜時間流 Beta
 // ==============================
 //
 // 核心設計：
-// 1. 一份 state 同時驅動畫布、側邊欄、時間軸。
-// 2. reading / event 使用同一個節點渲染流程，減少重複邏輯。
-// 3. 連線改為「事件 -> 占卜案例」單一關聯，先把資料流跑順，再往多重關聯擴充。
+// 1. 主視覺改為「時間流」，節點依日期自動往下排列。
+// 2. reading / event 共用同一份 state，側欄與下方時間軸同步更新。
+// 3. position 不再是絕對座標，而是相對於時間流基準點的「微調偏移」。
 //
 // 關鍵函式複雜度：
 // - initDivinationMap：O(n + m) / O(n + m)
-// - renderMap：O(n + m) / O(n)
-// - renderTimeline：O(k log k) / O(k)
-// - updateNodeById：O(n) / O(1)
+// - buildTimeflowLayout：O(k log k) / O(k)
+// - renderMap：O(k log k) / O(k)
+// - updateNodeById：O(n) 或 O(m) / O(1)
 //
 // 更快的替代方案比較：
-// - 暴力法：每次拖曳都整張圖 كامل 重建與重新排序。
-// - 本版優化：拖曳時只更新單一節點位置與連線；完整重繪留在狀態真正變更後執行。
+// - 暴力法：保留自由畫布，再額外疊一條 timeline，使用者要自己對齊時間與關聯。
+// - 本版優化：直接以日期驅動版面，時間順序天然成立；節點僅保留小幅拖曳偏移，
+//   既有時間流感，也不會失去手動調整彈性。
 // ==============================
 
 (function initDivinationMapModule() {
-  const STORAGE_KEY = "evanTarotDivinationMapV1";
-  const SCENE_WIDTH = 2400;
-  const SCENE_HEIGHT = 1600;
+  const STORAGE_KEY = "evanTarotDivinationTimeflowV2";
+  const SCENE_WIDTH = 1680;
+  const DEFAULT_SCENE_HEIGHT = 1500;
+  const STREAM_X = 840;
   const NODE_SIZES = {
-    reading: { width: 230, height: 128 },
-    event: { width: 208, height: 108 },
+    reading: { width: 272, height: 154 },
+    event: { width: 248, height: 136 },
   };
 
   const CATEGORY_LABELS = {
@@ -47,28 +49,24 @@
 
   const TYPE_LABELS = {
     reading: "占卜案例",
-    event: "事件節點",
+    event: "驗證事件",
   };
 
   let state = null;
   let refs = {};
   let dragState = null;
   let panState = null;
+  let currentLayoutMap = new Map();
 
-  /**
-   * 建立預設 state。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function createInitialState() {
     return {
-      version: 1,
+      version: 2,
       readings: [],
       events: [],
       ui: {
-        zoom: 0.72,
-        panX: -420,
-        panY: -260,
+        zoom: 0.84,
+        panX: -110,
+        panY: 0,
         selectedId: null,
         filterStatus: "all",
         filterCategory: "all",
@@ -77,11 +75,10 @@
     };
   }
 
-  /**
-   * 台北今日 yyyy-mm-dd。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
+  function getNowIso() {
+    return window.nowTaipeiISO ? window.nowTaipeiISO() : new Date().toISOString();
+  }
+
   function getTodayTaipeiDate() {
     const formatter = new Intl.DateTimeFormat("sv-SE", {
       timeZone: "Asia/Taipei",
@@ -89,148 +86,85 @@
       month: "2-digit",
       day: "2-digit",
     });
-
     return formatter.format(new Date());
   }
 
-  /**
-   * 建立簡單唯一 id。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function createNodeId(prefix) {
     return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
   }
 
-  /**
-   * 讀取 localStorage。
-   * 時間複雜度：O(n + m)
-   * 空間複雜度：O(n + m)
-   */
+  function migrateNodeForTimeflow(node, type) {
+    return {
+      ...node,
+      type: node.type || type,
+      position: {
+        x: 0,
+        y: 0,
+      },
+      updatedAt: node.updatedAt || getNowIso(),
+      createdAt: node.createdAt || getNowIso(),
+    };
+  }
+
   function loadState() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (!raw) return createInitialState();
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const initial = createInitialState();
+        return {
+          ...initial,
+          ...parsed,
+          version: 2,
+          readings: Array.isArray(parsed.readings) ? parsed.readings : [],
+          events: Array.isArray(parsed.events) ? parsed.events : [],
+          ui: {
+            ...initial.ui,
+            ...(parsed.ui || {}),
+          },
+        };
+      }
 
-      const parsed = JSON.parse(raw);
+      const legacyRaw = localStorage.getItem("evanTarotDivinationMapV1");
+      if (!legacyRaw) return createInitialState();
+
+      const legacyParsed = JSON.parse(legacyRaw);
       const initial = createInitialState();
-
       return {
         ...initial,
-        ...parsed,
-        readings: Array.isArray(parsed.readings) ? parsed.readings : [],
-        events: Array.isArray(parsed.events) ? parsed.events : [],
+        readings: Array.isArray(legacyParsed.readings)
+          ? legacyParsed.readings.map((node) => migrateNodeForTimeflow(node, "reading"))
+          : [],
+        events: Array.isArray(legacyParsed.events)
+          ? legacyParsed.events.map((node) => migrateNodeForTimeflow(node, "event"))
+          : [],
         ui: {
           ...initial.ui,
-          ...(parsed.ui || {}),
+          ...(legacyParsed.ui || {}),
+          zoom: initial.ui.zoom,
+          panX: initial.ui.panX,
+          panY: initial.ui.panY,
         },
       };
     } catch (error) {
-      console.warn("占卜驗證圖譜資料損壞，已重置。", error);
+      console.warn("占卜時間流資料損壞，已重置。", error);
       localStorage.removeItem(STORAGE_KEY);
       return createInitialState();
     }
   }
 
-  /**
-   * 寫回 localStorage。
-   * 時間複雜度：O(n + m)
-   * 空間複雜度：O(n + m)
-   */
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   }
 
-  /**
-   * 取得所有節點。
-   * 時間複雜度：O(n + m)
-   * 空間複雜度：O(n + m)
-   */
   function getAllNodes() {
     return [...state.readings, ...state.events];
   }
 
-  /**
-   * 建立 reading 節點。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
-  function createReadingNode() {
-    const totalCount = state.readings.length;
-    const row = Math.floor(totalCount / 3);
-    const col = totalCount % 3;
-
-    return {
-      id: createNodeId("reading"),
-      type: "reading",
-      title: `新占卜案例 ${totalCount + 1}`,
-      category: "relationship",
-      subject: "",
-      date: getTodayTaipeiDate(),
-      cards: "",
-      interpretation: "",
-      predictions: "",
-      note: "",
-      status: "pending",
-      position: {
-        x: 160 + col * 280,
-        y: 140 + row * 180,
-      },
-      createdAt: window.nowTaipeiISO ? window.nowTaipeiISO() : new Date().toISOString(),
-      updatedAt: window.nowTaipeiISO ? window.nowTaipeiISO() : new Date().toISOString(),
-    };
-  }
-
-  /**
-   * 建立 event 節點。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
-  function createEventNode(relatedReadingId) {
-    const totalCount = state.events.length;
-    const anchorReading = relatedReadingId
-      ? state.readings.find((reading) => reading.id === relatedReadingId)
-      : null;
-
-    const fallbackX = 520 + (totalCount % 3) * 240;
-    const fallbackY = 340 + Math.floor(totalCount / 3) * 160;
-
-    return {
-      id: createNodeId("event"),
-      type: "event",
-      title: `新事件 ${totalCount + 1}`,
-      category: anchorReading?.category || "other",
-      date: getTodayTaipeiDate(),
-      description: "",
-      relatedReadingId: relatedReadingId || "",
-      note: "",
-      status: "pending",
-      position: {
-        x: anchorReading ? anchorReading.position.x + 300 : fallbackX,
-        y: anchorReading ? anchorReading.position.y + 90 : fallbackY,
-      },
-      createdAt: window.nowTaipeiISO ? window.nowTaipeiISO() : new Date().toISOString(),
-      updatedAt: window.nowTaipeiISO ? window.nowTaipeiISO() : new Date().toISOString(),
-    };
-  }
-
-  /**
-   * 依 id 取節點。
-   * 時間複雜度：O(n + m)
-   * 空間複雜度：O(1)
-   */
   function getNodeById(nodeId) {
     return getAllNodes().find((node) => node.id === nodeId) || null;
   }
 
-  /**
-   * 只更新單一節點，避免整份資料重建。
-   * 時間複雜度：O(n) 或 O(m)
-   * 空間複雜度：O(1)
-   *
-   * 暴力法：每次都重組所有節點陣列。
-   * 本實作：先判斷類型，僅 map 對應陣列。
-   */
   function updateNodeById(nodeId, updater) {
     const readingIndex = state.readings.findIndex((node) => node.id === nodeId);
     if (readingIndex !== -1) {
@@ -244,11 +178,6 @@
     }
   }
 
-  /**
-   * 刪除節點，並清理 event 對 reading 的關聯。
-   * 時間複雜度：O(n + m)
-   * 空間複雜度：O(m)
-   */
   function deleteNodeById(nodeId) {
     const isReading = state.readings.some((node) => node.id === nodeId);
 
@@ -259,7 +188,7 @@
         return {
           ...eventNode,
           relatedReadingId: "",
-          updatedAt: window.nowTaipeiISO ? window.nowTaipeiISO() : new Date().toISOString(),
+          updatedAt: getNowIso(),
         };
       });
     } else {
@@ -271,11 +200,66 @@
     }
   }
 
-  /**
-   * 關鍵字 + 類別 + 狀態篩選。
-   * 時間複雜度：O(n + m)
-   * 空間複雜度：O(n + m)
-   */
+  function createReadingNode() {
+    return {
+      id: createNodeId("reading"),
+      type: "reading",
+      title: `新占卜案例 ${state.readings.length + 1}`,
+      category: "relationship",
+      subject: "",
+      date: getTodayTaipeiDate(),
+      cards: "",
+      interpretation: "",
+      predictions: "",
+      note: "",
+      status: "pending",
+      position: { x: 0, y: 0 },
+      createdAt: getNowIso(),
+      updatedAt: getNowIso(),
+    };
+  }
+
+  function createEventNode(relatedReadingId) {
+    const anchorReading = relatedReadingId
+      ? state.readings.find((reading) => reading.id === relatedReadingId)
+      : null;
+
+    return {
+      id: createNodeId("event"),
+      type: "event",
+      title: `新事件 ${state.events.length + 1}`,
+      category: anchorReading?.category || "other",
+      date: getTodayTaipeiDate(),
+      description: "",
+      relatedReadingId: relatedReadingId || "",
+      note: "",
+      status: "pending",
+      position: { x: 0, y: 0 },
+      createdAt: getNowIso(),
+      updatedAt: getNowIso(),
+    };
+  }
+
+  function normalizeSortDate(dateValue) {
+    return dateValue || "9999-12-31";
+  }
+
+  function getSortedNodes(nodes) {
+    return nodes.slice().sort((a, b) => {
+      const leftDate = normalizeSortDate(a.date);
+      const rightDate = normalizeSortDate(b.date);
+      if (leftDate !== rightDate) return leftDate.localeCompare(rightDate);
+
+      if (a.type !== b.type) {
+        return a.type === "reading" ? -1 : 1;
+      }
+
+      const leftCreated = a.createdAt || "";
+      const rightCreated = b.createdAt || "";
+      return leftCreated.localeCompare(rightCreated);
+    });
+  }
+
   function getFilteredNodes() {
     const keyword = state.ui.search.trim().toLowerCase();
 
@@ -306,11 +290,75 @@
     });
   }
 
-  /**
-   * 更新分類下拉選單。
-   * 時間複雜度：O(n + m)
-   * 空間複雜度：O(c)
-   */
+  function buildTimeflowLayout(nodes) {
+    const sortedNodes = getSortedNodes(nodes);
+    const groups = [];
+    let currentGroup = null;
+
+    sortedNodes.forEach((node) => {
+      const dateKey = node.date || "未填日期";
+      if (!currentGroup || currentGroup.dateKey !== dateKey) {
+        currentGroup = { dateKey, nodes: [] };
+        groups.push(currentGroup);
+      }
+      currentGroup.nodes.push(node);
+    });
+
+    const placements = new Map();
+    const dateMarkers = [];
+    let cursorY = 140;
+
+    groups.forEach((group) => {
+      let readingLaneCount = 0;
+      let eventLaneCount = 0;
+      const groupStartY = cursorY;
+
+      group.nodes.forEach((node, index) => {
+        const size = NODE_SIZES[node.type];
+        const laneCount = node.type === "reading" ? readingLaneCount++ : eventLaneCount++;
+        const outerShift = Math.floor(laneCount / 2) * 72;
+        const innerShift = laneCount % 2 === 1 ? 30 : 0;
+        const baseX =
+          node.type === "reading"
+            ? STREAM_X - 420 - outerShift - innerShift
+            : STREAM_X + 120 + outerShift + innerShift;
+        const baseY = groupStartY + index * 156;
+        const offsetX = clamp(Number(node.position?.x || 0), -190, 190);
+        const offsetY = clamp(Number(node.position?.y || 0), -90, 90);
+        const x = baseX + offsetX;
+        const y = baseY + offsetY;
+
+        placements.set(node.id, {
+          node,
+          width: size.width,
+          height: size.height,
+          x,
+          y,
+          baseX,
+          baseY,
+          centerX: x + size.width / 2,
+          centerY: y + size.height / 2,
+        });
+      });
+
+      const groupHeight = Math.max(150, (group.nodes.length - 1) * 156 + 138);
+      const markerY = groupStartY + groupHeight / 2 - 8;
+      dateMarkers.push({
+        dateKey: group.dateKey,
+        y: markerY,
+        topY: groupStartY - 34,
+        bottomY: groupStartY + groupHeight - 8,
+      });
+      cursorY += groupHeight + 120;
+    });
+
+    return {
+      placements,
+      dateMarkers,
+      sceneHeight: Math.max(cursorY + 120, DEFAULT_SCENE_HEIGHT),
+    };
+  }
+
   function renderCategoryFilterOptions() {
     const categories = new Set();
     getAllNodes().forEach((node) => {
@@ -328,11 +376,6 @@
     refs.filterCategory.value = state.ui.filterCategory;
   }
 
-  /**
-   * 更新右側關聯 reading 下拉。
-   * 時間複雜度：O(n)
-   * 空間複雜度：O(n)
-   */
   function renderRelatedReadingOptions(selectedValue) {
     const options = ['<option value="">未連結</option>'];
 
@@ -346,88 +389,90 @@
     refs.fieldRelatedReading.value = selectedValue || "";
   }
 
-  /**
-   * 渲染上方統計。
-   * 時間複雜度：O(n + m)
-   * 空間複雜度：O(1)
-   */
   function renderStats() {
     const filteredCount = getFilteredNodes().length;
     refs.stats.innerHTML = [
       `<span class="map-stat-pill">案例 ${state.readings.length}</span>`,
       `<span class="map-stat-pill">事件 ${state.events.length}</span>`,
-      `<span class="map-stat-pill">畫布縮放 ${Math.round(state.ui.zoom * 100)}%</span>`,
+      `<span class="map-stat-pill">時間流縮放 ${Math.round(state.ui.zoom * 100)}%</span>`,
       `<span class="map-stat-pill">目前顯示 ${filteredCount}</span>`,
     ].join("");
   }
 
-  /**
-   * 套用畫布 transform。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   *
-   * 暴力法：逐一改每個節點位置乘上 zoom。
-   * 本實作：整個 scene 一次性 transform，DOM 更新量最低。
-   */
   function applySceneTransform() {
     refs.scene.style.transform = `translate(${state.ui.panX}px, ${state.ui.panY}px) scale(${state.ui.zoom})`;
     refs.zoomReset.textContent = `${Math.round(state.ui.zoom * 100)}%`;
   }
 
-  /**
-   * 只更新連線，不重建整張圖。
-   * 時間複雜度：O(m)
-   * 空間複雜度：O(m)
-   */
-  function renderConnections(visibleMap) {
-    const fragments = [];
+  function renderConnections(layout) {
+    refs.connections.setAttribute("viewBox", `0 0 ${SCENE_WIDTH} ${layout.sceneHeight}`);
+    refs.connections.setAttribute("width", String(SCENE_WIDTH));
+    refs.connections.setAttribute("height", String(layout.sceneHeight));
+
+    const fragments = [
+      `<line class="map-stream-axis" x1="${STREAM_X}" y1="70" x2="${STREAM_X}" y2="${layout.sceneHeight - 70}" />`,
+      `<ellipse class="map-stream-glow" cx="${STREAM_X}" cy="${layout.sceneHeight / 2}" rx="52" ry="${Math.max(260, layout.sceneHeight / 2 - 80)}" />`,
+    ];
+
+    layout.dateMarkers.forEach((marker) => {
+      fragments.push(
+        `<line class="map-stream-tick" x1="${STREAM_X - 26}" y1="${marker.y}" x2="${STREAM_X + 26}" y2="${marker.y}" />`,
+        `<circle class="map-stream-marker" cx="${STREAM_X}" cy="${marker.y}" r="10" />`,
+        `<text class="map-stream-date-label" x="${STREAM_X}" y="${marker.y - 20}" text-anchor="middle">${escapeHtml(marker.dateKey)}</text>`
+      );
+    });
+
+    layout.placements.forEach((placement) => {
+      const laneEdgeX = placement.node.type === "reading" ? placement.x + placement.width : placement.x;
+      const streamEdgeX = placement.node.type === "reading" ? STREAM_X - 28 : STREAM_X + 28;
+      fragments.push(
+        `<line class="map-stream-branch ${placement.node.type}" x1="${laneEdgeX}" y1="${placement.centerY}" x2="${streamEdgeX}" y2="${placement.centerY}" />`
+      );
+    });
+
     state.events.forEach((eventNode) => {
       if (!eventNode.relatedReadingId) return;
+      const eventPlacement = layout.placements.get(eventNode.id);
+      const readingPlacement = layout.placements.get(eventNode.relatedReadingId);
+      if (!eventPlacement || !readingPlacement) return;
 
-      const eventVisible = visibleMap.get(eventNode.id);
-      const readingVisible = visibleMap.get(eventNode.relatedReadingId);
-      if (!eventVisible || !readingVisible) return;
-
-      const eventSize = NODE_SIZES.event;
-      const readingSize = NODE_SIZES.reading;
-
-      const fromX = eventNode.position.x + eventSize.width / 2;
-      const fromY = eventNode.position.y + eventSize.height / 2;
-      const toX = readingVisible.position.x + readingSize.width / 2;
-      const toY = readingVisible.position.y + readingSize.height / 2;
-      const ctrlOffset = Math.max(90, Math.abs(fromX - toX) * 0.26);
+      const fromX = eventPlacement.x;
+      const fromY = eventPlacement.centerY;
+      const toX = readingPlacement.x + readingPlacement.width;
+      const toY = readingPlacement.centerY;
+      const ctrlOffset = Math.max(110, Math.abs(fromY - toY) * 0.24);
 
       fragments.push(
-        `<path class="map-link-line" d="M ${fromX} ${fromY} C ${fromX - ctrlOffset} ${fromY}, ${toX + ctrlOffset} ${toY}, ${toX} ${toY}" />`,
-        `<circle class="map-link-dot" cx="${toX}" cy="${toY}" r="3.2" />`
+        `<path class="map-link-line" d="M ${fromX} ${fromY} C ${STREAM_X + ctrlOffset} ${fromY}, ${STREAM_X - ctrlOffset} ${toY}, ${toX} ${toY}" />`
       );
     });
 
     refs.connections.innerHTML = fragments.join("");
   }
 
-  /**
-   * 畫布節點渲染。
-   * 時間複雜度：O(n + m)
-   * 空間複雜度：O(n)
-   */
   function renderMap() {
-    const visibleNodes = getFilteredNodes();
-    const visibleMap = new Map(visibleNodes.map((node) => [node.id, node]));
+    const filteredNodes = getFilteredNodes();
+    const layout = buildTimeflowLayout(filteredNodes);
+    currentLayoutMap = layout.placements;
+    refs.scene.style.height = `${layout.sceneHeight}px`;
+
     const fragment = document.createDocumentFragment();
 
-    visibleNodes.forEach((node) => {
+    filteredNodes.forEach((node) => {
+      const placement = layout.placements.get(node.id);
+      if (!placement) return;
+
       const el = document.createElement("article");
       el.className = `map-node ${node.type} status-${node.status}${state.ui.selectedId === node.id ? " is-selected" : ""}`;
       el.dataset.id = node.id;
       el.dataset.type = node.type;
-      el.style.left = `${node.position.x}px`;
-      el.style.top = `${node.position.y}px`;
+      el.style.left = `${placement.x}px`;
+      el.style.top = `${placement.y}px`;
 
       const metaText =
         node.type === "reading"
           ? `${CATEGORY_LABELS[node.category] || CATEGORY_LABELS.other} · ${node.subject || "未填對象"}`
-          : `${CATEGORY_LABELS[node.category] || CATEGORY_LABELS.other}${node.relatedReadingId ? " · 已連結" : " · 未連結"}`;
+          : `${CATEGORY_LABELS[node.category] || CATEGORY_LABELS.other}${node.relatedReadingId ? " · 已連結案例" : " · 未連結案例"}`;
 
       const previewText =
         node.type === "reading"
@@ -437,42 +482,29 @@
       el.innerHTML = `
         <div class="map-node-header">
           <span class="map-node-type">${TYPE_LABELS[node.type]}</span>
-          <span class="map-timeline-date">${escapeHtml(node.date || "未填日期")}</span>
+          <span class="map-node-date-badge">${escapeHtml(node.date || "未填日期")}</span>
         </div>
         <h5>${escapeHtml(node.title || "未命名節點")}</h5>
         <p class="map-node-meta">${escapeHtml(metaText)}</p>
         <p class="map-node-preview">${escapeHtml(previewText).replace(/\n/g, "<br />")}</p>
-        <span class="map-node-status">${STATUS_LABELS[node.status] || STATUS_LABELS.pending}</span>
+        <div class="map-node-footer">
+          <span class="map-node-status">${STATUS_LABELS[node.status] || STATUS_LABELS.pending}</span>
+          <span class="map-node-flow-tag">時間流節點</span>
+        </div>
       `;
 
       el.addEventListener("pointerdown", handleNodePointerDown);
       el.addEventListener("click", handleNodeClick);
-
       fragment.appendChild(el);
     });
 
     refs.canvas.innerHTML = "";
     refs.canvas.appendChild(fragment);
-    renderConnections(visibleMap);
+    renderConnections(layout);
   }
 
-  /**
-   * 時間軸渲染。
-   * 時間複雜度：O(k log k)
-   * 空間複雜度：O(k)
-   *
-   * 暴力法：每新增一筆就手動插入對應位置。
-   * 本實作：總量尚小，直接合併後排序，邏輯更穩。
-   */
   function renderTimeline() {
-    const items = getFilteredNodes()
-      .slice()
-      .sort((a, b) => {
-        const left = a.date || "";
-        const right = b.date || "";
-        if (left === right) return a.createdAt.localeCompare(b.createdAt);
-        return left.localeCompare(right);
-      });
+    const items = getSortedNodes(getFilteredNodes());
 
     if (!items.length) {
       refs.timeline.innerHTML =
@@ -488,7 +520,7 @@
             : node.description || node.note || "尚未填入事件描述";
 
         return `
-          <article class="map-timeline-item">
+          <article class="map-timeline-item ${node.type}">
             <div class="map-timeline-top">
               <span class="map-node-type">${TYPE_LABELS[node.type]}</span>
               <span class="map-timeline-date">${escapeHtml(node.date || "未填日期")}</span>
@@ -502,11 +534,6 @@
       .join("");
   }
 
-  /**
-   * 同步右側表單顯示。
-   * 時間複雜度：O(n)
-   * 空間複雜度：O(1)
-   */
   function renderDetailPanel() {
     const node = state.ui.selectedId ? getNodeById(state.ui.selectedId) : null;
     const readingOnlyFields = document.querySelectorAll("[data-reading-only]");
@@ -546,11 +573,6 @@
     }
   }
 
-  /**
-   * 整體重繪入口。
-   * 時間複雜度：O(k log k)
-   * 空間複雜度：O(k)
-   */
   function renderAll() {
     renderCategoryFilterOptions();
     renderStats();
@@ -560,11 +582,6 @@
     renderTimeline();
   }
 
-  /**
-   * 新增 reading。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function addReading() {
     const node = createReadingNode();
     state.readings.push(node);
@@ -573,11 +590,6 @@
     renderAll();
   }
 
-  /**
-   * 新增 event；若目前選到 reading，預設連結它。
-   * 時間複雜度：O(n)
-   * 空間複雜度：O(1)
-   */
   function addEvent() {
     const selectedNode = state.ui.selectedId ? getNodeById(state.ui.selectedId) : null;
     const relatedReadingId =
@@ -594,11 +606,6 @@
     renderAll();
   }
 
-  /**
-   * 依目前表單內容更新節點。
-   * 時間複雜度：O(n) 或 O(m)
-   * 空間複雜度：O(1)
-   */
   function saveDetailForm(event) {
     event.preventDefault();
     const nodeId = refs.detailId.value;
@@ -613,7 +620,7 @@
         category: refs.fieldCategory.value,
         status: refs.fieldStatus.value,
         note: refs.fieldNote.value.trim(),
-        updatedAt: window.nowTaipeiISO ? window.nowTaipeiISO() : new Date().toISOString(),
+        updatedAt: getNowIso(),
       };
 
       if (node.type === "reading") {
@@ -637,22 +644,12 @@
     renderAll();
   }
 
-  /**
-   * node click：選取節點。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function handleNodeClick(event) {
     const nodeId = event.currentTarget.dataset.id;
     state.ui.selectedId = nodeId;
     renderAll();
   }
 
-  /**
-   * 將 viewport 座標換成 scene 座標。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function screenToScene(clientX, clientY) {
     const rect = refs.viewport.getBoundingClientRect();
     return {
@@ -661,24 +658,21 @@
     };
   }
 
-  /**
-   * 節點拖曳起點。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function handleNodePointerDown(event) {
     event.stopPropagation();
     const nodeId = event.currentTarget.dataset.id;
-    const node = getNodeById(nodeId);
-    if (!node) return;
+    const placement = currentLayoutMap.get(nodeId);
+    if (!placement) return;
 
     state.ui.selectedId = nodeId;
     const point = screenToScene(event.clientX, event.clientY);
 
     dragState = {
       nodeId,
-      offsetX: point.x - node.position.x,
-      offsetY: point.y - node.position.y,
+      pointerOffsetX: point.x - placement.x,
+      pointerOffsetY: point.y - placement.y,
+      baseX: placement.baseX,
+      baseY: placement.baseY,
     };
 
     event.currentTarget.setPointerCapture?.(event.pointerId);
@@ -688,11 +682,6 @@
     renderAll();
   }
 
-  /**
-   * 拖曳中只更新單一節點，降低 repaint 成本。
-   * 時間複雜度：O(n) 或 O(m)
-   * 空間複雜度：O(1)
-   */
   function handleNodePointerMove(event) {
     if (!dragState) return;
     const point = screenToScene(event.clientX, event.clientY);
@@ -700,22 +689,16 @@
     updateNodeById(dragState.nodeId, (node) => ({
       ...node,
       position: {
-        x: clamp(point.x - dragState.offsetX, 24, SCENE_WIDTH - 280),
-        y: clamp(point.y - dragState.offsetY, 24, SCENE_HEIGHT - 160),
+        x: clamp(point.x - dragState.pointerOffsetX - dragState.baseX, -190, 190),
+        y: clamp(point.y - dragState.pointerOffsetY - dragState.baseY, -90, 90),
       },
-      updatedAt: window.nowTaipeiISO ? window.nowTaipeiISO() : new Date().toISOString(),
+      updatedAt: getNowIso(),
     }));
 
     renderMap();
-    renderConnections(new Map(getFilteredNodes().map((node) => [node.id, node])));
     renderDetailPanel();
   }
 
-  /**
-   * 拖曳結束後正式儲存。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function handleNodePointerUp() {
     window.removeEventListener("pointermove", handleNodePointerMove);
     dragState = null;
@@ -723,11 +706,6 @@
     renderAll();
   }
 
-  /**
-   * 畫布平移起點。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function handleViewportPointerDown(event) {
     if (event.target.closest(".map-node")) return;
 
@@ -743,25 +721,14 @@
     window.addEventListener("pointerup", handleViewportPointerUp, { once: true });
   }
 
-  /**
-   * 畫布平移。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function handleViewportPointerMove(event) {
     if (!panState) return;
-
     state.ui.panX = panState.originPanX + (event.clientX - panState.startX);
     state.ui.panY = panState.originPanY + (event.clientY - panState.startY);
     applySceneTransform();
     renderStats();
   }
 
-  /**
-   * 平移結束。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function handleViewportPointerUp() {
     refs.viewport.classList.remove("is-panning");
     window.removeEventListener("pointermove", handleViewportPointerMove);
@@ -769,17 +736,11 @@
     saveState();
   }
 
-  /**
-   * 滾輪縮放。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function handleViewportWheel(event) {
     event.preventDefault();
 
     const delta = event.deltaY > 0 ? -0.08 : 0.08;
-    const nextZoom = clamp(Number((state.ui.zoom + delta).toFixed(2)), 0.4, 1.8);
-
+    const nextZoom = clamp(Number((state.ui.zoom + delta).toFixed(2)), 0.45, 1.8);
     if (nextZoom === state.ui.zoom) return;
 
     const rect = refs.viewport.getBoundingClientRect();
@@ -796,13 +757,8 @@
     renderAll();
   }
 
-  /**
-   * 清空整份資料。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function resetData() {
-    const confirmed = window.confirm("要清空占卜驗證圖譜的所有本機資料嗎？此動作無法復原。");
+    const confirmed = window.confirm("要清空占卜時間流的所有本機資料嗎？此動作無法復原。");
     if (!confirmed) return;
 
     state = createInitialState();
@@ -810,11 +766,6 @@
     renderAll();
   }
 
-  /**
-   * 輸出 JSON 備份。
-   * 時間複雜度：O(n + m)
-   * 空間複雜度：O(n + m)
-   */
   function exportJson() {
     const blob = new Blob([JSON.stringify(state, null, 2)], {
       type: "application/json;charset=utf-8",
@@ -823,40 +774,25 @@
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `evan-tarot-map-${getTodayTaipeiDate()}.json`;
+    link.download = `evan-tarot-timeflow-${getTodayTaipeiDate()}.json`;
     link.click();
     URL.revokeObjectURL(url);
   }
 
-  /**
-   * 縮放快捷。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function adjustZoom(delta) {
-    state.ui.zoom = clamp(Number((state.ui.zoom + delta).toFixed(2)), 0.4, 1.8);
+    state.ui.zoom = clamp(Number((state.ui.zoom + delta).toFixed(2)), 0.45, 1.8);
     saveState();
     renderAll();
   }
 
-  /**
-   * 重設視圖。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function resetView() {
-    state.ui.zoom = 0.72;
-    state.ui.panX = -420;
-    state.ui.panY = -260;
+    state.ui.zoom = 0.84;
+    state.ui.panX = -110;
+    state.ui.panY = 0;
     saveState();
     renderAll();
   }
 
-  /**
-   * 綁定 DOM 事件。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function bindEvents() {
     refs.addReading.addEventListener("click", addReading);
     refs.addEvent.addEventListener("click", addEvent);
@@ -899,11 +835,6 @@
     refs.viewport.addEventListener("wheel", handleViewportWheel, { passive: false });
   }
 
-  /**
-   * DOM 快取。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function cacheRefs(root) {
     refs = {
       root,
@@ -944,11 +875,6 @@
     };
   }
 
-  /**
-   * 初始化入口。
-   * 時間複雜度：O(n + m)
-   * 空間複雜度：O(n + m)
-   */
   window.initDivinationMap = function initDivinationMap() {
     const root = document.getElementById("divination-map-app");
     if (!root) return;
@@ -973,7 +899,7 @@
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
+      .replace(/\"/g, "&quot;")
       .replace(/'/g, "&#39;");
   }
 })();
