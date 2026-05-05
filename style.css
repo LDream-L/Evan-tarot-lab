@@ -989,8 +989,10 @@ main,
 }
 
 .map-stream-branch {
+  fill: none;
   stroke-width: 2.4;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .map-stream-branch.reading {
