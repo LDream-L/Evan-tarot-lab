@@ -1,297 +1,261 @@
 <!DOCTYPE html>
+
 <html lang="zh-Hant">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Evan Tarot｜占卜時間流</title>
-  <meta
-    name="description"
-    content="Evan Tarot 占卜時間流：以主題流管理占卜案例、驗證事件、單一與平行時間流檢視。"
-  />
-  <meta name="theme-color" content="#050518" />
-  <link rel="stylesheet" href="style.css" />
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1" name="viewport"/>
+<title>Evan Tarot｜占卜時間流</title>
+<meta content="Evan Tarot 占卜時間流：以主題流管理占卜案例、驗證事件、單一與平行時間流檢視。" name="description"/>
+<meta content="#050518" name="theme-color"/>
+<link href="style.css" rel="stylesheet"/>
 </head>
 <body>
-  <header class="site-header">
-    <div class="container header-inner">
-      <div class="logo">
-        <span class="logo-main">Evan Tarot</span>
-        <span class="logo-sub">Tarot Lab ／ Timeflow Verification</span>
-      </div>
-      <nav class="nav" aria-label="主選單">
-        <a href="index.html">首頁</a>
-        <a href="index.html#tools">塔羅小工具</a>
-        <a href="#divination-map-page">占卜時間流</a>
-      </nav>
-    </div>
-  </header>
-
-  <main>
-    <section class="hero subpage-hero">
-      <div class="hero-bg-orbit" aria-hidden="true"></div>
-      <div class="container hero-inner">
-        <div class="hero-text">
-          <h1>把占卜，接成可驗證的主題流。</h1>
-          <p>
+<header class="site-header">
+<div class="container header-inner">
+<div class="logo">
+<span class="logo-main">Evan Tarot</span>
+<span class="logo-sub">Tarot Lab ／ Systematic Divination</span>
+</div>
+<nav aria-label="主選單" class="nav">
+<a href="index.html#intro">介紹</a>
+<a href="services.html">占卜項目</a>
+<a href="articles.html">文章</a>
+<a href="lost-item.html">尋物工具</a>
+<a href="timeflow.html">時間流</a>
+<a href="index.html#booking">預約</a>
+</nav>
+</div>
+</header>
+<main>
+<section class="hero subpage-hero">
+<div aria-hidden="true" class="hero-bg-orbit"></div>
+<div class="container hero-inner">
+<div class="hero-text">
+<h1>把占卜，接成可驗證的主題流。</h1>
+<p>
             這一頁專門拿來記錄問題、後續事件與驗證結果。
             你可以先建立一個主題，再把占卜案例與事件掛到同一條流上，
             也可以切換成平行時間流，一次比較多個主題。
           </p>
-          <div class="hero-cta">
-            <a href="#divination-map-app" class="btn primary">開始建立時間流</a>
-            <a href="index.html" class="btn ghost">回首頁</a>
-          </div>
-          <div class="hero-meta">
-            <span class="pill pill-soft">主題流管理</span>
-            <span class="pill pill-outline">單一 / 平行檢視</span>
-          </div>
-        </div>
-
-        <aside class="hero-card" aria-label="這一頁能做什麼">
-          <div class="hero-card-inner">
-            <p class="hero-tag">時間流檢視方式</p>
-            <ul>
-              <li>主題流：先建立一個主題，再往下持續驗證</li>
-              <li>單一時間流：聚焦某一條主線</li>
-              <li>平行時間流：多主題同時比較</li>
-            </ul>
-            <p class="hero-note">提示：事件若連回某個占卜案例，系統會自動跟隨該主題流。</p>
-          </div>
-        </aside>
-      </div>
-    </section>
-
-    <section id="divination-map-page" class="section alt standalone-map-page">
-      <div class="container">
-        <div class="tool-card map-tool-card standalone-map-card">
-          <div class="tool-header">
-            <h2>占卜時間流</h2>
-            <p>
+<div class="hero-cta">
+<a class="btn primary" href="#divination-map-app">開始建立時間流</a>
+<a class="btn ghost" href="index.html">回首頁</a>
+</div>
+<div class="hero-meta">
+<span class="pill pill-soft">主題流管理</span>
+<span class="pill pill-outline">單一 / 平行檢視</span>
+</div>
+</div>
+<aside aria-label="這一頁能做什麼" class="hero-card">
+<div class="hero-card-inner">
+<p class="hero-tag">時間流檢視方式</p>
+<ul>
+<li>主題流：先建立一個主題，再往下持續驗證</li>
+<li>單一時間流：聚焦某一條主線</li>
+<li>平行時間流：多主題同時比較</li>
+</ul>
+<p class="hero-note">提示：事件若連回某個占卜案例，系統會自動跟隨該主題流。</p>
+</div>
+</aside>
+</div>
+</section>
+<section class="section alt standalone-map-page" id="divination-map-page">
+<div class="container">
+<div class="tool-card map-tool-card standalone-map-card">
+<div class="tool-header">
+<h2>占卜時間流</h2>
+<p>
               先建立主題流，再把占卜案例與後續事件接上去。
               單一時間流適合深挖一條主線；平行時間流適合比對多個主題。
             </p>
-          </div>
-
-          <div id="divination-map-app" class="map-tool-layout">
-            <div class="map-toolbar" aria-label="占卜時間流工具列">
-              <div class="map-toolbar-group">
-                <button type="button" id="map-add-theme" class="btn ghost">新增主題流</button>
-                <button type="button" id="map-add-reading" class="btn primary">新增占卜案例</button>
-                <button type="button" id="map-add-event" class="btn ghost">新增事件</button>
-              </div>
-
-              <div class="map-toolbar-group map-toolbar-filters">
-                <label>
+</div>
+<div class="map-tool-layout" id="divination-map-app">
+<div aria-label="占卜時間流工具列" class="map-toolbar">
+<div class="map-toolbar-group">
+<button class="btn ghost" id="map-add-theme" type="button">新增主題流</button>
+<button class="btn primary" id="map-add-reading" type="button">新增占卜案例</button>
+<button class="btn ghost" id="map-add-event" type="button">新增事件</button>
+</div>
+<div class="map-toolbar-group map-toolbar-filters">
+<label>
                   檢視方式
                   <select id="map-view-mode">
-                    <option value="single">單一時間流</option>
-                    <option value="parallel">平行時間流</option>
-                  </select>
-                </label>
-
-                <label>
+<option value="single">單一時間流</option>
+<option value="parallel">平行時間流</option>
+</select>
+</label>
+<label>
                   聚焦主題流
                   <select id="map-active-theme">
-                    <option value="all">全部主題</option>
-                  </select>
-                </label>
-
-                <label>
+<option value="all">全部主題</option>
+</select>
+</label>
+<label>
                   驗證狀態
                   <select id="map-filter-status">
-                    <option value="all">全部狀態</option>
-                    <option value="pending">尚未驗證</option>
-                    <option value="partial">部分驗證</option>
-                    <option value="verified">驗證成立</option>
-                    <option value="missed">未應驗</option>
-                  </select>
-                </label>
-
-                <label>
+<option value="all">全部狀態</option>
+<option value="pending">尚未驗證</option>
+<option value="partial">部分驗證</option>
+<option value="verified">驗證成立</option>
+<option value="missed">未應驗</option>
+</select>
+</label>
+<label>
                   主題分類
                   <select id="map-filter-category">
-                    <option value="all">全部主題分類</option>
-                  </select>
-                </label>
-
-                <label class="map-search-field">
+<option value="all">全部主題分類</option>
+</select>
+</label>
+<label class="map-search-field">
                   關鍵字搜尋
-                  <input
-                    type="search"
-                    id="map-search"
-                    placeholder="搜尋問題、人物、主題流、牌名、事件"
-                  />
-                </label>
-              </div>
-            </div>
-
-            <div class="map-workspace">
-              <section class="map-canvas-shell" aria-label="占卜時間流畫布">
-                <div class="map-canvas-topbar">
-                  <div id="map-stats" class="map-stats" aria-live="polite"></div>
-
-                  <div class="map-view-controls">
-                    <button type="button" id="map-zoom-out" class="map-icon-btn" aria-label="縮小畫布">－</button>
-                    <button type="button" id="map-zoom-reset" class="map-icon-btn" aria-label="重設視圖">100%</button>
-                    <button type="button" id="map-zoom-in" class="map-icon-btn" aria-label="放大畫布">＋</button>
-                    <button type="button" id="map-export-json" class="map-icon-btn map-text-btn">下載 JSON</button>
-                    <button type="button" id="map-reset-data" class="map-icon-btn map-text-btn map-danger-btn">清空資料</button>
-                  </div>
-                </div>
-
-                <div id="map-viewport" class="map-viewport" tabindex="0" aria-label="可平移與縮放的圖譜畫布">
-                  <div id="map-scene" class="map-scene">
-                    <svg id="map-connections" class="map-connections" aria-hidden="true"></svg>
-                    <div id="map-canvas" class="map-canvas"></div>
-                  </div>
-                </div>
-
-                <p class="tool-note-small">
+                  <input id="map-search" placeholder="搜尋問題、人物、主題流、牌名、事件" type="search"/>
+</label>
+</div>
+</div>
+<div class="map-workspace">
+<section aria-label="占卜時間流畫布" class="map-canvas-shell">
+<div class="map-canvas-topbar">
+<div aria-live="polite" class="map-stats" id="map-stats"></div>
+<div class="map-view-controls">
+<button aria-label="縮小畫布" class="map-icon-btn" id="map-zoom-out" type="button">－</button>
+<button aria-label="重設視圖" class="map-icon-btn" id="map-zoom-reset" type="button">100%</button>
+<button aria-label="放大畫布" class="map-icon-btn" id="map-zoom-in" type="button">＋</button>
+<button class="map-icon-btn map-text-btn" id="map-export-json" type="button">下載 JSON</button>
+<button class="map-icon-btn map-text-btn map-danger-btn" id="map-reset-data" type="button">清空資料</button>
+</div>
+</div>
+<div aria-label="可平移與縮放的圖譜畫布" class="map-viewport" id="map-viewport" tabindex="0">
+<div class="map-scene" id="map-scene">
+<svg aria-hidden="true" class="map-connections" id="map-connections"></svg>
+<div class="map-canvas" id="map-canvas"></div>
+</div>
+</div>
+<p class="tool-note-small">
                   操作方式：節點會依日期自動排成時間流；拖曳節點可微調；拖曳空白區可平移；滑鼠滾輪可縮放。
                 </p>
-              </section>
-
-              <aside class="map-sidebar" aria-label="節點詳細資料">
-                <div id="map-empty-state" class="map-empty-state">
-                  <h4>先建立一條主題流</h4>
-                  <p>
+</section>
+<aside aria-label="節點詳細資料" class="map-sidebar">
+<div class="map-empty-state" id="map-empty-state">
+<h4>先建立一條主題流</h4>
+<p>
                     先按「新增主題流」，例如：A 關係驗證、工作轉換驗證。
                     接著把占卜案例與後續事件放到同一條流上，會比單純一條總時間線清楚很多。
                   </p>
-                </div>
-
-                <form id="map-detail-form" class="map-detail-form hidden">
-                  <div class="map-form-header">
-                    <div>
-                      <p class="map-form-kicker" id="map-detail-type-label">占卜案例</p>
-                      <h4 id="map-detail-title">節點內容</h4>
-                    </div>
-                    <span id="map-selected-id" class="map-id-pill"></span>
-                  </div>
-
-                  <input type="hidden" id="map-detail-id" />
-
-                  <div class="form-row">
-                    <label>
+</div>
+<form class="map-detail-form hidden" id="map-detail-form">
+<div class="map-form-header">
+<div>
+<p class="map-form-kicker" id="map-detail-type-label">占卜案例</p>
+<h4 id="map-detail-title">節點內容</h4>
+</div>
+<span class="map-id-pill" id="map-selected-id"></span>
+</div>
+<input id="map-detail-id" type="hidden"/>
+<div class="form-row">
+<label>
                       主題流
                       <select id="map-field-theme"></select>
-                    </label>
-
-                    <label>
+</label>
+<label>
                       日期
-                      <input type="date" id="map-field-date" />
-                    </label>
-                  </div>
-
-                  <p id="map-detail-theme-hint" class="map-inline-help"></p>
-
-                  <div class="form-row">
-                    <label>
+                      <input id="map-field-date" type="date"/>
+</label>
+</div>
+<p class="map-inline-help" id="map-detail-theme-hint"></p>
+<div class="form-row">
+<label>
                       標題 / 問題
-                      <input type="text" id="map-field-title" placeholder="例如：他接下來會不會主動靠近" />
-                    </label>
-
-                    <label>
+                      <input id="map-field-title" placeholder="例如：他接下來會不會主動靠近" type="text"/>
+</label>
+<label>
                       主題分類
                       <select id="map-field-category">
-                        <option value="relationship">人際 / 感情</option>
-                        <option value="career">工作 / 職涯</option>
-                        <option value="self">自我成長</option>
-                        <option value="money">金錢 / 資源</option>
-                        <option value="study">學習 / 考試</option>
-                        <option value="family">家庭 / 關係</option>
-                        <option value="other">其他</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <div class="form-row">
-                    <label data-reading-only>
+<option value="relationship">人際 / 感情</option>
+<option value="career">工作 / 職涯</option>
+<option value="self">自我成長</option>
+<option value="money">金錢 / 資源</option>
+<option value="study">學習 / 考試</option>
+<option value="family">家庭 / 關係</option>
+<option value="other">其他</option>
+</select>
+</label>
+</div>
+<div class="form-row">
+<label data-reading-only="">
                       對象 / 關鍵人物
-                      <input type="text" id="map-field-subject" placeholder="例如：A、同事、合作對象" />
-                    </label>
-
-                    <label data-event-only class="hidden">
+                      <input id="map-field-subject" placeholder="例如：A、同事、合作對象" type="text"/>
+</label>
+<label class="hidden" data-event-only="">
                       關聯占卜案例
                       <select id="map-field-related-reading">
-                        <option value="">未連結</option>
-                      </select>
-                    </label>
-
-                    <label>
+<option value="">未連結</option>
+</select>
+</label>
+<label>
                       驗證狀態
                       <select id="map-field-status">
-                        <option value="pending">尚未驗證</option>
-                        <option value="partial">部分驗證</option>
-                        <option value="verified">驗證成立</option>
-                        <option value="missed">未應驗</option>
-                      </select>
-                    </label>
-                  </div>
-
-                  <label data-reading-only>
+<option value="pending">尚未驗證</option>
+<option value="partial">部分驗證</option>
+<option value="verified">驗證成立</option>
+<option value="missed">未應驗</option>
+</select>
+</label>
+</div>
+<label data-reading-only="">
                     牌組 / 牌陣（可一行一張）
-                    <textarea id="map-field-cards" rows="3" placeholder="例如：
+                    <textarea id="map-field-cards" placeholder="例如：
 權杖六正位｜現況
-寶劍侍者正位｜對方想法"></textarea>
-                  </label>
-
-                  <label data-reading-only>
+寶劍侍者正位｜對方想法" rows="3"></textarea>
+</label>
+<label data-reading-only="">
                     解讀
-                    <textarea id="map-field-interpretation" rows="4" placeholder="寫下你當下的解讀。"></textarea>
-                  </label>
-
-                  <label data-reading-only>
+                    <textarea id="map-field-interpretation" placeholder="寫下你當下的解讀。" rows="4"></textarea>
+</label>
+<label data-reading-only="">
                     推測 / 驗證重點
-                    <textarea id="map-field-predictions" rows="3" placeholder="例如：
+                    <textarea id="map-field-predictions" placeholder="例如：
 短期會有靠近跡象
-先觀察，不一定直接表態"></textarea>
-                  </label>
-
-                  <label data-event-only class="hidden">
+先觀察，不一定直接表態" rows="3"></textarea>
+</label>
+<label class="hidden" data-event-only="">
                     事件描述
-                    <textarea id="map-field-event-description" rows="4" placeholder="寫下實際發生的事件。"></textarea>
-                  </label>
-
-                  <label>
+                    <textarea id="map-field-event-description" placeholder="寫下實際發生的事件。" rows="4"></textarea>
+</label>
+<label>
                     驗證備註
-                    <input type="text" id="map-field-note" placeholder="例如：有靠近，但不是直接表態" />
-                  </label>
-
-                  <div class="map-form-actions">
-                    <button type="submit" class="btn primary">儲存內容</button>
-                    <button type="button" id="map-delete-node" class="btn ghost">刪除此節點</button>
-                  </div>
-                </form>
-              </aside>
-            </div>
-
-            <section class="map-timeline-block" aria-label="下方驗證時間軸">
-              <div class="map-timeline-header">
-                <h4>下方驗證時間軸</h4>
-                <p>主畫布看時間流，下方列表看逐條事件；切換單一 / 平行檢視時，列表會同步更新。</p>
-              </div>
-              <div id="map-timeline" class="map-timeline"></div>
-            </section>
-          </div>
-        </div>
-      </div>
-    </section>
-  </main>
-
-  <footer class="site-footer">
-    <div class="container footer-inner">
-      <p>Evan Tarot ｜占卜時間流</p>
-      <p class="footer-sub">
-        這一頁專門處理「問題 → 事件 → 驗證」的時間結構。<br />
-        首頁回到內容展示，時間流則留在這裡專心操作。
+                    <input id="map-field-note" placeholder="例如：有靠近，但不是直接表態" type="text"/>
+</label>
+<div class="map-form-actions">
+<button class="btn primary" type="submit">儲存內容</button>
+<button class="btn ghost" id="map-delete-node" type="button">刪除此節點</button>
+</div>
+</form>
+</aside>
+</div>
+<section aria-label="下方驗證時間軸" class="map-timeline-block">
+<div class="map-timeline-header">
+<h4>下方驗證時間軸</h4>
+<p>主畫布看時間流，下方列表看逐條事件；切換單一 / 平行檢視時，列表會同步更新。</p>
+</div>
+<div class="map-timeline" id="map-timeline"></div>
+</section>
+</div>
+</div>
+</div>
+</section>
+</main>
+<footer class="site-footer">
+<div class="container footer-inner">
+<p>Evan Tarot ｜占卜時間流</p>
+<p class="footer-sub">
+        這一頁專門處理「問題 → 事件 → 驗證」的時間結構。<br/>
+        首頁只保留介紹與預約，時間流則留在這裡專心操作。
       </p>
-    </div>
-  </footer>
-
-  <script src="JS/utils.js"></script>
-  <script src="JS/ripple-effect.js"></script>
-  <script src="JS/divination-map.js"></script>
-  <script src="JS/main.js"></script>
+</div>
+</footer>
+<script src="JS/utils.js"></script>
+<script src="JS/ripple-effect.js"></script>
+<script src="JS/divination-map.js"></script>
+<script src="JS/main.js"></script>
 </body>
 </html>

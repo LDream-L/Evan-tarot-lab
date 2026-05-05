@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Evan Tarot｜失物占卜工具</title>
+  <meta name="description" content="Evan Tarot 失物占卜工具：用牌組協助收斂優先搜尋場域。" />
+  <meta name="theme-color" content="#050518" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="logo">
+        <span class="logo-main">Evan Tarot</span>
+        <span class="logo-sub">Tarot Lab ／ Systematic Divination</span>
+      </div>
+      <nav class="nav" aria-label="主選單">
+        <a href="index.html#intro">介紹</a>
+        <a href="services.html">占卜項目</a>
+        <a href="articles.html">文章</a>
+        <a href="lost-item.html">尋物工具</a>
+        <a href="timeflow.html">時間流</a>
+        <a href="index.html#booking">預約</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero subpage-hero">
+      <div class="hero-bg-orbit" aria-hidden="true"></div>
+      <div class="container hero-inner">
+        <div class="hero-text">
+          <h1>失物占卜工具。</h1>
+          <p>
+            尋物工具已從首頁移到獨立分頁。
+            這裡專門處理「物品遺失 → 抽牌 → 搜尋場域建議 → 回饋」的流程。
+          </p>
+          <div class="hero-cta">
+            <a href="#lost-item-tool" class="btn primary">開始尋物占卜</a>
+            <a href="index.html" class="btn ghost">回首頁</a>
+          </div>
+          <div class="hero-meta">
+            <span class="pill pill-soft">尋物 Beta</span>
+            <span class="pill pill-outline">獨立工具頁</span>
+          </div>
+        </div>
+        <aside class="hero-card" aria-label="失物占卜提醒">
+          <div class="hero-card-inner">
+            <p class="hero-tag">使用提醒</p>
+            <ul>
+              <li>適合用來收斂優先搜尋場域</li>
+              <li>不是 GPS，也不保證一定找得到</li>
+              <li>找到後可回饋，方便日後優化</li>
+            </ul>
+            <p class="hero-note">建議先回想最後一次看見物品的時間與場景。</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+    <section id="lost-item-tool" class="section alt">
+      <div class="container">
+        <h2>失物占卜</h2>
+        <p class="section-lead">
+          用三張牌協助你整理搜尋方向。這個工具現在作為獨立分頁，避免首頁功能過多。
+        </p>
+        <div class="tool-grid">
+<div class="tool-card">
+<div class="tool-header">
+<h3>失物占卜工具（Beta）</h3>
+<p>用三張牌，給你「大概在哪裡找」的方向，而不是 GPS 座標。</p>
+</div>
+<form class="tool-form" id="lost-item-form">
+<label>
+                你在找什麼東西？（例如：鑰匙、耳機、卡片）
+                <input id="item-name" placeholder="請輸入物品名稱" required="" type="text"/>
+</label>
+<label>
+                簡單描述一下狀況（可選）
+                <textarea id="item-notes" placeholder="例如：最後印象是在客廳滑手機的時候…" rows="2"></textarea>
+</label>
+<button class="btn primary full" type="submit">抽三張牌，看看可以從哪裡開始找</button>
+<p aria-live="polite" class="tool-feedback-message hidden" id="lost-item-message"></p>
+<p class="tool-disclaimer">
+                這個工具會偏向「場域」與「行動方向」，無法保證一定找得到，只是協助你更有系統地搜尋。
+              </p>
+</form>
+<div aria-live="polite" class="tool-result hidden" id="lost-item-result">
+<h4>占卜結果</h4>
+<div class="card-list small" id="lost-item-cards"></div>
+<details class="tool-note" id="lost-item-details">
+<summary>這個結果怎麼看？</summary>
+<div class="tool-interpretation" id="lost-item-interpretation"></div>
+</details>
+<div class="tool-feedback">
+<h5>這次結果有幫上忙嗎？</h5>
+<form class="tool-form" id="lost-item-feedback-form">
+<div class="tool-feedback-options">
+<label class="feedback-pill">
+<input name="found-status" type="radio" value="找到"/>
+<span>最後有找到</span>
+</label>
+<label class="feedback-pill">
+<input name="found-status" type="radio" value="尚未找到"/>
+<span>暫時還沒找到</span>
+</label>
+</div>
+<label>
+                    補充說明（可選）
+                    <textarea id="found-notes" placeholder="例如：最後是在沙發縫找到，跟第二張牌說的場域很像。" rows="2"></textarea>
+</label>
+<button class="btn ghost full" type="submit">回饋</button>
+<p aria-live="polite" class="tool-feedback-message hidden" id="lost-item-feedback-message"></p>
+</form>
+</div>
+</div>
+</div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>Evan Tarot ｜塔羅占卜 & 小工具實驗室</p>
+      <p class="footer-sub">
+        主頁只保留介紹與預約；文章、尋物工具與占卜時間流分流到獨立頁面，讓首頁更乾淨。
+      </p>
+    </div>
+  </footer>
+
+  <script src="JS/utils.js"></script>
+  <script src="JS/tarot-mapping.js"></script>
+  <script src="JS/lost-item.js"></script>
+  <script src="JS/ripple-effect.js"></script>
+  <script src="JS/main.js"></script>
+</body>
+</html>
