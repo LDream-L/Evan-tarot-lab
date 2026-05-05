@@ -714,21 +714,42 @@
       );
     });
 
-    layout.placements.forEach((placement) => {
+    // 節點 → 主軸：改成「避讓曲線」。
+    // 時間複雜度：O(k)，k = 顯示節點數；空間複雜度：O(k) 用於同日/同側線路分組。
+    // 暴力法：全部畫水平線，節點一多就重疊。
+    // 本實作：依 streamX + date + type 分組，對同組線路給不同曲率，降低擋線。
+    const branchRouteCount = new Map();
+
+    Array.from(layout.placements.values()).forEach((placement) => {
+      const node = placement.node;
       const laneEdgeX =
-        placement.node.type === "reading"
+        node.type === "reading"
           ? placement.x + placement.width
           : placement.x;
-      const streamX = placement.streamX;
-      const direction = placement.node.type === "reading" ? 1 : -1;
-      const distance = Math.abs(streamX - laneEdgeX);
-      const curveStrength = clamp(distance * 0.42, 72, 180);
-      const controlYShift = placement.node.type === "reading" ? -18 : 18;
 
-      // 用 SVG path 直接接到主軸中心，避免原本 line 只畫到 streamX ± 28px 造成視覺斷裂。
-      // 時間複雜度：O(1)／空間複雜度：O(1)；renderConnections 整體仍為 O(k)。
+      const startY = placement.centerY;
+      const streamX = placement.streamX;
+      const direction = node.type === "reading" ? 1 : -1;
+      const distance = Math.abs(streamX - laneEdgeX);
+      const curveStrength = clamp(distance * 0.48, 86, 220);
+
+      const routeKey = `${streamX}|${node.date || "nodate"}|${node.type}`;
+      const routeIndex = branchRouteCount.get(routeKey) || 0;
+      branchRouteCount.set(routeKey, routeIndex + 1);
+
+      // 0, +1, -1, +2, -2... 讓同日線路上下分散。
+      const routeLevel = routeIndex === 0 ? 0 : Math.ceil(routeIndex / 2) * (routeIndex % 2 === 1 ? 1 : -1);
+      const routeOffset = routeLevel * 34;
+
+      // 終點仍接主軸，但同日多線會分散接到主軸附近，避免全部壓在同一點。
+      const endY = startY + routeOffset * 0.18;
+      const c1x = laneEdgeX + direction * curveStrength;
+      const c1y = startY + routeOffset;
+      const c2x = streamX - direction * curveStrength * 0.38;
+      const c2y = endY - routeOffset * 0.72;
+
       fragments.push(
-        `<path class="map-stream-branch ${placement.node.type}" d="M ${laneEdgeX} ${placement.centerY} C ${laneEdgeX + direction * curveStrength} ${placement.centerY + controlYShift}, ${streamX - direction * curveStrength * 0.42} ${placement.centerY - controlYShift}, ${streamX} ${placement.centerY}" style="stroke:${hexToRgba(getThemeColor(placement.node.themeId), placement.node.type === "reading" ? 0.42 : 0.36)};" />`
+        `<path class="map-stream-branch ${node.type}" d="M ${laneEdgeX} ${startY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${streamX} ${endY}" style="stroke:${hexToRgba(getThemeColor(node.themeId), node.type === "reading" ? 0.52 : 0.46)};" />`
       );
     });
 
@@ -742,11 +763,19 @@
       const fromY = eventPlacement.centerY;
       const toX = readingPlacement.x + readingPlacement.width;
       const toY = readingPlacement.centerY;
-      const midX = (eventPlacement.streamX + readingPlacement.streamX) / 2;
-      const ctrlOffset = Math.max(90, Math.abs(fromY - toY) * 0.22);
+      const midX = (fromX + toX) / 2;
+
+      // 事件 ↔ 占卜案例：改成大弧線，避開主軸與水平線。
+      // 時間複雜度：O(1)；renderConnections 整體仍為 O(k + e)。
+      const sameRowBoost = Math.abs(fromY - toY) < 90 ? 120 : 80;
+      const verticalArc = fromY <= toY ? -sameRowBoost : sameRowBoost;
+      const c1x = midX + Math.abs(fromX - toX) * 0.18;
+      const c2x = midX - Math.abs(fromX - toX) * 0.18;
+      const c1y = fromY + verticalArc;
+      const c2y = toY + verticalArc;
 
       fragments.push(
-        `<path class="map-link-line" d="M ${fromX} ${fromY} C ${midX + ctrlOffset} ${fromY}, ${midX - ctrlOffset} ${toY}, ${toX} ${toY}" style="stroke:${hexToRgba(getThemeColor(eventNode.themeId), 0.42)};" />`
+        `<path class="map-link-line" d="M ${fromX} ${fromY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${toX} ${toY}" style="stroke:${hexToRgba(getThemeColor(eventNode.themeId), 0.50)};" />`
       );
     });
 
