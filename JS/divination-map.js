@@ -1,34 +1,57 @@
 // ==============================
 // divination-map.js
-// 占卜時間流 Beta
+// 占卜時間流 Beta v3
 // ==============================
 //
 // 核心設計：
-// 1. 主視覺改為「時間流」，節點依日期自動往下排列。
-// 2. reading / event 共用同一份 state，側欄與下方時間軸同步更新。
-// 3. position 不再是絕對座標，而是相對於時間流基準點的「微調偏移」。
+// 1. 時間流移到獨立頁面，首頁只保留入口。
+// 2. 新增「主題流」概念：每個案例 / 事件都可歸到某一個主題。
+// 3. 支援兩種檢視模式：
+//    - single：單一主流檢視（適合聚焦單一主題驗證）
+//    - parallel：平行時間流檢視（適合比較多個主題）
 //
 // 關鍵函式複雜度：
-// - initDivinationMap：O(n + m) / O(n + m)
-// - buildTimeflowLayout：O(k log k) / O(k)
-// - renderMap：O(k log k) / O(k)
-// - updateNodeById：O(n) 或 O(m) / O(1)
+// - initDivinationMap：O(n + m)
+// - buildSingleLayout：O(k log k)
+// - buildParallelLayout：O(k log k)
+// - renderMap / renderTimeline：O(k log k)
 //
-// 更快的替代方案比較：
-// - 暴力法：保留自由畫布，再額外疊一條 timeline，使用者要自己對齊時間與關聯。
-// - 本版優化：直接以日期驅動版面，時間順序天然成立；節點僅保留小幅拖曳偏移，
-//   既有時間流感，也不會失去手動調整彈性。
+// 更快替代方案比較：
+// - 暴力法：所有節點都擠在一條線上，再靠顏色硬分群。
+// - 本版：先建立主題流，再提供單流 / 平行流兩種檢視，辨識度與驗證性更高。
 // ==============================
 
 (function initDivinationMapModule() {
-  const STORAGE_KEY = "evanTarotDivinationTimeflowV2";
-  const SCENE_WIDTH = 1680;
+  const STORAGE_KEY = "evanTarotDivinationTimeflowV3";
+  const LEGACY_KEYS = [
+    "evanTarotDivinationTimeflowV2",
+    "evanTarotDivinationMapV1",
+  ];
+
+  const DEFAULT_SCENE_WIDTH = 1680;
   const DEFAULT_SCENE_HEIGHT = 1500;
-  const STREAM_X = 840;
+  const SINGLE_STREAM_X = 840;
+
+  const PARALLEL_LANE_GAP = 520;
+  const PARALLEL_FIRST_STREAM_X = 320;
+  const PARALLEL_READING_X_OFFSET = -310;
+  const PARALLEL_EVENT_X_OFFSET = 40;
+
   const NODE_SIZES = {
     reading: { width: 272, height: 154 },
     event: { width: 248, height: 136 },
   };
+
+  const THEME_COLORS = [
+    "#b794ff",
+    "#7fe3b2",
+    "#7de4ff",
+    "#ffb3d8",
+    "#ffd27a",
+    "#a9b4ff",
+    "#8fd7ff",
+    "#ff9bb2",
+  ];
 
   const CATEGORY_LABELS = {
     relationship: "人際 / 感情",
@@ -56,22 +79,42 @@
   let refs = {};
   let dragState = null;
   let panState = null;
-  let currentLayoutMap = new Map();
+  let currentLayout = {
+    placements: new Map(),
+    streams: [],
+    dateMarkers: [],
+    sceneWidth: DEFAULT_SCENE_WIDTH,
+    sceneHeight: DEFAULT_SCENE_HEIGHT,
+  };
 
   function createInitialState() {
+    const defaultTheme = createThemeObject("第一主題流", "第一條驗證主線", 0);
     return {
-      version: 2,
+      version: 3,
+      themes: [defaultTheme],
       readings: [],
       events: [],
       ui: {
-        zoom: 0.84,
-        panX: -110,
+        zoom: 0.88,
+        panX: -120,
         panY: 0,
         selectedId: null,
         filterStatus: "all",
         filterCategory: "all",
         search: "",
+        activeThemeId: "all",
+        viewMode: "single",
       },
+    };
+  }
+
+  function createThemeObject(title, description, index) {
+    return {
+      id: createNodeId("theme"),
+      title: title || `主題流 ${index + 1}`,
+      description: description || "",
+      color: THEME_COLORS[index % THEME_COLORS.length],
+      createdAt: getNowIso(),
     };
   }
 
@@ -93,16 +136,66 @@
     return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
   }
 
-  function migrateNodeForTimeflow(node, type) {
+  function ensureThemes(rawThemes) {
+    const themes = Array.isArray(rawThemes) ? rawThemes.slice() : [];
+    if (!themes.length) {
+      return [createThemeObject("第一主題流", "第一條驗證主線", 0)];
+    }
+
+    return themes.map((theme, index) => ({
+      id: theme.id || createNodeId("theme"),
+      title: theme.title || `主題流 ${index + 1}`,
+      description: theme.description || "",
+      color: theme.color || THEME_COLORS[index % THEME_COLORS.length],
+      createdAt: theme.createdAt || getNowIso(),
+    }));
+  }
+
+  function ensureNode(node, type, fallbackThemeId) {
     return {
-      ...node,
-      type: node.type || type,
+      id: node.id || createNodeId(type),
+      type,
+      title: node.title || "",
+      category: node.category || "other",
+      themeId: node.themeId || fallbackThemeId,
+      date: node.date || "",
+      subject: node.subject || "",
+      cards: node.cards || "",
+      interpretation: node.interpretation || "",
+      predictions: node.predictions || "",
+      description: node.description || "",
+      note: node.note || "",
+      status: node.status || "pending",
+      relatedReadingId: node.relatedReadingId || "",
       position: {
-        x: 0,
-        y: 0,
+        x: Number(node.position?.x || 0),
+        y: Number(node.position?.y || 0),
       },
-      updatedAt: node.updatedAt || getNowIso(),
       createdAt: node.createdAt || getNowIso(),
+      updatedAt: node.updatedAt || getNowIso(),
+    };
+  }
+
+  function migrateLegacyState(parsed) {
+    const initial = createInitialState();
+    const fallbackThemeId = initial.themes[0].id;
+
+    return {
+      ...initial,
+      version: 3,
+      themes: initial.themes,
+      readings: Array.isArray(parsed?.readings)
+        ? parsed.readings.map((node) => ensureNode(node, "reading", fallbackThemeId))
+        : [],
+      events: Array.isArray(parsed?.events)
+        ? parsed.events.map((node) => ensureNode(node, "event", fallbackThemeId))
+        : [],
+      ui: {
+        ...initial.ui,
+        ...(parsed?.ui || {}),
+        activeThemeId: "all",
+        viewMode: "single",
+      },
     };
   }
 
@@ -112,40 +205,37 @@
       if (raw) {
         const parsed = JSON.parse(raw);
         const initial = createInitialState();
+        const themes = ensureThemes(parsed?.themes);
+        const fallbackThemeId = themes[0].id;
+
         return {
           ...initial,
           ...parsed,
-          version: 2,
-          readings: Array.isArray(parsed.readings) ? parsed.readings : [],
-          events: Array.isArray(parsed.events) ? parsed.events : [],
+          version: 3,
+          themes,
+          readings: Array.isArray(parsed?.readings)
+            ? parsed.readings.map((node) => ensureNode(node, "reading", fallbackThemeId))
+            : [],
+          events: Array.isArray(parsed?.events)
+            ? parsed.events.map((node) => ensureNode(node, "event", fallbackThemeId))
+            : [],
           ui: {
             ...initial.ui,
-            ...(parsed.ui || {}),
+            ...(parsed?.ui || {}),
+            activeThemeId: parsed?.ui?.activeThemeId || "all",
+            viewMode: parsed?.ui?.viewMode || "single",
           },
         };
       }
 
-      const legacyRaw = localStorage.getItem("evanTarotDivinationMapV1");
-      if (!legacyRaw) return createInitialState();
+      for (const key of LEGACY_KEYS) {
+        const legacyRaw = localStorage.getItem(key);
+        if (legacyRaw) {
+          return migrateLegacyState(JSON.parse(legacyRaw));
+        }
+      }
 
-      const legacyParsed = JSON.parse(legacyRaw);
-      const initial = createInitialState();
-      return {
-        ...initial,
-        readings: Array.isArray(legacyParsed.readings)
-          ? legacyParsed.readings.map((node) => migrateNodeForTimeflow(node, "reading"))
-          : [],
-        events: Array.isArray(legacyParsed.events)
-          ? legacyParsed.events.map((node) => migrateNodeForTimeflow(node, "event"))
-          : [],
-        ui: {
-          ...initial.ui,
-          ...(legacyParsed.ui || {}),
-          zoom: initial.ui.zoom,
-          panX: initial.ui.panX,
-          panY: initial.ui.panY,
-        },
-      };
+      return createInitialState();
     } catch (error) {
       console.warn("占卜時間流資料損壞，已重置。", error);
       localStorage.removeItem(STORAGE_KEY);
@@ -159,6 +249,25 @@
 
   function getAllNodes() {
     return [...state.readings, ...state.events];
+  }
+
+  function getThemeById(themeId) {
+    return state.themes.find((theme) => theme.id === themeId) || null;
+  }
+
+  function getThemeTitle(themeId) {
+    return getThemeById(themeId)?.title || "未分類主題";
+  }
+
+  function getThemeColor(themeId) {
+    return getThemeById(themeId)?.color || THEME_COLORS[0];
+  }
+
+  function getDefaultCreateThemeId() {
+    if (state.ui.activeThemeId !== "all" && getThemeById(state.ui.activeThemeId)) {
+      return state.ui.activeThemeId;
+    }
+    return state.themes[0]?.id || createInitialState().themes[0].id;
   }
 
   function getNodeById(nodeId) {
@@ -200,12 +309,13 @@
     }
   }
 
-  function createReadingNode() {
+  function createReadingNode(themeId) {
     return {
       id: createNodeId("reading"),
       type: "reading",
       title: `新占卜案例 ${state.readings.length + 1}`,
       category: "relationship",
+      themeId,
       subject: "",
       date: getTodayTaipeiDate(),
       cards: "",
@@ -219,7 +329,7 @@
     };
   }
 
-  function createEventNode(relatedReadingId) {
+  function createEventNode(themeId, relatedReadingId) {
     const anchorReading = relatedReadingId
       ? state.readings.find((reading) => reading.id === relatedReadingId)
       : null;
@@ -229,6 +339,7 @@
       type: "event",
       title: `新事件 ${state.events.length + 1}`,
       category: anchorReading?.category || "other",
+      themeId: anchorReading?.themeId || themeId,
       date: getTodayTaipeiDate(),
       description: "",
       relatedReadingId: relatedReadingId || "",
@@ -260,7 +371,7 @@
     });
   }
 
-  function getFilteredNodes() {
+  function getVisibleNodes() {
     const keyword = state.ui.search.trim().toLowerCase();
 
     return getAllNodes().filter((node) => {
@@ -268,8 +379,11 @@
         state.ui.filterStatus === "all" || node.status === state.ui.filterStatus;
       const categoryMatch =
         state.ui.filterCategory === "all" || node.category === state.ui.filterCategory;
+      const themeMatch =
+        state.ui.activeThemeId === "all" || node.themeId === state.ui.activeThemeId;
 
-      if (!statusMatch || !categoryMatch) return false;
+      if (!statusMatch || !categoryMatch || !themeMatch) return false;
+
       if (!keyword) return true;
 
       const haystack = [
@@ -281,6 +395,7 @@
         node.description,
         node.note,
         node.date,
+        getThemeTitle(node.themeId),
       ]
         .filter(Boolean)
         .join(" ")
@@ -290,12 +405,11 @@
     });
   }
 
-  function buildTimeflowLayout(nodes) {
-    const sortedNodes = getSortedNodes(nodes);
+  function groupNodesByDate(nodes) {
     const groups = [];
     let currentGroup = null;
 
-    sortedNodes.forEach((node) => {
+    getSortedNodes(nodes).forEach((node) => {
       const dateKey = node.date || "未填日期";
       if (!currentGroup || currentGroup.dateKey !== dateKey) {
         currentGroup = { dateKey, nodes: [] };
@@ -304,59 +418,221 @@
       currentGroup.nodes.push(node);
     });
 
-    const placements = new Map();
-    const dateMarkers = [];
-    let cursorY = 140;
+    return groups;
+  }
 
-    groups.forEach((group) => {
-      let readingLaneCount = 0;
-      let eventLaneCount = 0;
-      const groupStartY = cursorY;
+  function createPlacement(node, x, y, baseX, baseY, streamX) {
+    const size = NODE_SIZES[node.type];
+    return {
+      node,
+      width: size.width,
+      height: size.height,
+      x,
+      y,
+      baseX,
+      baseY,
+      streamX,
+      centerX: x + size.width / 2,
+      centerY: y + size.height / 2,
+    };
+  }
 
-      group.nodes.forEach((node, index) => {
-        const size = NODE_SIZES[node.type];
-        const laneCount = node.type === "reading" ? readingLaneCount++ : eventLaneCount++;
-        const outerShift = Math.floor(laneCount / 2) * 72;
-        const innerShift = laneCount % 2 === 1 ? 30 : 0;
-        const baseX =
-          node.type === "reading"
-            ? STREAM_X - 420 - outerShift - innerShift
-            : STREAM_X + 120 + outerShift + innerShift;
-        const baseY = groupStartY + index * 156;
-        const offsetX = clamp(Number(node.position?.x || 0), -190, 190);
-        const offsetY = clamp(Number(node.position?.y || 0), -90, 90);
-        const x = baseX + offsetX;
-        const y = baseY + offsetY;
+  function placeGroupNodes(group, options) {
+    const placements = [];
+    let readingLaneCount = 0;
+    let eventLaneCount = 0;
 
-        placements.set(node.id, {
+    group.nodes.forEach((node, index) => {
+      const laneCount = node.type === "reading" ? readingLaneCount++ : eventLaneCount++;
+      const outerShift = Math.floor(laneCount / 2) * options.laneSpread;
+      const innerShift = laneCount % 2 === 1 ? options.laneStagger : 0;
+
+      const baseX =
+        node.type === "reading"
+          ? options.streamX + options.readingBaseOffset - outerShift - innerShift
+          : options.streamX + options.eventBaseOffset + outerShift + innerShift;
+
+      const baseY = options.groupStartY + index * options.verticalGap;
+      const offsetX = clamp(Number(node.position?.x || 0), -190, 190);
+      const offsetY = clamp(Number(node.position?.y || 0), -90, 90);
+
+      placements.push(
+        createPlacement(
           node,
-          width: size.width,
-          height: size.height,
-          x,
-          y,
+          baseX + offsetX,
+          baseY + offsetY,
           baseX,
           baseY,
-          centerX: x + size.width / 2,
-          centerY: y + size.height / 2,
-        });
+          options.streamX
+        )
+      );
+    });
+
+    return placements;
+  }
+
+  function buildSingleLayout(nodes) {
+    const placements = new Map();
+    const dateMarkers = [];
+    const streamX = SINGLE_STREAM_X;
+    let cursorY = 150;
+
+    const groups = groupNodesByDate(nodes);
+
+    groups.forEach((group) => {
+      const groupStartY = cursorY;
+      const groupPlacements = placeGroupNodes(group, {
+        streamX,
+        groupStartY,
+        readingBaseOffset: -420,
+        eventBaseOffset: 120,
+        laneSpread: 72,
+        laneStagger: 30,
+        verticalGap: 156,
+      });
+
+      groupPlacements.forEach((placement) => {
+        placements.set(placement.node.id, placement);
       });
 
       const groupHeight = Math.max(150, (group.nodes.length - 1) * 156 + 138);
       const markerY = groupStartY + groupHeight / 2 - 8;
       dateMarkers.push({
+        streamX,
         dateKey: group.dateKey,
         y: markerY,
-        topY: groupStartY - 34,
-        bottomY: groupStartY + groupHeight - 8,
       });
+
       cursorY += groupHeight + 120;
     });
 
     return {
       placements,
       dateMarkers,
+      streams: [
+        {
+          id: "single",
+          title:
+            state.ui.activeThemeId === "all"
+              ? "全部主題"
+              : getThemeTitle(state.ui.activeThemeId),
+          color:
+            state.ui.activeThemeId === "all"
+              ? "#b794ff"
+              : getThemeColor(state.ui.activeThemeId),
+          x: streamX,
+          topY: 70,
+          bottomY: Math.max(cursorY, DEFAULT_SCENE_HEIGHT) - 70,
+        },
+      ],
+      sceneWidth: DEFAULT_SCENE_WIDTH,
       sceneHeight: Math.max(cursorY + 120, DEFAULT_SCENE_HEIGHT),
     };
+  }
+
+  function buildParallelLayout(nodes) {
+    const placements = new Map();
+    const dateMarkers = [];
+    const streams = [];
+    const nodesByTheme = new Map();
+
+    state.themes.forEach((theme) => nodesByTheme.set(theme.id, []));
+    nodes.forEach((node) => {
+      if (!nodesByTheme.has(node.themeId)) nodesByTheme.set(node.themeId, []);
+      nodesByTheme.get(node.themeId).push(node);
+    });
+
+    const visibleThemeIds = state.ui.activeThemeId !== "all"
+      ? [state.ui.activeThemeId]
+      : state.themes
+          .filter((theme) => (nodesByTheme.get(theme.id) || []).length > 0)
+          .map((theme) => theme.id);
+
+    const laneThemeIds = visibleThemeIds.length ? visibleThemeIds : [state.themes[0].id];
+    const sceneWidth = Math.max(
+      DEFAULT_SCENE_WIDTH,
+      PARALLEL_FIRST_STREAM_X * 2 + (laneThemeIds.length - 1) * PARALLEL_LANE_GAP
+    );
+
+    let maxBottomY = DEFAULT_SCENE_HEIGHT;
+
+    laneThemeIds.forEach((themeId, laneIndex) => {
+      const streamX = PARALLEL_FIRST_STREAM_X + laneIndex * PARALLEL_LANE_GAP;
+      const themeNodes = getSortedNodes(nodesByTheme.get(themeId) || []);
+      const groups = groupNodesByDate(themeNodes);
+      let cursorY = 180;
+
+      groups.forEach((group) => {
+        const groupStartY = cursorY;
+        const groupPlacements = placeGroupNodes(group, {
+          streamX,
+          groupStartY,
+          readingBaseOffset: PARALLEL_READING_X_OFFSET,
+          eventBaseOffset: PARALLEL_EVENT_X_OFFSET,
+          laneSpread: 54,
+          laneStagger: 18,
+          verticalGap: 150,
+        });
+
+        groupPlacements.forEach((placement) => {
+          placements.set(placement.node.id, placement);
+        });
+
+        const groupHeight = Math.max(150, (group.nodes.length - 1) * 150 + 132);
+        const markerY = groupStartY + groupHeight / 2 - 8;
+        dateMarkers.push({
+          streamX,
+          dateKey: group.dateKey,
+          y: markerY,
+        });
+
+        cursorY += groupHeight + 120;
+      });
+
+      const bottomY = Math.max(cursorY + 100, DEFAULT_SCENE_HEIGHT - 70);
+      streams.push({
+        id: themeId,
+        title: getThemeTitle(themeId),
+        color: getThemeColor(themeId),
+        x: streamX,
+        topY: 70,
+        bottomY,
+      });
+      maxBottomY = Math.max(maxBottomY, bottomY + 70);
+    });
+
+    return {
+      placements,
+      dateMarkers,
+      streams,
+      sceneWidth,
+      sceneHeight: maxBottomY,
+    };
+  }
+
+  function buildLayout(nodes) {
+    return state.ui.viewMode === "parallel"
+      ? buildParallelLayout(nodes)
+      : buildSingleLayout(nodes);
+  }
+
+  function renderThemeSelects() {
+    const options = ['<option value="all">全部主題</option>']
+      .concat(
+        state.themes.map((theme) => {
+          return `<option value="${theme.id}">${escapeHtml(theme.title)}</option>`;
+        })
+      )
+      .join("");
+
+    refs.activeTheme.innerHTML = options;
+    refs.activeTheme.value = getThemeById(state.ui.activeThemeId) ? state.ui.activeThemeId : "all";
+
+    const nodeThemeOptions = state.themes
+      .map((theme) => `<option value="${theme.id}">${escapeHtml(theme.title)}</option>`)
+      .join("");
+
+    refs.fieldTheme.innerHTML = nodeThemeOptions;
   }
 
   function renderCategoryFilterOptions() {
@@ -365,7 +641,7 @@
       if (node.category) categories.add(node.category);
     });
 
-    const options = ['<option value="all">全部主題</option>'];
+    const options = ['<option value="all">全部主題分類</option>'];
     Object.entries(CATEGORY_LABELS).forEach(([value, label]) => {
       if (categories.has(value) || value === state.ui.filterCategory) {
         options.push(`<option value="${value}">${label}</option>`);
@@ -376,26 +652,32 @@
     refs.filterCategory.value = state.ui.filterCategory;
   }
 
-  function renderRelatedReadingOptions(selectedValue) {
-    const options = ['<option value="">未連結</option>'];
+  function renderRelatedReadingOptions(selectedValue, themeId) {
+    const currentThemeId = themeId || "";
+    const readings = state.readings.slice().sort((a, b) => {
+      const aScore = a.themeId === currentThemeId ? 0 : 1;
+      const bScore = b.themeId === currentThemeId ? 0 : 1;
+      if (aScore !== bScore) return aScore - bScore;
+      return normalizeSortDate(a.date).localeCompare(normalizeSortDate(b.date));
+    });
 
-    state.readings.forEach((reading) => {
-      options.push(
-        `<option value="${reading.id}">${escapeHtml(reading.title || "未命名占卜案例")}</option>`
-      );
+    const options = ['<option value="">未連結</option>'];
+    readings.forEach((reading) => {
+      const title = `${reading.title || "未命名占卜案例"}｜${getThemeTitle(reading.themeId)}`;
+      options.push(`<option value="${reading.id}">${escapeHtml(title)}</option>`);
     });
 
     refs.fieldRelatedReading.innerHTML = options.join("");
     refs.fieldRelatedReading.value = selectedValue || "";
   }
 
-  function renderStats() {
-    const filteredCount = getFilteredNodes().length;
+  function renderStats(nodes) {
     refs.stats.innerHTML = [
+      `<span class="map-stat-pill">主題流 ${state.themes.length}</span>`,
       `<span class="map-stat-pill">案例 ${state.readings.length}</span>`,
       `<span class="map-stat-pill">事件 ${state.events.length}</span>`,
-      `<span class="map-stat-pill">時間流縮放 ${Math.round(state.ui.zoom * 100)}%</span>`,
-      `<span class="map-stat-pill">目前顯示 ${filteredCount}</span>`,
+      `<span class="map-stat-pill">檢視 ${state.ui.viewMode === "parallel" ? "平行時間流" : "單一時間流"}</span>`,
+      `<span class="map-stat-pill">目前顯示 ${nodes.length}</span>`,
     ].join("");
   }
 
@@ -405,28 +687,40 @@
   }
 
   function renderConnections(layout) {
-    refs.connections.setAttribute("viewBox", `0 0 ${SCENE_WIDTH} ${layout.sceneHeight}`);
-    refs.connections.setAttribute("width", String(SCENE_WIDTH));
+    refs.connections.setAttribute("viewBox", `0 0 ${layout.sceneWidth} ${layout.sceneHeight}`);
+    refs.connections.setAttribute("width", String(layout.sceneWidth));
     refs.connections.setAttribute("height", String(layout.sceneHeight));
 
-    const fragments = [
-      `<line class="map-stream-axis" x1="${STREAM_X}" y1="70" x2="${STREAM_X}" y2="${layout.sceneHeight - 70}" />`,
-      `<ellipse class="map-stream-glow" cx="${STREAM_X}" cy="${layout.sceneHeight / 2}" rx="52" ry="${Math.max(260, layout.sceneHeight / 2 - 80)}" />`,
-    ];
+    const fragments = [];
+
+    layout.streams.forEach((stream) => {
+      fragments.push(
+        `<line class="map-stream-axis" x1="${stream.x}" y1="${stream.topY}" x2="${stream.x}" y2="${stream.bottomY}" style="stroke:${stream.color};" />`,
+        `<ellipse class="map-stream-glow" cx="${stream.x}" cy="${(stream.topY + stream.bottomY) / 2}" rx="52" ry="${Math.max(260, (stream.bottomY - stream.topY) / 2 - 40)}" style="fill:${hexToRgba(stream.color, 0.08)};" />`,
+        `<text class="map-stream-title" x="${stream.x}" y="42" text-anchor="middle">${escapeHtml(stream.title)}</text>`
+      );
+    });
 
     layout.dateMarkers.forEach((marker) => {
       fragments.push(
-        `<line class="map-stream-tick" x1="${STREAM_X - 26}" y1="${marker.y}" x2="${STREAM_X + 26}" y2="${marker.y}" />`,
-        `<circle class="map-stream-marker" cx="${STREAM_X}" cy="${marker.y}" r="10" />`,
-        `<text class="map-stream-date-label" x="${STREAM_X}" y="${marker.y - 20}" text-anchor="middle">${escapeHtml(marker.dateKey)}</text>`
+        `<line class="map-stream-tick" x1="${marker.streamX - 26}" y1="${marker.y}" x2="${marker.streamX + 26}" y2="${marker.y}" />`,
+        `<circle class="map-stream-marker" cx="${marker.streamX}" cy="${marker.y}" r="10" />`,
+        `<text class="map-stream-date-label" x="${marker.streamX}" y="${marker.y - 20}" text-anchor="middle">${escapeHtml(marker.dateKey)}</text>`
       );
     });
 
     layout.placements.forEach((placement) => {
-      const laneEdgeX = placement.node.type === "reading" ? placement.x + placement.width : placement.x;
-      const streamEdgeX = placement.node.type === "reading" ? STREAM_X - 28 : STREAM_X + 28;
+      const laneEdgeX =
+        placement.node.type === "reading"
+          ? placement.x + placement.width
+          : placement.x;
+      const streamEdgeX =
+        placement.node.type === "reading"
+          ? placement.streamX - 28
+          : placement.streamX + 28;
+
       fragments.push(
-        `<line class="map-stream-branch ${placement.node.type}" x1="${laneEdgeX}" y1="${placement.centerY}" x2="${streamEdgeX}" y2="${placement.centerY}" />`
+        `<line class="map-stream-branch ${placement.node.type}" x1="${laneEdgeX}" y1="${placement.centerY}" x2="${streamEdgeX}" y2="${placement.centerY}" style="stroke:${hexToRgba(getThemeColor(placement.node.themeId), placement.node.type === "reading" ? 0.35 : 0.28)};" />`
       );
     });
 
@@ -440,26 +734,26 @@
       const fromY = eventPlacement.centerY;
       const toX = readingPlacement.x + readingPlacement.width;
       const toY = readingPlacement.centerY;
-      const ctrlOffset = Math.max(110, Math.abs(fromY - toY) * 0.24);
+      const midX = (eventPlacement.streamX + readingPlacement.streamX) / 2;
+      const ctrlOffset = Math.max(90, Math.abs(fromY - toY) * 0.22);
 
       fragments.push(
-        `<path class="map-link-line" d="M ${fromX} ${fromY} C ${STREAM_X + ctrlOffset} ${fromY}, ${STREAM_X - ctrlOffset} ${toY}, ${toX} ${toY}" />`
+        `<path class="map-link-line" d="M ${fromX} ${fromY} C ${midX + ctrlOffset} ${fromY}, ${midX - ctrlOffset} ${toY}, ${toX} ${toY}" style="stroke:${hexToRgba(getThemeColor(eventNode.themeId), 0.42)};" />`
       );
     });
 
     refs.connections.innerHTML = fragments.join("");
   }
 
-  function renderMap() {
-    const filteredNodes = getFilteredNodes();
-    const layout = buildTimeflowLayout(filteredNodes);
-    currentLayoutMap = layout.placements;
-    refs.scene.style.height = `${layout.sceneHeight}px`;
+  function renderMap(nodes) {
+    currentLayout = buildLayout(nodes);
+    refs.scene.style.width = `${currentLayout.sceneWidth}px`;
+    refs.scene.style.height = `${currentLayout.sceneHeight}px`;
 
     const fragment = document.createDocumentFragment();
 
-    filteredNodes.forEach((node) => {
-      const placement = layout.placements.get(node.id);
+    nodes.forEach((node) => {
+      const placement = currentLayout.placements.get(node.id);
       if (!placement) return;
 
       const el = document.createElement("article");
@@ -468,6 +762,8 @@
       el.dataset.type = node.type;
       el.style.left = `${placement.x}px`;
       el.style.top = `${placement.y}px`;
+      el.style.setProperty("--theme-color", getThemeColor(node.themeId));
+      el.style.setProperty("--theme-color-soft", hexToRgba(getThemeColor(node.themeId), 0.16));
 
       const metaText =
         node.type === "reading"
@@ -489,7 +785,7 @@
         <p class="map-node-preview">${escapeHtml(previewText).replace(/\n/g, "<br />")}</p>
         <div class="map-node-footer">
           <span class="map-node-status">${STATUS_LABELS[node.status] || STATUS_LABELS.pending}</span>
-          <span class="map-node-flow-tag">時間流節點</span>
+          <span class="map-theme-pill">${escapeHtml(getThemeTitle(node.themeId))}</span>
         </div>
       `;
 
@@ -500,11 +796,11 @@
 
     refs.canvas.innerHTML = "";
     refs.canvas.appendChild(fragment);
-    renderConnections(layout);
+    renderConnections(currentLayout);
   }
 
-  function renderTimeline() {
-    const items = getSortedNodes(getFilteredNodes());
+  function renderTimeline(nodes) {
+    const items = getSortedNodes(nodes);
 
     if (!items.length) {
       refs.timeline.innerHTML =
@@ -527,7 +823,10 @@
             </div>
             <h5>${escapeHtml(node.title || "未命名節點")}</h5>
             <p>${escapeHtml(body).replace(/\n/g, "<br />")}</p>
-            <p class="map-node-preview">${escapeHtml(STATUS_LABELS[node.status] || STATUS_LABELS.pending)}</p>
+            <div class="map-timeline-footer">
+              <span class="map-theme-pill">${escapeHtml(getThemeTitle(node.themeId))}</span>
+              <span class="map-node-preview">${escapeHtml(STATUS_LABELS[node.status] || STATUS_LABELS.pending)}</span>
+            </div>
           </article>
         `;
       })
@@ -536,8 +835,8 @@
 
   function renderDetailPanel() {
     const node = state.ui.selectedId ? getNodeById(state.ui.selectedId) : null;
-    const readingOnlyFields = document.querySelectorAll("[data-reading-only]");
-    const eventOnlyFields = document.querySelectorAll("[data-event-only]");
+    const readingOnlyFields = refs.root.querySelectorAll("[data-reading-only]");
+    const eventOnlyFields = refs.root.querySelectorAll("[data-event-only]");
 
     if (!node) {
       refs.emptyState.classList.remove("hidden");
@@ -557,6 +856,12 @@
     refs.fieldCategory.value = node.category || "other";
     refs.fieldStatus.value = node.status || "pending";
     refs.fieldNote.value = node.note || "";
+    refs.fieldTheme.value = node.themeId || state.themes[0]?.id || "";
+
+    const theme = getThemeById(node.themeId);
+    refs.detailThemeHint.textContent = theme
+      ? `${theme.title}${theme.description ? "｜" + theme.description : ""}`
+      : "請先建立主題流";
 
     const isReading = node.type === "reading";
     readingOnlyFields.forEach((field) => field.classList.toggle("hidden", !isReading));
@@ -568,22 +873,41 @@
       refs.fieldInterpretation.value = node.interpretation || "";
       refs.fieldPredictions.value = node.predictions || "";
     } else {
-      renderRelatedReadingOptions(node.relatedReadingId || "");
+      renderRelatedReadingOptions(node.relatedReadingId || "", node.themeId);
       refs.fieldEventDescription.value = node.description || "";
     }
   }
 
   function renderAll() {
+    renderThemeSelects();
     renderCategoryFilterOptions();
-    renderStats();
+    refs.filterStatus.value = state.ui.filterStatus;
+    refs.search.value = state.ui.search;
+    refs.viewMode.value = state.ui.viewMode;
+    refs.activeTheme.value = getThemeById(state.ui.activeThemeId) ? state.ui.activeThemeId : "all";
+
+    const visibleNodes = getVisibleNodes();
+    renderStats(visibleNodes);
     applySceneTransform();
-    renderMap();
+    renderMap(visibleNodes);
     renderDetailPanel();
-    renderTimeline();
+    renderTimeline(visibleNodes);
+  }
+
+  function addTheme() {
+    const title = window.prompt("請輸入主題流名稱，例如：A 關係驗證、轉職驗證");
+    if (!title) return;
+    const description = window.prompt("可選：補一句主題說明（可留空）", "") || "";
+
+    const theme = createThemeObject(title.trim(), description.trim(), state.themes.length);
+    state.themes.push(theme);
+    state.ui.activeThemeId = theme.id;
+    saveState();
+    renderAll();
   }
 
   function addReading() {
-    const node = createReadingNode();
+    const node = createReadingNode(getDefaultCreateThemeId());
     state.readings.push(node);
     state.ui.selectedId = node.id;
     saveState();
@@ -599,11 +923,25 @@
         ? selectedNode.relatedReadingId || ""
         : "";
 
-    const node = createEventNode(relatedReadingId);
+    const relatedReading = relatedReadingId ? getNodeById(relatedReadingId) : null;
+    const themeId = relatedReading?.themeId || getDefaultCreateThemeId();
+
+    const node = createEventNode(themeId, relatedReadingId);
     state.events.push(node);
     state.ui.selectedId = node.id;
     saveState();
     renderAll();
+  }
+
+  function syncReadingEventsTheme(readingId, themeId) {
+    state.events = state.events.map((eventNode) => {
+      if (eventNode.relatedReadingId !== readingId) return eventNode;
+      return {
+        ...eventNode,
+        themeId,
+        updatedAt: getNowIso(),
+      };
+    });
   }
 
   function saveDetailForm(event) {
@@ -620,6 +958,7 @@
         category: refs.fieldCategory.value,
         status: refs.fieldStatus.value,
         note: refs.fieldNote.value.trim(),
+        themeId: refs.fieldTheme.value || node.themeId,
         updatedAt: getNowIso(),
       };
 
@@ -633,12 +972,22 @@
         };
       }
 
+      const relatedReadingId = refs.fieldRelatedReading.value;
+      const relatedReading = relatedReadingId ? getNodeById(relatedReadingId) : null;
+
       return {
         ...base,
         description: refs.fieldEventDescription.value.trim(),
-        relatedReadingId: refs.fieldRelatedReading.value,
+        relatedReadingId,
+        themeId: relatedReading?.themeId || base.themeId,
+        category: relatedReading?.category || base.category,
       };
     });
+
+    const updatedNode = getNodeById(nodeId);
+    if (updatedNode?.type === "reading") {
+      syncReadingEventsTheme(nodeId, updatedNode.themeId);
+    }
 
     saveState();
     renderAll();
@@ -661,7 +1010,7 @@
   function handleNodePointerDown(event) {
     event.stopPropagation();
     const nodeId = event.currentTarget.dataset.id;
-    const placement = currentLayoutMap.get(nodeId);
+    const placement = currentLayout.placements.get(nodeId);
     if (!placement) return;
 
     state.ui.selectedId = nodeId;
@@ -695,7 +1044,7 @@
       updatedAt: getNowIso(),
     }));
 
-    renderMap();
+    renderMap(getVisibleNodes());
     renderDetailPanel();
   }
 
@@ -726,7 +1075,7 @@
     state.ui.panX = panState.originPanX + (event.clientX - panState.startX);
     state.ui.panY = panState.originPanY + (event.clientY - panState.startY);
     applySceneTransform();
-    renderStats();
+    renderStats(getVisibleNodes());
   }
 
   function handleViewportPointerUp() {
@@ -786,17 +1135,19 @@
   }
 
   function resetView() {
-    state.ui.zoom = 0.84;
-    state.ui.panX = -110;
+    state.ui.zoom = 0.88;
+    state.ui.panX = -120;
     state.ui.panY = 0;
     saveState();
     renderAll();
   }
 
   function bindEvents() {
+    refs.addTheme.addEventListener("click", addTheme);
     refs.addReading.addEventListener("click", addReading);
     refs.addEvent.addEventListener("click", addEvent);
     refs.detailForm.addEventListener("submit", saveDetailForm);
+
     refs.deleteNode.addEventListener("click", () => {
       const nodeId = refs.detailId.value;
       if (!nodeId) return;
@@ -825,6 +1176,30 @@
       renderAll();
     });
 
+    refs.viewMode.addEventListener("change", (event) => {
+      state.ui.viewMode = event.target.value;
+      saveState();
+      renderAll();
+    });
+
+    refs.activeTheme.addEventListener("change", (event) => {
+      state.ui.activeThemeId = event.target.value;
+      saveState();
+      renderAll();
+    });
+
+    refs.fieldTheme.addEventListener("change", (event) => {
+      const theme = getThemeById(event.target.value);
+      refs.detailThemeHint.textContent = theme
+        ? `${theme.title}${theme.description ? "｜" + theme.description : ""}`
+        : "請先建立主題流";
+
+      const currentNode = state.ui.selectedId ? getNodeById(state.ui.selectedId) : null;
+      if (currentNode?.type === "event") {
+        renderRelatedReadingOptions(refs.fieldRelatedReading.value, event.target.value);
+      }
+    });
+
     refs.zoomIn.addEventListener("click", () => adjustZoom(0.1));
     refs.zoomOut.addEventListener("click", () => adjustZoom(-0.1));
     refs.zoomReset.addEventListener("click", resetView);
@@ -838,11 +1213,14 @@
   function cacheRefs(root) {
     refs = {
       root,
+      addTheme: root.querySelector("#map-add-theme"),
       addReading: root.querySelector("#map-add-reading"),
       addEvent: root.querySelector("#map-add-event"),
       filterStatus: root.querySelector("#map-filter-status"),
       filterCategory: root.querySelector("#map-filter-category"),
       search: root.querySelector("#map-search"),
+      activeTheme: root.querySelector("#map-active-theme"),
+      viewMode: root.querySelector("#map-view-mode"),
       stats: root.querySelector("#map-stats"),
       viewport: root.querySelector("#map-viewport"),
       scene: root.querySelector("#map-scene"),
@@ -859,6 +1237,8 @@
       detailTitle: root.querySelector("#map-detail-title"),
       selectedId: root.querySelector("#map-selected-id"),
       detailId: root.querySelector("#map-detail-id"),
+      fieldTheme: root.querySelector("#map-field-theme"),
+      detailThemeHint: root.querySelector("#map-detail-theme-hint"),
       fieldTitle: root.querySelector("#map-field-title"),
       fieldDate: root.querySelector("#map-field-date"),
       fieldCategory: root.querySelector("#map-field-category"),
@@ -877,17 +1257,25 @@
 
   window.initDivinationMap = function initDivinationMap() {
     const root = document.getElementById("divination-map-app");
-    if (!root) return;
+    if (!root || root.dataset.initialized === "true") return;
 
+    root.dataset.initialized = "true";
     cacheRefs(root);
     state = loadState();
-
-    refs.filterStatus.value = state.ui.filterStatus;
-    refs.search.value = state.ui.search;
 
     bindEvents();
     renderAll();
   };
+
+  function hexToRgba(hex, alpha) {
+    const clean = String(hex || "").replace("#", "");
+    if (clean.length !== 6) return `rgba(183, 148, 255, ${alpha})`;
+    const bigint = Number.parseInt(clean, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
 
   function clamp(value, min, max) {
     return Math.min(Math.max(value, min), max);
@@ -899,7 +1287,7 @@
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
-      .replace(/\"/g, "&quot;")
+      .replace(/"/g, "&quot;")
       .replace(/'/g, "&#39;");
   }
 })();

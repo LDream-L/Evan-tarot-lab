@@ -35,10 +35,10 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // 一進頁面就先背景載入 Mapping，使用體驗會比較順
-  window.loadMappingFromSheet();
+  window.loadMappingFromSheet?.();
 
   // 初始渲染留言
-  window.renderComments();
+  window.renderComments?.();
 
   // 初始化占卜驗證圖譜
   window.initDivinationMap?.();
