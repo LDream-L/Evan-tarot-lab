@@ -1404,3 +1404,146 @@ main,
     flex-direction: column;
   }
 }
+
+/* ===== 2026-05 timeflow admin lock + custom modal ===== */
+.map-admin-toggle {
+  border-color: rgba(255, 211, 122, 0.34);
+  color: #ffe8b8;
+}
+
+.map-admin-toggle.is-unlocked {
+  border-color: rgba(127, 227, 178, 0.5);
+  color: #cbffea;
+}
+
+.map-icon-btn.is-locked,
+.btn.is-locked {
+  opacity: 0.72;
+  filter: saturate(0.72);
+}
+
+.map-detail-form.is-admin-locked input,
+.map-detail-form.is-admin-locked select,
+.map-detail-form.is-admin-locked textarea {
+  border-color: rgba(120, 120, 180, 0.24);
+}
+
+.map-detail-form.is-admin-locked::after {
+  content: "目前為訪客瀏覽模式；儲存、刪除、新增需要管理員登入。";
+  display: block;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 211, 122, 0.24);
+  background: rgba(255, 211, 122, 0.07);
+  color: #ffe8b8;
+  font-size: 0.82rem;
+}
+
+.map-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(139, 123, 255, 0.22), transparent 34%),
+    rgba(0, 0, 10, 0.72);
+  backdrop-filter: blur(10px);
+}
+
+.map-modal {
+  position: relative;
+  width: min(440px, 100%);
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(183, 148, 255, 0.52);
+  background:
+    radial-gradient(circle at 0 0, rgba(249, 168, 255, 0.16), transparent 42%),
+    linear-gradient(180deg, rgba(22, 22, 54, 0.98), rgba(7, 8, 26, 0.98));
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.74),
+    0 0 0 1px rgba(255, 255, 255, 0.035) inset;
+  padding: 20px;
+}
+
+.map-modal-orb {
+  position: absolute;
+  right: -64px;
+  top: -70px;
+  width: 190px;
+  height: 190px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(183, 148, 255, 0.22), transparent 68%);
+  pointer-events: none;
+}
+
+.map-modal-header,
+.map-modal-form {
+  position: relative;
+  z-index: 1;
+}
+
+.map-modal-header h3 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
+}
+
+.map-modal-header p:not(.map-form-kicker) {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.map-modal-form label {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.map-modal-form input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 123, 255, 0.38);
+  background: rgba(4, 5, 20, 0.96);
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.16s, box-shadow 0.16s, background 0.16s;
+}
+
+.map-modal-form input:focus {
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 3px rgba(139, 123, 255, 0.18);
+  background: rgba(9, 10, 32, 0.98);
+}
+
+.map-modal-message {
+  margin: 10px 0 0;
+  font-size: 0.82rem;
+  color: var(--accent-strong);
+}
+
+.map-modal-message.is-error {
+  color: var(--danger);
+}
+
+.map-modal-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 560px) {
+  .map-modal-actions {
+    flex-direction: column-reverse;
+  }
+
+  .map-modal-actions .btn {
+    width: 100%;
+  }
+}

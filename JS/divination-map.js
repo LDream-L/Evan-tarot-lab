@@ -28,6 +28,11 @@
     "evanTarotDivinationMapV1",
   ];
 
+  // 管理員鎖：GitHub Pages 是純前端，這只能防一般訪客誤改；真正防竄改仍需後端權限。
+  // 上線前請把這串改成你自己的密碼。
+  const ADMIN_PASSCODE = "EVAN-TAROT-ADMIN-2026";
+  const ADMIN_SESSION_KEY = "evanTarotTimeflowAdminUnlocked";
+
   const DEFAULT_SCENE_WIDTH = 1680;
   const DEFAULT_SCENE_HEIGHT = 1500;
   const SINGLE_STREAM_X = 840;
@@ -892,21 +897,287 @@
     renderMap(visibleNodes);
     renderDetailPanel();
     renderTimeline(visibleNodes);
+    updateAdminControls();
   }
 
-  function addTheme() {
-    const title = window.prompt("請輸入主題流名稱，例如：A 關係驗證、轉職驗證");
-    if (!title) return;
-    const description = window.prompt("可選：補一句主題說明（可留空）", "") || "";
+  function isAdminUnlocked() {
+    return sessionStorage.getItem(ADMIN_SESSION_KEY) === "true";
+  }
 
-    const theme = createThemeObject(title.trim(), description.trim(), state.themes.length);
+  function setAdminUnlocked(value) {
+    if (value) {
+      sessionStorage.setItem(ADMIN_SESSION_KEY, "true");
+    } else {
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    }
+    updateAdminControls();
+  }
+
+  function ensureAdminModal() {
+    let modal = document.getElementById("map-admin-modal");
+    if (modal) return modal;
+
+    modal = document.createElement("div");
+    modal.id = "map-admin-modal";
+    modal.className = "map-modal-backdrop hidden";
+    modal.innerHTML = `
+      <div class="map-modal" role="dialog" aria-modal="true" aria-labelledby="map-admin-modal-title">
+        <div class="map-modal-orb" aria-hidden="true"></div>
+        <div class="map-modal-header">
+          <p class="map-form-kicker">Admin Gate</p>
+          <h3 id="map-admin-modal-title">管理員驗證</h3>
+          <p>此頁目前只開放瀏覽；新增、刪除與儲存需要管理員權限。</p>
+        </div>
+        <form id="map-admin-form" class="map-modal-form">
+          <label>
+            管理員密碼
+            <input id="map-admin-passcode" type="password" autocomplete="current-password" placeholder="請輸入管理員密碼" />
+          </label>
+          <p id="map-admin-message" class="map-modal-message hidden" aria-live="polite"></p>
+          <div class="map-modal-actions">
+            <button type="button" id="map-admin-cancel" class="btn ghost">取消</button>
+            <button type="submit" class="btn primary">解除鎖定</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function openAdminModal() {
+    return new Promise((resolve) => {
+      const modal = ensureAdminModal();
+      const form = modal.querySelector("#map-admin-form");
+      const input = modal.querySelector("#map-admin-passcode");
+      const cancel = modal.querySelector("#map-admin-cancel");
+      const message = modal.querySelector("#map-admin-message");
+
+      function cleanup(result) {
+        form.removeEventListener("submit", handleSubmit);
+        cancel.removeEventListener("click", handleCancel);
+        modal.removeEventListener("click", handleBackdropClick);
+        window.removeEventListener("keydown", handleKeydown);
+        modal.classList.add("hidden");
+        resolve(result);
+      }
+
+      function showError(text) {
+        message.textContent = text;
+        message.classList.remove("hidden");
+        message.classList.add("is-error");
+      }
+
+      function handleSubmit(event) {
+        event.preventDefault();
+        const passcode = input.value.trim();
+        if (passcode !== ADMIN_PASSCODE) {
+          showError("密碼不正確，未開放修改。");
+          input.select();
+          return;
+        }
+
+        setAdminUnlocked(true);
+        cleanup(true);
+      }
+
+      function handleCancel() {
+        cleanup(false);
+      }
+
+      function handleBackdropClick(event) {
+        if (event.target === modal) cleanup(false);
+      }
+
+      function handleKeydown(event) {
+        if (event.key === "Escape") cleanup(false);
+      }
+
+      input.value = "";
+      message.textContent = "";
+      message.classList.add("hidden");
+      message.classList.remove("is-error");
+      modal.classList.remove("hidden");
+
+      form.addEventListener("submit", handleSubmit);
+      cancel.addEventListener("click", handleCancel);
+      modal.addEventListener("click", handleBackdropClick);
+      window.addEventListener("keydown", handleKeydown);
+
+      setTimeout(() => input.focus(), 0);
+    });
+  }
+
+  async function requireAdmin() {
+    if (isAdminUnlocked()) return true;
+    return openAdminModal();
+  }
+
+  function injectAdminControl() {
+    if (!refs.addTheme || document.getElementById("map-admin-toggle")) return;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = "map-admin-toggle";
+    button.className = "btn ghost map-admin-toggle";
+    button.addEventListener("click", async () => {
+      if (isAdminUnlocked()) {
+        setAdminUnlocked(false);
+        return;
+      }
+      await openAdminModal();
+    });
+
+    refs.addTheme.parentElement?.prepend(button);
+    refs.adminToggle = button;
+  }
+
+  function updateAdminControls() {
+    const unlocked = isAdminUnlocked();
+    const editButtons = [refs.addTheme, refs.addReading, refs.addEvent, refs.deleteNode, refs.resetData].filter(Boolean);
+
+    editButtons.forEach((button) => {
+      button.classList.toggle("is-locked", !unlocked);
+      button.title = unlocked ? "" : "目前僅管理員可修改";
+    });
+
+    if (refs.detailForm) {
+      refs.detailForm.classList.toggle("is-admin-locked", !unlocked);
+    }
+
+    if (refs.adminToggle) {
+      refs.adminToggle.textContent = unlocked ? "管理員已解鎖｜登出" : "管理員登入";
+      refs.adminToggle.classList.toggle("is-unlocked", unlocked);
+    }
+  }
+
+  async function addTheme() {
+    if (!(await requireAdmin())) return;
+
+    const title = await openTextModal({
+      title: "新增主題流",
+      description: "請輸入主題流名稱，例如：A 關係驗證、轉職驗證。",
+      label: "主題流名稱",
+      placeholder: "例如：A 關係驗證",
+      required: true,
+    });
+    if (!title) return;
+
+    const description = await openTextModal({
+      title: "主題說明",
+      description: "可補一句這條主題流要追蹤的範圍；也可以留空。",
+      label: "主題說明",
+      placeholder: "例如：觀察互動是否從冷淡轉為主動",
+      required: false,
+    });
+
+    const theme = createThemeObject(title.trim(), (description || "").trim(), state.themes.length);
     state.themes.push(theme);
     state.ui.activeThemeId = theme.id;
     saveState();
     renderAll();
   }
 
-  function addReading() {
+  function ensureTextModal() {
+    let modal = document.getElementById("map-text-modal");
+    if (modal) return modal;
+
+    modal = document.createElement("div");
+    modal.id = "map-text-modal";
+    modal.className = "map-modal-backdrop hidden";
+    modal.innerHTML = `
+      <div class="map-modal" role="dialog" aria-modal="true" aria-labelledby="map-text-modal-title">
+        <div class="map-modal-orb" aria-hidden="true"></div>
+        <div class="map-modal-header">
+          <p class="map-form-kicker">Timeflow Editor</p>
+          <h3 id="map-text-modal-title"></h3>
+          <p id="map-text-modal-description"></p>
+        </div>
+        <form id="map-text-form" class="map-modal-form">
+          <label>
+            <span id="map-text-label"></span>
+            <input id="map-text-input" type="text" autocomplete="off" />
+          </label>
+          <p id="map-text-message" class="map-modal-message hidden" aria-live="polite"></p>
+          <div class="map-modal-actions">
+            <button type="button" id="map-text-cancel" class="btn ghost">取消</button>
+            <button type="submit" class="btn primary">確認</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function openTextModal(options) {
+    return new Promise((resolve) => {
+      const modal = ensureTextModal();
+      const title = modal.querySelector("#map-text-modal-title");
+      const description = modal.querySelector("#map-text-modal-description");
+      const label = modal.querySelector("#map-text-label");
+      const form = modal.querySelector("#map-text-form");
+      const input = modal.querySelector("#map-text-input");
+      const cancel = modal.querySelector("#map-text-cancel");
+      const message = modal.querySelector("#map-text-message");
+
+      function cleanup(result) {
+        form.removeEventListener("submit", handleSubmit);
+        cancel.removeEventListener("click", handleCancel);
+        modal.removeEventListener("click", handleBackdropClick);
+        window.removeEventListener("keydown", handleKeydown);
+        modal.classList.add("hidden");
+        resolve(result);
+      }
+
+      function handleSubmit(event) {
+        event.preventDefault();
+        const value = input.value.trim();
+        if (options.required && !value) {
+          message.textContent = "此欄位必填。";
+          message.classList.remove("hidden");
+          message.classList.add("is-error");
+          input.focus();
+          return;
+        }
+        cleanup(value);
+      }
+
+      function handleCancel() {
+        cleanup(null);
+      }
+
+      function handleBackdropClick(event) {
+        if (event.target === modal) cleanup(null);
+      }
+
+      function handleKeydown(event) {
+        if (event.key === "Escape") cleanup(null);
+      }
+
+      title.textContent = options.title || "輸入內容";
+      description.textContent = options.description || "";
+      label.textContent = options.label || "內容";
+      input.placeholder = options.placeholder || "";
+      input.value = options.defaultValue || "";
+      message.textContent = "";
+      message.classList.add("hidden");
+      message.classList.remove("is-error");
+      modal.classList.remove("hidden");
+
+      form.addEventListener("submit", handleSubmit);
+      cancel.addEventListener("click", handleCancel);
+      modal.addEventListener("click", handleBackdropClick);
+      window.addEventListener("keydown", handleKeydown);
+
+      setTimeout(() => input.focus(), 0);
+    });
+  }
+
+  async function addReading() {
+    if (!(await requireAdmin())) return;
     const node = createReadingNode(getDefaultCreateThemeId());
     state.readings.push(node);
     state.ui.selectedId = node.id;
@@ -914,7 +1185,8 @@
     renderAll();
   }
 
-  function addEvent() {
+  async function addEvent() {
+    if (!(await requireAdmin())) return;
     const selectedNode = state.ui.selectedId ? getNodeById(state.ui.selectedId) : null;
     const relatedReadingId =
       selectedNode?.type === "reading"
@@ -944,8 +1216,9 @@
     });
   }
 
-  function saveDetailForm(event) {
+  async function saveDetailForm(event) {
     event.preventDefault();
+    if (!(await requireAdmin())) return;
     const nodeId = refs.detailId.value;
     const currentNode = getNodeById(nodeId);
     if (!currentNode) return;
@@ -1106,7 +1379,8 @@
     renderAll();
   }
 
-  function resetData() {
+  async function resetData() {
+    if (!(await requireAdmin())) return;
     const confirmed = window.confirm("要清空占卜時間流的所有本機資料嗎？此動作無法復原。");
     if (!confirmed) return;
 
@@ -1148,7 +1422,8 @@
     refs.addEvent.addEventListener("click", addEvent);
     refs.detailForm.addEventListener("submit", saveDetailForm);
 
-    refs.deleteNode.addEventListener("click", () => {
+    refs.deleteNode.addEventListener("click", async () => {
+      if (!(await requireAdmin())) return;
       const nodeId = refs.detailId.value;
       if (!nodeId) return;
       const confirmed = window.confirm("確定要刪除此節點嗎？");
@@ -1263,7 +1538,9 @@
     cacheRefs(root);
     state = loadState();
 
+    injectAdminControl();
     bindEvents();
+    updateAdminControls();
     renderAll();
   };
 
