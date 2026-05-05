@@ -458,8 +458,10 @@
           : options.streamX + options.eventBaseOffset + outerShift + innerShift;
 
       const baseY = options.groupStartY + index * options.verticalGap;
+      // Y 軸代表日期，不允許靠拖曳偏移，避免節點視覺位置與資料日期不一致。
+      // 時間複雜度：O(1)；空間複雜度：O(1)。
       const offsetX = clamp(Number(node.position?.x || 0), -190, 190);
-      const offsetY = clamp(Number(node.position?.y || 0), -90, 90);
+      const offsetY = 0;
 
       placements.push(
         createPlacement(
@@ -714,42 +716,41 @@
       );
     });
 
-    // 節點 → 主軸：改成「避讓曲線」。
-    // 時間複雜度：O(k)，k = 顯示節點數；空間複雜度：O(k) 用於同日/同側線路分組。
-    // 暴力法：全部畫水平線，節點一多就重疊。
-    // 本實作：依 streamX + date + type 分組，對同組線路給不同曲率，降低擋線。
+    // 節點 → 主軸：柔和曲線，不做過度上下繞線。
+    // 時間複雜度：O(k)，k = 顯示節點數；空間複雜度：O(k)。
+    // 更快替代方案比較：
+    // - 暴力法：直接畫水平直線 O(k)，最快但同日多節點時容易重疊、視覺生硬。
+    // - 本實作：每條線仍只算一次 O(k)，用同日/同側路由給極小弧度，保留可讀性。
     const branchRouteCount = new Map();
 
     Array.from(layout.placements.values()).forEach((placement) => {
       const node = placement.node;
-      const laneEdgeX =
+      const startX =
         node.type === "reading"
-          ? placement.x + placement.width
-          : placement.x;
-
+          ? placement.x + placement.width - 4
+          : placement.x + 4;
       const startY = placement.centerY;
-      const streamX = placement.streamX;
-      const direction = node.type === "reading" ? 1 : -1;
-      const distance = Math.abs(streamX - laneEdgeX);
-      const curveStrength = clamp(distance * 0.48, 86, 220);
+      const endX = placement.streamX;
+      const endY = placement.centerY;
+      const direction = endX >= startX ? 1 : -1;
+      const distance = Math.abs(endX - startX);
+      const curveStrength = clamp(distance * 0.32, 58, 138);
 
-      const routeKey = `${streamX}|${node.date || "nodate"}|${node.type}`;
+      const routeKey = `${endX}|${node.date || "nodate"}|${node.type}`;
       const routeIndex = branchRouteCount.get(routeKey) || 0;
       branchRouteCount.set(routeKey, routeIndex + 1);
 
-      // 0, +1, -1, +2, -2... 讓同日線路上下分散。
+      // 同日多線只加非常小的側向張力，不改變時間高度，避免曲線看起來亂飛。
       const routeLevel = routeIndex === 0 ? 0 : Math.ceil(routeIndex / 2) * (routeIndex % 2 === 1 ? 1 : -1);
-      const routeOffset = routeLevel * 34;
+      const routeBend = routeLevel * 10;
 
-      // 終點仍接主軸，但同日多線會分散接到主軸附近，避免全部壓在同一點。
-      const endY = startY + routeOffset * 0.18;
-      const c1x = laneEdgeX + direction * curveStrength;
-      const c1y = startY + routeOffset;
-      const c2x = streamX - direction * curveStrength * 0.38;
-      const c2y = endY - routeOffset * 0.72;
+      const c1x = startX + direction * curveStrength;
+      const c1y = startY + routeBend;
+      const c2x = endX - direction * curveStrength * 0.62;
+      const c2y = endY + routeBend;
 
       fragments.push(
-        `<path class="map-stream-branch ${node.type}" d="M ${laneEdgeX} ${startY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${streamX} ${endY}" style="stroke:${hexToRgba(getThemeColor(node.themeId), node.type === "reading" ? 0.52 : 0.46)};" />`
+        `<path class="map-stream-branch ${node.type}" d="M ${startX} ${startY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${endX} ${endY}" style="stroke:${hexToRgba(getThemeColor(node.themeId), node.type === "reading" ? 0.58 : 0.52)};" />`
       );
     });
 
@@ -765,17 +766,17 @@
       const toY = readingPlacement.centerY;
       const midX = (fromX + toX) / 2;
 
-      // 事件 ↔ 占卜案例：改成大弧線，避開主軸與水平線。
-      // 時間複雜度：O(1)；renderConnections 整體仍為 O(k + e)。
-      const sameRowBoost = Math.abs(fromY - toY) < 90 ? 120 : 80;
+      // 事件 ↔ 占卜案例：使用柔和弧線，避免太大圈導致畫面怪異。
+      // 時間複雜度：O(1)；空間複雜度：O(1)。
+      const sameRowBoost = Math.abs(fromY - toY) < 90 ? 54 : 38;
       const verticalArc = fromY <= toY ? -sameRowBoost : sameRowBoost;
-      const c1x = midX + Math.abs(fromX - toX) * 0.18;
-      const c2x = midX - Math.abs(fromX - toX) * 0.18;
+      const c1x = fromX - Math.max(80, Math.abs(fromX - toX) * 0.22);
+      const c2x = toX + Math.max(80, Math.abs(fromX - toX) * 0.22);
       const c1y = fromY + verticalArc;
       const c2y = toY + verticalArc;
 
       fragments.push(
-        `<path class="map-link-line" d="M ${fromX} ${fromY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${toX} ${toY}" style="stroke:${hexToRgba(getThemeColor(eventNode.themeId), 0.50)};" />`
+        `<path class="map-link-line" d="M ${fromX} ${fromY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${toX} ${toY}" style="stroke:${hexToRgba(getThemeColor(eventNode.themeId), 0.46)};" />`
       );
     });
 
@@ -1343,8 +1344,10 @@
     updateNodeById(dragState.nodeId, (node) => ({
       ...node,
       position: {
+        // 只允許 X 軸微調；Y 軸由日期排序決定。
+        // 時間複雜度：O(1)；空間複雜度：O(1)。
         x: clamp(point.x - dragState.pointerOffsetX - dragState.baseX, -190, 190),
-        y: clamp(point.y - dragState.pointerOffsetY - dragState.baseY, -90, 90),
+        y: 0,
       },
       updatedAt: getNowIso(),
     }));
