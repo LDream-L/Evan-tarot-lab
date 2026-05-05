@@ -1570,3 +1570,28 @@ main,
 .map-node {
   touch-action: none;
 }
+
+
+/* ===== 2026-05 fixed visible admin login button ===== */
+#map-admin-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.map-admin-toggle {
+  border-color: rgba(255, 211, 122, 0.42);
+  color: #ffe8b8;
+  background: rgba(38, 27, 8, 0.42);
+}
+
+.map-admin-toggle:hover {
+  border-color: rgba(255, 211, 122, 0.72);
+  background: rgba(58, 42, 12, 0.56);
+}
+
+.map-admin-toggle.is-unlocked {
+  border-color: rgba(127, 227, 178, 0.58);
+  color: #cbffea;
+  background: rgba(8, 40, 26, 0.44);
+}
