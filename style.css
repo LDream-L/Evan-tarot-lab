@@ -1550,48 +1550,119 @@ main,
   }
 }
 
-/* ===== 2026-05 fixed curved timeline connection ===== */
-.map-stream-axis,
-.map-stream-branch,
-.map-link-line {
-  vector-effect: non-scaling-stroke;
+/* ===== 2026-05 unified Evan custom dialog ===== */
+.evan-dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 1200;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  background:
+    radial-gradient(circle at 50% 20%, rgba(139, 123, 255, 0.24), transparent 34%),
+    radial-gradient(circle at 72% 68%, rgba(113, 232, 255, 0.10), transparent 30%),
+    rgba(0, 0, 10, 0.74);
+  backdrop-filter: blur(12px);
+  animation: evanDialogFadeIn 0.14s ease-out;
 }
 
-.map-stream-branch {
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  filter: drop-shadow(0 0 5px rgba(183, 148, 255, 0.18));
+.evan-dialog-backdrop.is-leaving {
+  animation: evanDialogFadeOut 0.12s ease-in forwards;
 }
 
-.map-stream-marker {
-  filter: drop-shadow(0 0 7px rgba(183, 148, 255, 0.35));
+.evan-dialog {
+  position: relative;
+  width: min(460px, 100%);
+  overflow: hidden;
+  border-radius: 24px;
+  border: 1px solid rgba(183, 148, 255, 0.54);
+  background:
+    radial-gradient(circle at 0 0, rgba(249, 168, 255, 0.16), transparent 42%),
+    linear-gradient(180deg, rgba(22, 22, 54, 0.985), rgba(7, 8, 26, 0.985));
+  box-shadow:
+    0 28px 80px rgba(0, 0, 0, 0.76),
+    0 0 0 1px rgba(255, 255, 255, 0.035) inset;
+  padding: 20px;
 }
 
-.map-node {
-  touch-action: none;
+.evan-dialog-orb {
+  position: absolute;
+  right: -70px;
+  top: -76px;
+  width: 200px;
+  height: 200px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(183, 148, 255, 0.24), transparent 68%);
+  pointer-events: none;
 }
 
-
-/* ===== 2026-05 fixed visible admin login button ===== */
-#map-admin-toggle {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+.evan-dialog-header,
+.evan-dialog-field,
+.evan-dialog-actions {
+  position: relative;
+  z-index: 1;
 }
 
-.map-admin-toggle {
-  border-color: rgba(255, 211, 122, 0.42);
-  color: #ffe8b8;
-  background: rgba(38, 27, 8, 0.42);
+.evan-dialog-header h3 {
+  margin: 0 0 6px;
+  font-size: 1.15rem;
 }
 
-.map-admin-toggle:hover {
-  border-color: rgba(255, 211, 122, 0.72);
-  background: rgba(58, 42, 12, 0.56);
+.evan-dialog-header p:not(.map-form-kicker) {
+  margin: 0 0 14px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 
-.map-admin-toggle.is-unlocked {
-  border-color: rgba(127, 227, 178, 0.58);
-  color: #cbffea;
-  background: rgba(8, 40, 26, 0.44);
+.evan-dialog-field {
+  display: block;
+  margin-top: 12px;
+  color: var(--text-muted);
+  font-size: 0.86rem;
+}
+
+.evan-dialog-field input {
+  width: 100%;
+  margin-top: 6px;
+  padding: 12px 13px;
+  border-radius: 12px;
+  border: 1px solid rgba(139, 123, 255, 0.38);
+  background: rgba(4, 5, 20, 0.96);
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.16s, box-shadow 0.16s, background 0.16s;
+}
+
+.evan-dialog-field input:focus {
+  border-color: var(--accent-strong);
+  box-shadow: 0 0 0 3px rgba(139, 123, 255, 0.18);
+  background: rgba(9, 10, 32, 0.98);
+}
+
+.evan-dialog-actions {
+  margin-top: 16px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+@keyframes evanDialogFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes evanDialogFadeOut {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@media (max-width: 560px) {
+  .evan-dialog-actions {
+    flex-direction: column-reverse;
+  }
+
+  .evan-dialog-actions .btn {
+    width: 100%;
+  }
 }

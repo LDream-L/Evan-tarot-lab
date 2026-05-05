@@ -1,34 +1,61 @@
 // ==============================
 // divination-map.js
-// 占卜時間流：主題流 / 占卜案例 / 事件 / 曲線連接
+// 占卜時間流 Beta v3
 // ==============================
 //
-// 主要函式複雜度：
-// - initDivinationMap：O(n)
-// - renderMap：O(n + e)
-// - buildLayout：O(n log n)
-// - renderConnections：O(n + e)
-// - renderNodes：O(n)
-// 空間複雜度：O(n + e)
+// 核心設計：
+// 1. 時間流移到獨立頁面，首頁只保留入口。
+// 2. 新增「主題流」概念：每個案例 / 事件都可歸到某一個主題。
+// 3. 支援兩種檢視模式：
+//    - single：單一主流檢視（適合聚焦單一主題驗證）
+//    - parallel：平行時間流檢視（適合比較多個主題）
+//
+// 關鍵函式複雜度：
+// - initDivinationMap：O(n + m)
+// - buildSingleLayout：O(k log k)
+// - buildParallelLayout：O(k log k)
+// - renderMap / renderTimeline：O(k log k)
 //
 // 更快替代方案比較：
-// - 暴力法：每次操作都重新掃描 DOM、逐筆查詢關聯節點，容易變成 O(n²)。
-// - 本實作：先用 Map 建立 id -> node 查表，關聯線查詢為 O(1)，整體維持 O(n + e)。
+// - 暴力法：所有節點都擠在一條線上，再靠顏色硬分群。
+// - 本版：先建立主題流，再提供單流 / 平行流兩種檢視，辨識度與驗證性更高。
 // ==============================
 
 (function initDivinationMapModule() {
-  const STORAGE_KEY = "evanDivinationMapData_v4";
-  const LEGACY_KEYS = ["evanDivinationMapData_v3", "evanDivinationMapData", "evanTarotDivinationMap"];
-  const ADMIN_KEY = "evanDivinationMapAdminUnlocked";
-  const ADMIN_PASSWORD = "EVAN";
+  const STORAGE_KEY = "evanTarotDivinationTimeflowV3";
+  const LEGACY_KEYS = [
+    "evanTarotDivinationTimeflowV2",
+    "evanTarotDivinationMapV1",
+  ];
+
+  // 管理員鎖：GitHub Pages 是純前端，這只能防一般訪客誤改；真正防竄改仍需後端權限。
+  // 上線前請把這串改成你自己的密碼。
+  const ADMIN_PASSCODE = "EVAN-TAROT-ADMIN-2026";
+  const ADMIN_SESSION_KEY = "evanTarotTimeflowAdminUnlocked";
+
+  const DEFAULT_SCENE_WIDTH = 1680;
+  const DEFAULT_SCENE_HEIGHT = 1500;
+  const SINGLE_STREAM_X = 840;
+
+  const PARALLEL_LANE_GAP = 520;
+  const PARALLEL_FIRST_STREAM_X = 320;
+  const PARALLEL_READING_X_OFFSET = -310;
+  const PARALLEL_EVENT_X_OFFSET = 40;
+
+  const NODE_SIZES = {
+    reading: { width: 272, height: 154 },
+    event: { width: 248, height: 136 },
+  };
 
   const THEME_COLORS = [
     "#b794ff",
-    "#71e8ff",
-    "#f9a8ff",
     "#7fe3b2",
-    "#ffd37a",
-    "#f07181",
+    "#7de4ff",
+    "#ffb3d8",
+    "#ffd27a",
+    "#a9b4ff",
+    "#8fd7ff",
+    "#ff9bb2",
   ];
 
   const CATEGORY_LABELS = {
@@ -48,200 +75,319 @@
     missed: "未應驗",
   };
 
-  const NODE_TYPE_LABELS = {
+  const TYPE_LABELS = {
     reading: "占卜案例",
-    event: "事件",
+    event: "驗證事件",
   };
 
-  const state = {
-    data: null,
-    selectedId: "",
-    zoom: 1,
-    panX: 0,
-    panY: 0,
-    draggingNode: null,
-    panning: null,
-    latestLayout: null,
-    adminUnlocked: false,
+  let state = null;
+  let refs = {};
+  let dragState = null;
+  let panState = null;
+  let currentLayout = {
+    placements: new Map(),
+    streams: [],
+    dateMarkers: [],
+    sceneWidth: DEFAULT_SCENE_WIDTH,
+    sceneHeight: DEFAULT_SCENE_HEIGHT,
   };
 
-  const els = {};
-
-  function $(id) {
-    return document.getElementById(id);
-  }
-
-  function todayISODate() {
-    const now = new Date();
-    const taipei = new Date(now.getTime() + 8 * 60 * 60 * 1000);
-    return taipei.toISOString().slice(0, 10);
-  }
-
-  function makeId(prefix) {
-    return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
-  }
-
-  function escapeHtml(str) {
-    return String(str || "")
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-  }
-
-  function hexToRgba(hex, alpha) {
-    const clean = String(hex || "#b794ff").replace("#", "");
-    const value = clean.length === 3
-      ? clean.split("").map((c) => c + c).join("")
-      : clean.padEnd(6, "0").slice(0, 6);
-    const r = parseInt(value.slice(0, 2), 16);
-    const g = parseInt(value.slice(2, 4), 16);
-    const b = parseInt(value.slice(4, 6), 16);
-    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
-  }
-
-  function defaultData() {
-    const themeId = makeId("theme");
-    const readingId = makeId("reading");
-    const eventId = makeId("event");
-    const today = todayISODate();
-
+  function createInitialState() {
+    const defaultTheme = createThemeObject("第一主題流", "第一條驗證主線", 0);
     return {
-      themes: [
-        {
-          id: themeId,
-          title: "A 關係驗證",
-          category: "relationship",
-          color: THEME_COLORS[0],
-          createdAt: today,
-        },
-      ],
-      nodes: [
-        {
-          id: readingId,
-          type: "reading",
-          themeId,
-          date: today,
-          title: "範例：這段關係接下來的互動走向",
-          category: "relationship",
-          subject: "A",
-          status: "pending",
-          cards: "權杖六｜現況\n寶劍侍者｜對方狀態",
-          interpretation: "這是一筆範例資料，可直接刪除或覆蓋。",
-          predictions: "觀察是否有主動靠近、訊息或邀約。",
-          note: "",
-          xOffset: 0,
-          yOffset: 0,
-        },
-        {
-          id: eventId,
-          type: "event",
-          themeId,
-          date: today,
-          title: "範例：後續事件紀錄",
-          category: "relationship",
-          relatedReadingId: readingId,
-          status: "partial",
-          eventDescription: "把實際發生的事件記在這裡，系統會用曲線接回主題流。",
-          note: "這筆也可刪除。",
-          xOffset: 0,
-          yOffset: 0,
-        },
-      ],
-      viewMode: "single",
-      activeThemeId: themeId,
-      filterStatus: "all",
-      filterCategory: "all",
-      search: "",
+      version: 3,
+      themes: [defaultTheme],
+      readings: [],
+      events: [],
+      ui: {
+        zoom: 0.88,
+        panX: -120,
+        panY: 0,
+        selectedId: null,
+        filterStatus: "all",
+        filterCategory: "all",
+        search: "",
+        activeThemeId: "all",
+        viewMode: "single",
+      },
     };
   }
 
-  function normalizeData(raw) {
-    const data = raw && typeof raw === "object" ? raw : defaultData();
-    const themes = Array.isArray(data.themes) ? data.themes : [];
-    const nodes = Array.isArray(data.nodes) ? data.nodes : [];
+  function createThemeObject(title, description, index) {
+    return {
+      id: createNodeId("theme"),
+      title: title || `主題流 ${index + 1}`,
+      description: description || "",
+      color: THEME_COLORS[index % THEME_COLORS.length],
+      createdAt: getNowIso(),
+    };
+  }
 
+  function getNowIso() {
+    return window.nowTaipeiISO ? window.nowTaipeiISO() : new Date().toISOString();
+  }
+
+  function getTodayTaipeiDate() {
+    const formatter = new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Taipei",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+    });
+    return formatter.format(new Date());
+  }
+
+  function createNodeId(prefix) {
+    return `${prefix}_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
+  }
+
+  function ensureThemes(rawThemes) {
+    const themes = Array.isArray(rawThemes) ? rawThemes.slice() : [];
     if (!themes.length) {
-      return defaultData();
+      return [createThemeObject("第一主題流", "第一條驗證主線", 0)];
     }
 
-    themes.forEach((theme, index) => {
-      theme.id = theme.id || makeId("theme");
-      theme.title = theme.title || `主題流 ${index + 1}`;
-      theme.category = theme.category || "other";
-      theme.color = theme.color || THEME_COLORS[index % THEME_COLORS.length];
-      theme.createdAt = theme.createdAt || todayISODate();
-    });
+    return themes.map((theme, index) => ({
+      id: theme.id || createNodeId("theme"),
+      title: theme.title || `主題流 ${index + 1}`,
+      description: theme.description || "",
+      color: theme.color || THEME_COLORS[index % THEME_COLORS.length],
+      createdAt: theme.createdAt || getNowIso(),
+    }));
+  }
 
-    nodes.forEach((node) => {
-      node.id = node.id || makeId(node.type === "event" ? "event" : "reading");
-      node.type = node.type === "event" ? "event" : "reading";
-      node.themeId = node.themeId || themes[0].id;
-      node.date = node.date || todayISODate();
-      node.title = node.title || (node.type === "event" ? "未命名事件" : "未命名占卜案例");
-      node.category = node.category || getThemeById(node.themeId)?.category || "other";
-      node.status = node.status || "pending";
-      node.xOffset = Number(node.xOffset || 0);
-      node.yOffset = Number(node.yOffset || 0);
-    });
-
+  function ensureNode(node, type, fallbackThemeId) {
     return {
-      themes,
-      nodes,
-      viewMode: data.viewMode === "parallel" ? "parallel" : "single",
-      activeThemeId: data.activeThemeId || themes[0].id,
-      filterStatus: data.filterStatus || "all",
-      filterCategory: data.filterCategory || "all",
-      search: data.search || "",
+      id: node.id || createNodeId(type),
+      type,
+      title: node.title || "",
+      category: node.category || "other",
+      themeId: node.themeId || fallbackThemeId,
+      date: node.date || "",
+      subject: node.subject || "",
+      cards: node.cards || "",
+      interpretation: node.interpretation || "",
+      predictions: node.predictions || "",
+      description: node.description || "",
+      note: node.note || "",
+      status: node.status || "pending",
+      relatedReadingId: node.relatedReadingId || "",
+      position: {
+        x: Number(node.position?.x || 0),
+        y: Number(node.position?.y || 0),
+      },
+      createdAt: node.createdAt || getNowIso(),
+      updatedAt: node.updatedAt || getNowIso(),
     };
   }
 
-  function loadData() {
-    const primary = localStorage.getItem(STORAGE_KEY);
-    if (primary) {
-      try { return normalizeData(JSON.parse(primary)); } catch (e) {}
-    }
+  function migrateLegacyState(parsed) {
+    const initial = createInitialState();
+    const fallbackThemeId = initial.themes[0].id;
 
-    for (const key of LEGACY_KEYS) {
-      const raw = localStorage.getItem(key);
-      if (!raw) continue;
-      try {
-        const data = normalizeData(JSON.parse(raw));
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-        return data;
-      } catch (e) {}
-    }
-
-    const data = defaultData();
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-    return data;
+    return {
+      ...initial,
+      version: 3,
+      themes: initial.themes,
+      readings: Array.isArray(parsed?.readings)
+        ? parsed.readings.map((node) => ensureNode(node, "reading", fallbackThemeId))
+        : [],
+      events: Array.isArray(parsed?.events)
+        ? parsed.events.map((node) => ensureNode(node, "event", fallbackThemeId))
+        : [],
+      ui: {
+        ...initial.ui,
+        ...(parsed?.ui || {}),
+        activeThemeId: "all",
+        viewMode: "single",
+      },
+    };
   }
 
-  function saveData() {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(state.data));
+  function loadState() {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        const initial = createInitialState();
+        const themes = ensureThemes(parsed?.themes);
+        const fallbackThemeId = themes[0].id;
+
+        return {
+          ...initial,
+          ...parsed,
+          version: 3,
+          themes,
+          readings: Array.isArray(parsed?.readings)
+            ? parsed.readings.map((node) => ensureNode(node, "reading", fallbackThemeId))
+            : [],
+          events: Array.isArray(parsed?.events)
+            ? parsed.events.map((node) => ensureNode(node, "event", fallbackThemeId))
+            : [],
+          ui: {
+            ...initial.ui,
+            ...(parsed?.ui || {}),
+            activeThemeId: parsed?.ui?.activeThemeId || "all",
+            viewMode: parsed?.ui?.viewMode || "single",
+          },
+        };
+      }
+
+      for (const key of LEGACY_KEYS) {
+        const legacyRaw = localStorage.getItem(key);
+        if (legacyRaw) {
+          return migrateLegacyState(JSON.parse(legacyRaw));
+        }
+      }
+
+      return createInitialState();
+    } catch (error) {
+      console.warn("占卜時間流資料損壞，已重置。", error);
+      localStorage.removeItem(STORAGE_KEY);
+      return createInitialState();
+    }
+  }
+
+  function saveState() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  function getAllNodes() {
+    return [...state.readings, ...state.events];
   }
 
   function getThemeById(themeId) {
-    return state.data?.themes.find((theme) => theme.id === themeId) || null;
+    return state.themes.find((theme) => theme.id === themeId) || null;
+  }
+
+  function getThemeTitle(themeId) {
+    return getThemeById(themeId)?.title || "未分類主題";
   }
 
   function getThemeColor(themeId) {
     return getThemeById(themeId)?.color || THEME_COLORS[0];
   }
 
+  function getDefaultCreateThemeId() {
+    if (state.ui.activeThemeId !== "all" && getThemeById(state.ui.activeThemeId)) {
+      return state.ui.activeThemeId;
+    }
+    return state.themes[0]?.id || createInitialState().themes[0].id;
+  }
+
+  function getNodeById(nodeId) {
+    return getAllNodes().find((node) => node.id === nodeId) || null;
+  }
+
+  function updateNodeById(nodeId, updater) {
+    const readingIndex = state.readings.findIndex((node) => node.id === nodeId);
+    if (readingIndex !== -1) {
+      state.readings[readingIndex] = updater(state.readings[readingIndex]);
+      return;
+    }
+
+    const eventIndex = state.events.findIndex((node) => node.id === nodeId);
+    if (eventIndex !== -1) {
+      state.events[eventIndex] = updater(state.events[eventIndex]);
+    }
+  }
+
+  function deleteNodeById(nodeId) {
+    const isReading = state.readings.some((node) => node.id === nodeId);
+
+    if (isReading) {
+      state.readings = state.readings.filter((node) => node.id !== nodeId);
+      state.events = state.events.map((eventNode) => {
+        if (eventNode.relatedReadingId !== nodeId) return eventNode;
+        return {
+          ...eventNode,
+          relatedReadingId: "",
+          updatedAt: getNowIso(),
+        };
+      });
+    } else {
+      state.events = state.events.filter((node) => node.id !== nodeId);
+    }
+
+    if (state.ui.selectedId === nodeId) {
+      state.ui.selectedId = null;
+    }
+  }
+
+  function createReadingNode(themeId) {
+    return {
+      id: createNodeId("reading"),
+      type: "reading",
+      title: `新占卜案例 ${state.readings.length + 1}`,
+      category: "relationship",
+      themeId,
+      subject: "",
+      date: getTodayTaipeiDate(),
+      cards: "",
+      interpretation: "",
+      predictions: "",
+      note: "",
+      status: "pending",
+      position: { x: 0, y: 0 },
+      createdAt: getNowIso(),
+      updatedAt: getNowIso(),
+    };
+  }
+
+  function createEventNode(themeId, relatedReadingId) {
+    const anchorReading = relatedReadingId
+      ? state.readings.find((reading) => reading.id === relatedReadingId)
+      : null;
+
+    return {
+      id: createNodeId("event"),
+      type: "event",
+      title: `新事件 ${state.events.length + 1}`,
+      category: anchorReading?.category || "other",
+      themeId: anchorReading?.themeId || themeId,
+      date: getTodayTaipeiDate(),
+      description: "",
+      relatedReadingId: relatedReadingId || "",
+      note: "",
+      status: "pending",
+      position: { x: 0, y: 0 },
+      createdAt: getNowIso(),
+      updatedAt: getNowIso(),
+    };
+  }
+
+  function normalizeSortDate(dateValue) {
+    return dateValue || "9999-12-31";
+  }
+
+  function getSortedNodes(nodes) {
+    return nodes.slice().sort((a, b) => {
+      const leftDate = normalizeSortDate(a.date);
+      const rightDate = normalizeSortDate(b.date);
+      if (leftDate !== rightDate) return leftDate.localeCompare(rightDate);
+
+      if (a.type !== b.type) {
+        return a.type === "reading" ? -1 : 1;
+      }
+
+      const leftCreated = a.createdAt || "";
+      const rightCreated = b.createdAt || "";
+      return leftCreated.localeCompare(rightCreated);
+    });
+  }
+
   function getVisibleNodes() {
-    const data = state.data;
-    const keyword = String(data.search || "").trim().toLowerCase();
+    const keyword = state.ui.search.trim().toLowerCase();
 
-    return data.nodes.filter((node) => {
-      const theme = getThemeById(node.themeId);
-      const targetTheme = data.activeThemeId !== "all" ? data.activeThemeId : null;
+    return getAllNodes().filter((node) => {
+      const statusMatch =
+        state.ui.filterStatus === "all" || node.status === state.ui.filterStatus;
+      const categoryMatch =
+        state.ui.filterCategory === "all" || node.category === state.ui.filterCategory;
+      const themeMatch =
+        state.ui.activeThemeId === "all" || node.themeId === state.ui.activeThemeId;
 
-      if (data.viewMode === "single" && data.activeThemeId !== "all" && node.themeId !== data.activeThemeId) return false;
-      if (data.viewMode === "parallel" && targetTheme && node.themeId !== targetTheme) return false;
-      if (data.filterStatus !== "all" && node.status !== data.filterStatus) return false;
-      if (data.filterCategory !== "all" && node.category !== data.filterCategory && theme?.category !== data.filterCategory) return false;
+      if (!statusMatch || !categoryMatch || !themeMatch) return false;
 
       if (!keyword) return true;
 
@@ -251,650 +397,1177 @@
         node.cards,
         node.interpretation,
         node.predictions,
-        node.eventDescription,
+        node.description,
         node.note,
-        theme?.title,
-        CATEGORY_LABELS[node.category],
-        STATUS_LABELS[node.status],
-      ].join(" ").toLowerCase();
+        node.date,
+        getThemeTitle(node.themeId),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
 
       return haystack.includes(keyword);
     });
   }
 
-  function buildLayout() {
-    const visibleNodes = getVisibleNodes().slice().sort((a, b) => {
-      const dateCmp = String(a.date).localeCompare(String(b.date));
-      if (dateCmp !== 0) return dateCmp;
-      if (a.type !== b.type) return a.type === "reading" ? -1 : 1;
-      return String(a.title).localeCompare(String(b.title));
+  function groupNodesByDate(nodes) {
+    const groups = [];
+    let currentGroup = null;
+
+    getSortedNodes(nodes).forEach((node) => {
+      const dateKey = node.date || "未填日期";
+      if (!currentGroup || currentGroup.dateKey !== dateKey) {
+        currentGroup = { dateKey, nodes: [] };
+        groups.push(currentGroup);
+      }
+      currentGroup.nodes.push(node);
     });
 
-    const themeIds = state.data.viewMode === "parallel"
-      ? state.data.themes.map((theme) => theme.id).filter((id) => state.data.activeThemeId === "all" || id === state.data.activeThemeId)
-      : [state.data.activeThemeId === "all" ? state.data.themes[0].id : state.data.activeThemeId];
+    return groups;
+  }
 
-    const safeThemeIds = themeIds.length ? themeIds : [state.data.themes[0].id];
-    const streamXs = new Map();
-    const sceneWidth = Math.max(1680, 620 * safeThemeIds.length + 420);
-    const baseGap = sceneWidth / (safeThemeIds.length + 1);
-
-    safeThemeIds.forEach((themeId, index) => {
-      streamXs.set(themeId, Math.round(baseGap * (index + 1)));
-    });
-
-    const counters = new Map();
-    const placements = visibleNodes.map((node) => {
-      const themeId = streamXs.has(node.themeId) ? node.themeId : safeThemeIds[0];
-      const themeIndex = counters.get(themeId) || 0;
-      counters.set(themeId, themeIndex + 1);
-
-      const streamX = streamXs.get(themeId);
-      const isReading = node.type === "reading";
-      const width = isReading ? 272 : 248;
-      const height = isReading ? 154 : 136;
-      const side = isReading ? -1 : 1;
-      const distance = state.data.viewMode === "parallel" ? 170 : 230;
-      const x = streamX + side * distance - (isReading ? width : 0) + Number(node.xOffset || 0);
-      const y = 110 + themeIndex * 210 + Number(node.yOffset || 0);
-
-      return {
-        node,
-        x,
-        y,
-        width,
-        height,
-        centerX: x + width / 2,
-        centerY: y + height / 2,
-        streamX,
-      };
-    });
-
-    const maxY = Math.max(900, ...placements.map((p) => p.y + p.height + 180));
-
+  function createPlacement(node, x, y, baseX, baseY, streamX) {
+    const size = NODE_SIZES[node.type];
     return {
-      sceneWidth,
-      sceneHeight: maxY,
-      streamXs,
-      themeIds: safeThemeIds,
-      placements,
-      placementById: new Map(placements.map((p) => [p.node.id, p])),
+      node,
+      width: size.width,
+      height: size.height,
+      x,
+      y,
+      baseX,
+      baseY,
+      streamX,
+      centerX: x + size.width / 2,
+      centerY: y + size.height / 2,
     };
   }
 
-  function curvePath(x1, y1, x2, y2) {
-    const gap = Math.abs(x2 - x1);
-    const curve = Math.min(140, Math.max(44, gap * 0.45));
-    const sign = x2 >= x1 ? 1 : -1;
-    return `M ${x1} ${y1} C ${x1 + curve * sign} ${y1}, ${x2 - curve * sign} ${y2}, ${x2} ${y2}`;
-  }
+  function placeGroupNodes(group, options) {
+    const placements = [];
+    let readingLaneCount = 0;
+    let eventLaneCount = 0;
 
-  function renderConnections(layout) {
-    const fragments = [];
+    group.nodes.forEach((node, index) => {
+      const laneCount = node.type === "reading" ? readingLaneCount++ : eventLaneCount++;
+      const outerShift = Math.floor(laneCount / 2) * options.laneSpread;
+      const innerShift = laneCount % 2 === 1 ? options.laneStagger : 0;
 
-    layout.themeIds.forEach((themeId) => {
-      const theme = getThemeById(themeId);
-      const x = layout.streamXs.get(themeId);
-      const color = getThemeColor(themeId);
-      const title = escapeHtml(theme?.title || "主題流");
+      const baseX =
+        node.type === "reading"
+          ? options.streamX + options.readingBaseOffset - outerShift - innerShift
+          : options.streamX + options.eventBaseOffset + outerShift + innerShift;
 
-      fragments.push(`<path class="map-stream-glow" d="M ${x - 26} 70 C ${x + 42} 240, ${x - 42} 520, ${x + 20} ${layout.sceneHeight - 80} L ${x - 20} ${layout.sceneHeight - 80} C ${x - 42} 520, ${x + 42} 240, ${x - 26} 70 Z" fill="${hexToRgba(color, 0.08)}" />`);
-      fragments.push(`<line class="map-stream-axis" x1="${x}" y1="78" x2="${x}" y2="${layout.sceneHeight - 70}" stroke="${hexToRgba(color, 0.62)}" />`);
-      fragments.push(`<text class="map-stream-title" x="${x + 18}" y="58">${title}</text>`);
+      const baseY = options.groupStartY + index * options.verticalGap;
+      const offsetX = clamp(Number(node.position?.x || 0), -190, 190);
+      const offsetY = clamp(Number(node.position?.y || 0), -90, 90);
+
+      placements.push(
+        createPlacement(
+          node,
+          baseX + offsetX,
+          baseY + offsetY,
+          baseX,
+          baseY,
+          options.streamX
+        )
+      );
     });
 
-    layout.placements.forEach((placement) => {
-      const { node } = placement;
-      const startX = node.type === "reading" ? placement.x + placement.width : placement.x;
-      const startY = placement.centerY;
-      const endX = placement.streamX;
-      const endY = placement.centerY;
-      const color = getThemeColor(node.themeId);
-      const d = curvePath(startX, startY, endX, endY);
+    return placements;
+  }
 
-      fragments.push(`<path class="map-stream-branch ${node.type}" d="${d}" fill="none" stroke="${hexToRgba(color, node.type === "reading" ? 0.55 : 0.45)}" stroke-width="2.8" />`);
-      fragments.push(`<circle class="map-stream-marker" cx="${endX}" cy="${endY}" r="6" fill="${hexToRgba(color, 0.96)}" stroke="${hexToRgba(color, 0.28)}" />`);
+  function buildSingleLayout(nodes) {
+    const placements = new Map();
+    const dateMarkers = [];
+    const streamX = SINGLE_STREAM_X;
+    let cursorY = 150;
+
+    const groups = groupNodesByDate(nodes);
+
+    groups.forEach((group) => {
+      const groupStartY = cursorY;
+      const groupPlacements = placeGroupNodes(group, {
+        streamX,
+        groupStartY,
+        readingBaseOffset: -420,
+        eventBaseOffset: 120,
+        laneSpread: 72,
+        laneStagger: 30,
+        verticalGap: 156,
+      });
+
+      groupPlacements.forEach((placement) => {
+        placements.set(placement.node.id, placement);
+      });
+
+      const groupHeight = Math.max(150, (group.nodes.length - 1) * 156 + 138);
+      const markerY = groupStartY + groupHeight / 2 - 8;
+      dateMarkers.push({
+        streamX,
+        dateKey: group.dateKey,
+        y: markerY,
+      });
+
+      cursorY += groupHeight + 120;
     });
 
-    layout.placements.forEach((placement) => {
-      const node = placement.node;
-      if (node.type !== "event" || !node.relatedReadingId) return;
-      const target = layout.placementById.get(node.relatedReadingId);
-      if (!target) return;
+    return {
+      placements,
+      dateMarkers,
+      streams: [
+        {
+          id: "single",
+          title:
+            state.ui.activeThemeId === "all"
+              ? "全部主題"
+              : getThemeTitle(state.ui.activeThemeId),
+          color:
+            state.ui.activeThemeId === "all"
+              ? "#b794ff"
+              : getThemeColor(state.ui.activeThemeId),
+          x: streamX,
+          topY: 70,
+          bottomY: Math.max(cursorY, DEFAULT_SCENE_HEIGHT) - 70,
+        },
+      ],
+      sceneWidth: DEFAULT_SCENE_WIDTH,
+      sceneHeight: Math.max(cursorY + 120, DEFAULT_SCENE_HEIGHT),
+    };
+  }
 
-      const x1 = placement.x;
-      const y1 = placement.centerY;
-      const x2 = target.x + target.width;
-      const y2 = target.centerY;
-      const d = curvePath(x1, y1, x2, y2);
-      fragments.push(`<path class="map-link-line" d="${d}" />`);
+  function buildParallelLayout(nodes) {
+    const placements = new Map();
+    const dateMarkers = [];
+    const streams = [];
+    const nodesByTheme = new Map();
+
+    state.themes.forEach((theme) => nodesByTheme.set(theme.id, []));
+    nodes.forEach((node) => {
+      if (!nodesByTheme.has(node.themeId)) nodesByTheme.set(node.themeId, []);
+      nodesByTheme.get(node.themeId).push(node);
     });
 
-    els.connections.setAttribute("viewBox", `0 0 ${layout.sceneWidth} ${layout.sceneHeight}`);
-    els.connections.innerHTML = fragments.join("");
+    const visibleThemeIds = state.ui.activeThemeId !== "all"
+      ? [state.ui.activeThemeId]
+      : state.themes
+          .filter((theme) => (nodesByTheme.get(theme.id) || []).length > 0)
+          .map((theme) => theme.id);
+
+    const laneThemeIds = visibleThemeIds.length ? visibleThemeIds : [state.themes[0].id];
+    const sceneWidth = Math.max(
+      DEFAULT_SCENE_WIDTH,
+      PARALLEL_FIRST_STREAM_X * 2 + (laneThemeIds.length - 1) * PARALLEL_LANE_GAP
+    );
+
+    let maxBottomY = DEFAULT_SCENE_HEIGHT;
+
+    laneThemeIds.forEach((themeId, laneIndex) => {
+      const streamX = PARALLEL_FIRST_STREAM_X + laneIndex * PARALLEL_LANE_GAP;
+      const themeNodes = getSortedNodes(nodesByTheme.get(themeId) || []);
+      const groups = groupNodesByDate(themeNodes);
+      let cursorY = 180;
+
+      groups.forEach((group) => {
+        const groupStartY = cursorY;
+        const groupPlacements = placeGroupNodes(group, {
+          streamX,
+          groupStartY,
+          readingBaseOffset: PARALLEL_READING_X_OFFSET,
+          eventBaseOffset: PARALLEL_EVENT_X_OFFSET,
+          laneSpread: 54,
+          laneStagger: 18,
+          verticalGap: 150,
+        });
+
+        groupPlacements.forEach((placement) => {
+          placements.set(placement.node.id, placement);
+        });
+
+        const groupHeight = Math.max(150, (group.nodes.length - 1) * 150 + 132);
+        const markerY = groupStartY + groupHeight / 2 - 8;
+        dateMarkers.push({
+          streamX,
+          dateKey: group.dateKey,
+          y: markerY,
+        });
+
+        cursorY += groupHeight + 120;
+      });
+
+      const bottomY = Math.max(cursorY + 100, DEFAULT_SCENE_HEIGHT - 70);
+      streams.push({
+        id: themeId,
+        title: getThemeTitle(themeId),
+        color: getThemeColor(themeId),
+        x: streamX,
+        topY: 70,
+        bottomY,
+      });
+      maxBottomY = Math.max(maxBottomY, bottomY + 70);
+    });
+
+    return {
+      placements,
+      dateMarkers,
+      streams,
+      sceneWidth,
+      sceneHeight: maxBottomY,
+    };
   }
 
-  function previewText(node) {
-    if (node.type === "event") return node.eventDescription || node.note || "尚未填寫事件描述。";
-    return node.predictions || node.interpretation || node.cards || "尚未填寫解讀。";
+  function buildLayout(nodes) {
+    return state.ui.viewMode === "parallel"
+      ? buildParallelLayout(nodes)
+      : buildSingleLayout(nodes);
   }
 
-  function renderNodes(layout) {
-    const html = layout.placements.map((placement) => {
-      const node = placement.node;
-      const theme = getThemeById(node.themeId);
-      const color = getThemeColor(node.themeId);
-      const selected = node.id === state.selectedId ? " is-selected" : "";
-      const style = [
-        `left:${placement.x}px`,
-        `top:${placement.y}px`,
-        `--theme-color:${color}`,
-        `--theme-color-soft:${hexToRgba(color, 0.15)}`,
-      ].join(";");
+  function renderThemeSelects() {
+    const options = ['<option value="all">全部主題</option>']
+      .concat(
+        state.themes.map((theme) => {
+          return `<option value="${theme.id}">${escapeHtml(theme.title)}</option>`;
+        })
+      )
+      .join("");
 
-      return `
-        <article class="map-node ${node.type} status-${node.status}${selected}" data-node-id="${node.id}" style="${style}">
-          <div class="map-node-header">
-            <span class="map-node-type">${NODE_TYPE_LABELS[node.type]}</span>
-            <span class="map-node-date-badge">${escapeHtml(node.date)}</span>
-          </div>
-          <h5>${escapeHtml(node.title)}</h5>
-          <p class="map-node-meta">${escapeHtml(theme?.title || "未分流")} · ${escapeHtml(CATEGORY_LABELS[node.category] || "其他")}</p>
-          <p class="map-node-preview">${escapeHtml(previewText(node)).slice(0, 96)}</p>
-          <div class="map-node-footer">
-            <span class="map-node-status">${STATUS_LABELS[node.status] || "尚未驗證"}</span>
-            <span class="map-node-flow-tag">${node.type === "event" && node.relatedReadingId ? "已連案例" : "主軸連接"}</span>
-          </div>
-        </article>`;
-    }).join("");
+    refs.activeTheme.innerHTML = options;
+    refs.activeTheme.value = getThemeById(state.ui.activeThemeId) ? state.ui.activeThemeId : "all";
 
-    els.canvas.innerHTML = html || `<p class="map-timeline-empty" style="padding:20px;">目前沒有符合條件的節點。</p>`;
+    const nodeThemeOptions = state.themes
+      .map((theme) => `<option value="${theme.id}">${escapeHtml(theme.title)}</option>`)
+      .join("");
+
+    refs.fieldTheme.innerHTML = nodeThemeOptions;
   }
 
-  function renderStats(visibleCount) {
-    const readings = state.data.nodes.filter((n) => n.type === "reading").length;
-    const events = state.data.nodes.filter((n) => n.type === "event").length;
-    els.stats.innerHTML = `
-      <span class="map-stat-pill">主題 ${state.data.themes.length}</span>
-      <span class="map-stat-pill">占卜 ${readings}</span>
-      <span class="map-stat-pill">事件 ${events}</span>
-      <span class="map-stat-pill">目前顯示 ${visibleCount}</span>
-    `;
+  function renderCategoryFilterOptions() {
+    const categories = new Set();
+    getAllNodes().forEach((node) => {
+      if (node.category) categories.add(node.category);
+    });
+
+    const options = ['<option value="all">全部主題分類</option>'];
+    Object.entries(CATEGORY_LABELS).forEach(([value, label]) => {
+      if (categories.has(value) || value === state.ui.filterCategory) {
+        options.push(`<option value="${value}">${label}</option>`);
+      }
+    });
+
+    refs.filterCategory.innerHTML = options.join("");
+    refs.filterCategory.value = state.ui.filterCategory;
   }
 
-  function renderTimeline() {
-    const nodes = getVisibleNodes().slice().sort((a, b) => String(a.date).localeCompare(String(b.date)));
-    if (!nodes.length) {
-      els.timeline.innerHTML = `<p class="map-timeline-empty">目前沒有符合條件的時間軸項目。</p>`;
-      return;
-    }
+  function renderRelatedReadingOptions(selectedValue, themeId) {
+    const currentThemeId = themeId || "";
+    const readings = state.readings.slice().sort((a, b) => {
+      const aScore = a.themeId === currentThemeId ? 0 : 1;
+      const bScore = b.themeId === currentThemeId ? 0 : 1;
+      if (aScore !== bScore) return aScore - bScore;
+      return normalizeSortDate(a.date).localeCompare(normalizeSortDate(b.date));
+    });
 
-    els.timeline.innerHTML = nodes.map((node) => {
-      const theme = getThemeById(node.themeId);
-      return `
-        <article class="map-timeline-item ${node.type}" data-timeline-id="${node.id}">
-          <div class="map-timeline-top">
-            <span class="map-timeline-date">${escapeHtml(node.date)}</span>
-            <span class="map-node-status">${STATUS_LABELS[node.status] || "尚未驗證"}</span>
-          </div>
-          <h5>${escapeHtml(node.title)}</h5>
-          <p>${escapeHtml(theme?.title || "未分流")}｜${NODE_TYPE_LABELS[node.type]}｜${escapeHtml(previewText(node)).slice(0, 120)}</p>
-        </article>`;
-    }).join("");
+    const options = ['<option value="">未連結</option>'];
+    readings.forEach((reading) => {
+      const title = `${reading.title || "未命名占卜案例"}｜${getThemeTitle(reading.themeId)}`;
+      options.push(`<option value="${reading.id}">${escapeHtml(title)}</option>`);
+    });
+
+    refs.fieldRelatedReading.innerHTML = options.join("");
+    refs.fieldRelatedReading.value = selectedValue || "";
   }
 
-  function renderSelectors() {
-    const themeOptions = state.data.themes.map((theme) => `<option value="${theme.id}">${escapeHtml(theme.title)}</option>`).join("");
-    const activeOptions = `<option value="all">全部主題</option>${themeOptions}`;
-    const categories = Object.entries(CATEGORY_LABELS).map(([value, label]) => `<option value="${value}">${label}</option>`).join("");
-
-    els.activeTheme.innerHTML = activeOptions;
-    els.fieldTheme.innerHTML = themeOptions;
-    els.filterCategory.innerHTML = `<option value="all">全部主題分類</option>${categories}`;
-
-    els.viewMode.value = state.data.viewMode;
-    els.activeTheme.value = state.data.activeThemeId;
-    els.filterStatus.value = state.data.filterStatus;
-    els.filterCategory.value = state.data.filterCategory;
-    els.search.value = state.data.search;
-  }
-
-  function renderRelatedReadingOptions() {
-    const selectedNode = getSelectedNode();
-    const currentTheme = selectedNode?.themeId || els.fieldTheme.value || state.data.themes[0]?.id;
-    const readings = state.data.nodes.filter((node) => node.type === "reading" && node.themeId === currentTheme);
-    els.fieldRelatedReading.innerHTML = `<option value="">未連結</option>` + readings.map((node) => `<option value="${node.id}">${escapeHtml(node.date)}｜${escapeHtml(node.title)}</option>`).join("");
+  function renderStats(nodes) {
+    refs.stats.innerHTML = [
+      `<span class="map-stat-pill">主題流 ${state.themes.length}</span>`,
+      `<span class="map-stat-pill">案例 ${state.readings.length}</span>`,
+      `<span class="map-stat-pill">事件 ${state.events.length}</span>`,
+      `<span class="map-stat-pill">檢視 ${state.ui.viewMode === "parallel" ? "平行時間流" : "單一時間流"}</span>`,
+      `<span class="map-stat-pill">目前顯示 ${nodes.length}</span>`,
+    ].join("");
   }
 
   function applySceneTransform() {
-    els.scene.style.transform = `translate(${state.panX}px, ${state.panY}px) scale(${state.zoom})`;
-    els.zoomReset.textContent = `${Math.round(state.zoom * 100)}%`;
+    refs.scene.style.transform = `translate(${state.ui.panX}px, ${state.ui.panY}px) scale(${state.ui.zoom})`;
+    refs.zoomReset.textContent = `${Math.round(state.ui.zoom * 100)}%`;
   }
 
-  function renderMap() {
-    renderSelectors();
-    const layout = buildLayout();
-    state.latestLayout = layout;
+  function renderConnections(layout) {
+    refs.connections.setAttribute("viewBox", `0 0 ${layout.sceneWidth} ${layout.sceneHeight}`);
+    refs.connections.setAttribute("width", String(layout.sceneWidth));
+    refs.connections.setAttribute("height", String(layout.sceneHeight));
 
-    els.scene.style.width = `${layout.sceneWidth}px`;
-    els.scene.style.minHeight = `${layout.sceneHeight}px`;
-    els.connections.style.width = `${layout.sceneWidth}px`;
-    els.connections.style.height = `${layout.sceneHeight}px`;
-    els.canvas.style.width = `${layout.sceneWidth}px`;
-    els.canvas.style.height = `${layout.sceneHeight}px`;
+    const fragments = [];
 
-    renderConnections(layout);
-    renderNodes(layout);
-    renderStats(layout.placements.length);
-    renderTimeline();
-    renderDetailForm();
+    layout.streams.forEach((stream) => {
+      fragments.push(
+        `<line class="map-stream-axis" x1="${stream.x}" y1="${stream.topY}" x2="${stream.x}" y2="${stream.bottomY}" style="stroke:${stream.color};" />`,
+        `<ellipse class="map-stream-glow" cx="${stream.x}" cy="${(stream.topY + stream.bottomY) / 2}" rx="52" ry="${Math.max(260, (stream.bottomY - stream.topY) / 2 - 40)}" style="fill:${hexToRgba(stream.color, 0.08)};" />`,
+        `<text class="map-stream-title" x="${stream.x}" y="42" text-anchor="middle">${escapeHtml(stream.title)}</text>`
+      );
+    });
+
+    layout.dateMarkers.forEach((marker) => {
+      fragments.push(
+        `<line class="map-stream-tick" x1="${marker.streamX - 26}" y1="${marker.y}" x2="${marker.streamX + 26}" y2="${marker.y}" />`,
+        `<circle class="map-stream-marker" cx="${marker.streamX}" cy="${marker.y}" r="10" />`,
+        `<text class="map-stream-date-label" x="${marker.streamX}" y="${marker.y - 20}" text-anchor="middle">${escapeHtml(marker.dateKey)}</text>`
+      );
+    });
+
+    layout.placements.forEach((placement) => {
+      const laneEdgeX =
+        placement.node.type === "reading"
+          ? placement.x + placement.width
+          : placement.x;
+      const streamX = placement.streamX;
+      const direction = placement.node.type === "reading" ? 1 : -1;
+      const distance = Math.abs(streamX - laneEdgeX);
+      const curveStrength = clamp(distance * 0.42, 72, 180);
+      const controlYShift = placement.node.type === "reading" ? -18 : 18;
+
+      // 用 SVG path 直接接到主軸中心，避免原本 line 只畫到 streamX ± 28px 造成視覺斷裂。
+      // 時間複雜度：O(1)／空間複雜度：O(1)；renderConnections 整體仍為 O(k)。
+      fragments.push(
+        `<path class="map-stream-branch ${placement.node.type}" d="M ${laneEdgeX} ${placement.centerY} C ${laneEdgeX + direction * curveStrength} ${placement.centerY + controlYShift}, ${streamX - direction * curveStrength * 0.42} ${placement.centerY - controlYShift}, ${streamX} ${placement.centerY}" style="stroke:${hexToRgba(getThemeColor(placement.node.themeId), placement.node.type === "reading" ? 0.42 : 0.36)};" />`
+      );
+    });
+
+    state.events.forEach((eventNode) => {
+      if (!eventNode.relatedReadingId) return;
+      const eventPlacement = layout.placements.get(eventNode.id);
+      const readingPlacement = layout.placements.get(eventNode.relatedReadingId);
+      if (!eventPlacement || !readingPlacement) return;
+
+      const fromX = eventPlacement.x;
+      const fromY = eventPlacement.centerY;
+      const toX = readingPlacement.x + readingPlacement.width;
+      const toY = readingPlacement.centerY;
+      const midX = (eventPlacement.streamX + readingPlacement.streamX) / 2;
+      const ctrlOffset = Math.max(90, Math.abs(fromY - toY) * 0.22);
+
+      fragments.push(
+        `<path class="map-link-line" d="M ${fromX} ${fromY} C ${midX + ctrlOffset} ${fromY}, ${midX - ctrlOffset} ${toY}, ${toX} ${toY}" style="stroke:${hexToRgba(getThemeColor(eventNode.themeId), 0.42)};" />`
+      );
+    });
+
+    refs.connections.innerHTML = fragments.join("");
+  }
+
+  function renderMap(nodes) {
+    currentLayout = buildLayout(nodes);
+    refs.scene.style.width = `${currentLayout.sceneWidth}px`;
+    refs.scene.style.height = `${currentLayout.sceneHeight}px`;
+
+    const fragment = document.createDocumentFragment();
+
+    nodes.forEach((node) => {
+      const placement = currentLayout.placements.get(node.id);
+      if (!placement) return;
+
+      const el = document.createElement("article");
+      el.className = `map-node ${node.type} status-${node.status}${state.ui.selectedId === node.id ? " is-selected" : ""}`;
+      el.dataset.id = node.id;
+      el.dataset.type = node.type;
+      el.style.left = `${placement.x}px`;
+      el.style.top = `${placement.y}px`;
+      el.style.setProperty("--theme-color", getThemeColor(node.themeId));
+      el.style.setProperty("--theme-color-soft", hexToRgba(getThemeColor(node.themeId), 0.16));
+
+      const metaText =
+        node.type === "reading"
+          ? `${CATEGORY_LABELS[node.category] || CATEGORY_LABELS.other} · ${node.subject || "未填對象"}`
+          : `${CATEGORY_LABELS[node.category] || CATEGORY_LABELS.other}${node.relatedReadingId ? " · 已連結案例" : " · 未連結案例"}`;
+
+      const previewText =
+        node.type === "reading"
+          ? node.interpretation || node.cards || "尚未填入解讀"
+          : node.description || node.note || "尚未填入事件描述";
+
+      el.innerHTML = `
+        <div class="map-node-header">
+          <span class="map-node-type">${TYPE_LABELS[node.type]}</span>
+          <span class="map-node-date-badge">${escapeHtml(node.date || "未填日期")}</span>
+        </div>
+        <h5>${escapeHtml(node.title || "未命名節點")}</h5>
+        <p class="map-node-meta">${escapeHtml(metaText)}</p>
+        <p class="map-node-preview">${escapeHtml(previewText).replace(/\n/g, "<br />")}</p>
+        <div class="map-node-footer">
+          <span class="map-node-status">${STATUS_LABELS[node.status] || STATUS_LABELS.pending}</span>
+          <span class="map-theme-pill">${escapeHtml(getThemeTitle(node.themeId))}</span>
+        </div>
+      `;
+
+      el.addEventListener("pointerdown", handleNodePointerDown);
+      el.addEventListener("click", handleNodeClick);
+      fragment.appendChild(el);
+    });
+
+    refs.canvas.innerHTML = "";
+    refs.canvas.appendChild(fragment);
+    renderConnections(currentLayout);
+  }
+
+  function renderTimeline(nodes) {
+    const items = getSortedNodes(nodes);
+
+    if (!items.length) {
+      refs.timeline.innerHTML =
+        '<p class="map-timeline-empty">目前還沒有符合篩選條件的案例或事件。</p>';
+      return;
+    }
+
+    refs.timeline.innerHTML = items
+      .map((node) => {
+        const body =
+          node.type === "reading"
+            ? node.interpretation || node.cards || "尚未填入解讀"
+            : node.description || node.note || "尚未填入事件描述";
+
+        return `
+          <article class="map-timeline-item ${node.type}">
+            <div class="map-timeline-top">
+              <span class="map-node-type">${TYPE_LABELS[node.type]}</span>
+              <span class="map-timeline-date">${escapeHtml(node.date || "未填日期")}</span>
+            </div>
+            <h5>${escapeHtml(node.title || "未命名節點")}</h5>
+            <p>${escapeHtml(body).replace(/\n/g, "<br />")}</p>
+            <div class="map-timeline-footer">
+              <span class="map-theme-pill">${escapeHtml(getThemeTitle(node.themeId))}</span>
+              <span class="map-node-preview">${escapeHtml(STATUS_LABELS[node.status] || STATUS_LABELS.pending)}</span>
+            </div>
+          </article>
+        `;
+      })
+      .join("");
+  }
+
+  function renderDetailPanel() {
+    const node = state.ui.selectedId ? getNodeById(state.ui.selectedId) : null;
+    const readingOnlyFields = refs.root.querySelectorAll("[data-reading-only]");
+    const eventOnlyFields = refs.root.querySelectorAll("[data-event-only]");
+
+    if (!node) {
+      refs.emptyState.classList.remove("hidden");
+      refs.detailForm.classList.add("hidden");
+      return;
+    }
+
+    refs.emptyState.classList.add("hidden");
+    refs.detailForm.classList.remove("hidden");
+
+    refs.detailTypeLabel.textContent = TYPE_LABELS[node.type];
+    refs.detailTitle.textContent = node.title || "節點內容";
+    refs.selectedId.textContent = node.id;
+    refs.detailId.value = node.id;
+    refs.fieldTitle.value = node.title || "";
+    refs.fieldDate.value = node.date || "";
+    refs.fieldCategory.value = node.category || "other";
+    refs.fieldStatus.value = node.status || "pending";
+    refs.fieldNote.value = node.note || "";
+    refs.fieldTheme.value = node.themeId || state.themes[0]?.id || "";
+
+    const theme = getThemeById(node.themeId);
+    refs.detailThemeHint.textContent = theme
+      ? `${theme.title}${theme.description ? "｜" + theme.description : ""}`
+      : "請先建立主題流";
+
+    const isReading = node.type === "reading";
+    readingOnlyFields.forEach((field) => field.classList.toggle("hidden", !isReading));
+    eventOnlyFields.forEach((field) => field.classList.toggle("hidden", isReading));
+
+    if (isReading) {
+      refs.fieldSubject.value = node.subject || "";
+      refs.fieldCards.value = node.cards || "";
+      refs.fieldInterpretation.value = node.interpretation || "";
+      refs.fieldPredictions.value = node.predictions || "";
+    } else {
+      renderRelatedReadingOptions(node.relatedReadingId || "", node.themeId);
+      refs.fieldEventDescription.value = node.description || "";
+    }
+  }
+
+  function renderAll() {
+    renderThemeSelects();
+    renderCategoryFilterOptions();
+    refs.filterStatus.value = state.ui.filterStatus;
+    refs.search.value = state.ui.search;
+    refs.viewMode.value = state.ui.viewMode;
+    refs.activeTheme.value = getThemeById(state.ui.activeThemeId) ? state.ui.activeThemeId : "all";
+
+    const visibleNodes = getVisibleNodes();
+    renderStats(visibleNodes);
     applySceneTransform();
+    renderMap(visibleNodes);
+    renderDetailPanel();
+    renderTimeline(visibleNodes);
+    updateAdminControls();
   }
 
-  function getSelectedNode() {
-    return state.data.nodes.find((node) => node.id === state.selectedId) || null;
+  function isAdminUnlocked() {
+    return sessionStorage.getItem(ADMIN_SESSION_KEY) === "true";
   }
 
-  function setFieldVisibility(type) {
-    document.querySelectorAll("[data-reading-only]").forEach((el) => el.classList.toggle("hidden", type !== "reading"));
-    document.querySelectorAll("[data-event-only]").forEach((el) => el.classList.toggle("hidden", type !== "event"));
+  function setAdminUnlocked(value) {
+    if (value) {
+      sessionStorage.setItem(ADMIN_SESSION_KEY, "true");
+    } else {
+      sessionStorage.removeItem(ADMIN_SESSION_KEY);
+    }
+    updateAdminControls();
   }
 
-  function renderDetailForm() {
-    const node = getSelectedNode();
-    const locked = !state.adminUnlocked;
+  function ensureAdminModal() {
+    let modal = document.getElementById("map-admin-modal");
+    if (modal) return modal;
 
-    els.emptyState.classList.toggle("hidden", !!node);
-    els.detailForm.classList.toggle("hidden", !node);
-    els.detailForm.classList.toggle("is-admin-locked", locked);
-
-    if (!node) return;
-
-    setFieldVisibility(node.type);
-    renderRelatedReadingOptions();
-
-    els.detailTypeLabel.textContent = NODE_TYPE_LABELS[node.type];
-    els.detailTitle.textContent = node.title || "節點內容";
-    els.selectedId.textContent = node.id;
-    els.detailId.value = node.id;
-    els.fieldTheme.value = node.themeId;
-    els.fieldDate.value = node.date;
-    els.fieldTitle.value = node.title || "";
-    els.fieldCategory.value = node.category || "other";
-    els.fieldSubject.value = node.subject || "";
-    els.fieldStatus.value = node.status || "pending";
-    els.fieldCards.value = node.cards || "";
-    els.fieldInterpretation.value = node.interpretation || "";
-    els.fieldPredictions.value = node.predictions || "";
-    els.fieldEventDescription.value = node.eventDescription || "";
-    els.fieldRelatedReading.value = node.relatedReadingId || "";
-    els.fieldNote.value = node.note || "";
-    els.detailThemeHint.textContent = locked ? "目前是訪客瀏覽模式，請先解鎖管理員才能修改。" : "變更主題流後，節點會重新掛到對應主軸。";
-
-    els.detailForm.querySelectorAll("input, select, textarea, button[type='submit']").forEach((input) => {
-      input.disabled = locked;
-    });
-    els.deleteNode.disabled = locked;
-  }
-
-  function requireAdmin() {
-    if (state.adminUnlocked) return true;
-    showAdminModal();
-    return false;
-  }
-
-  function addTheme() {
-    if (!requireAdmin()) return;
-    const title = window.prompt("新增主題流名稱：", "新的主題流");
-    if (!title || !title.trim()) return;
-    const id = makeId("theme");
-    const index = state.data.themes.length;
-    state.data.themes.push({
-      id,
-      title: title.trim(),
-      category: "other",
-      color: THEME_COLORS[index % THEME_COLORS.length],
-      createdAt: todayISODate(),
-    });
-    state.data.activeThemeId = id;
-    saveData();
-    renderMap();
-  }
-
-  function addNode(type) {
-    if (!requireAdmin()) return;
-    const themeId = state.data.activeThemeId !== "all" ? state.data.activeThemeId : state.data.themes[0].id;
-    const theme = getThemeById(themeId) || state.data.themes[0];
-    const node = {
-      id: makeId(type),
-      type,
-      themeId: theme.id,
-      date: todayISODate(),
-      title: type === "reading" ? "新的占卜案例" : "新的事件",
-      category: theme.category || "other",
-      subject: "",
-      status: "pending",
-      cards: "",
-      interpretation: "",
-      predictions: "",
-      eventDescription: "",
-      relatedReadingId: "",
-      note: "",
-      xOffset: 0,
-      yOffset: 0,
-    };
-    state.data.nodes.push(node);
-    state.selectedId = node.id;
-    saveData();
-    renderMap();
-  }
-
-  function saveSelectedNode(event) {
-    event.preventDefault();
-    if (!requireAdmin()) return;
-    const node = getSelectedNode();
-    if (!node) return;
-
-    node.themeId = els.fieldTheme.value;
-    node.date = els.fieldDate.value || todayISODate();
-    node.title = els.fieldTitle.value.trim() || (node.type === "event" ? "未命名事件" : "未命名占卜案例");
-    node.category = els.fieldCategory.value || "other";
-    node.subject = els.fieldSubject.value.trim();
-    node.status = els.fieldStatus.value || "pending";
-    node.cards = els.fieldCards.value.trim();
-    node.interpretation = els.fieldInterpretation.value.trim();
-    node.predictions = els.fieldPredictions.value.trim();
-    node.eventDescription = els.fieldEventDescription.value.trim();
-    node.relatedReadingId = els.fieldRelatedReading.value;
-    node.note = els.fieldNote.value.trim();
-
-    saveData();
-    renderMap();
-  }
-
-  function deleteSelectedNode() {
-    if (!requireAdmin()) return;
-    const node = getSelectedNode();
-    if (!node) return;
-    const ok = window.confirm(`確定刪除「${node.title}」？`);
-    if (!ok) return;
-
-    state.data.nodes = state.data.nodes.filter((item) => item.id !== node.id);
-    state.data.nodes.forEach((item) => {
-      if (item.relatedReadingId === node.id) item.relatedReadingId = "";
-    });
-    state.selectedId = "";
-    saveData();
-    renderMap();
-  }
-
-  function exportJson() {
-    const blob = new Blob([JSON.stringify(state.data, null, 2)], { type: "application/json;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `evan-timeflow-${todayISODate()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  function resetData() {
-    if (!requireAdmin()) return;
-    const ok = window.confirm("確定清空時間流資料？這會重設成本機預設範例。建議先下載 JSON 備份。");
-    if (!ok) return;
-    state.data = defaultData();
-    state.selectedId = "";
-    saveData();
-    renderMap();
-  }
-
-  function updateAdminUI() {
-    if (!els.adminToggle) return;
-    els.adminToggle.textContent = state.adminUnlocked ? "管理員已解鎖" : "管理員登入";
-    els.adminToggle.classList.toggle("is-unlocked", state.adminUnlocked);
-    [els.addTheme, els.addReading, els.addEvent, els.deleteNode].forEach((btn) => {
-      if (!btn) return;
-      btn.classList.toggle("is-locked", !state.adminUnlocked);
-    });
-  }
-
-  function showAdminModal() {
-    const old = document.querySelector(".map-modal-backdrop");
-    old?.remove();
-
-    const backdrop = document.createElement("div");
-    backdrop.className = "map-modal-backdrop";
-    backdrop.innerHTML = `
-      <div class="map-modal" role="dialog" aria-modal="true" aria-label="管理員登入">
+    modal = document.createElement("div");
+    modal.id = "map-admin-modal";
+    modal.className = "map-modal-backdrop hidden";
+    modal.innerHTML = `
+      <div class="map-modal" role="dialog" aria-modal="true" aria-labelledby="map-admin-modal-title">
         <div class="map-modal-orb" aria-hidden="true"></div>
         <div class="map-modal-header">
-          <p class="map-form-kicker">Admin Lock</p>
-          <h3>管理員登入</h3>
-          <p>目前時間流是訪客瀏覽模式。輸入管理密碼後才可新增、修改與刪除。</p>
+          <p class="map-form-kicker">Admin Gate</p>
+          <h3 id="map-admin-modal-title">管理員驗證</h3>
+          <p>此頁目前只開放瀏覽；新增、刪除與儲存需要管理員權限。</p>
         </div>
-        <form class="map-modal-form" id="map-admin-form">
-          <label>管理密碼
-            <input id="map-admin-password" type="password" autocomplete="current-password" placeholder="輸入管理密碼" />
+        <form id="map-admin-form" class="map-modal-form">
+          <label>
+            管理員密碼
+            <input id="map-admin-passcode" type="password" autocomplete="current-password" placeholder="請輸入管理員密碼" />
           </label>
-          <p class="map-modal-message hidden" id="map-admin-message"></p>
+          <p id="map-admin-message" class="map-modal-message hidden" aria-live="polite"></p>
           <div class="map-modal-actions">
-            <button type="button" class="btn ghost" id="map-admin-cancel">取消</button>
-            <button type="submit" class="btn primary">解鎖</button>
+            <button type="button" id="map-admin-cancel" class="btn ghost">取消</button>
+            <button type="submit" class="btn primary">解除鎖定</button>
           </div>
         </form>
       </div>
     `;
-    document.body.appendChild(backdrop);
 
-    const passwordInput = backdrop.querySelector("#map-admin-password");
-    const message = backdrop.querySelector("#map-admin-message");
-    passwordInput.focus();
+    document.body.appendChild(modal);
+    return modal;
+  }
 
-    backdrop.querySelector("#map-admin-cancel").addEventListener("click", () => backdrop.remove());
-    backdrop.addEventListener("click", (event) => {
-      if (event.target === backdrop) backdrop.remove();
-    });
-    backdrop.querySelector("#map-admin-form").addEventListener("submit", (event) => {
-      event.preventDefault();
-      const value = passwordInput.value.trim();
-      if (value !== ADMIN_PASSWORD) {
-        message.textContent = "密碼錯誤。預設密碼目前是 EVAN，可之後再改成你自己的。";
-        message.classList.add("is-error");
-        message.classList.remove("hidden");
-        passwordInput.select();
-        return;
+  function openAdminModal() {
+    return new Promise((resolve) => {
+      const modal = ensureAdminModal();
+      const form = modal.querySelector("#map-admin-form");
+      const input = modal.querySelector("#map-admin-passcode");
+      const cancel = modal.querySelector("#map-admin-cancel");
+      const message = modal.querySelector("#map-admin-message");
+
+      function cleanup(result) {
+        form.removeEventListener("submit", handleSubmit);
+        cancel.removeEventListener("click", handleCancel);
+        modal.removeEventListener("click", handleBackdropClick);
+        window.removeEventListener("keydown", handleKeydown);
+        modal.classList.add("hidden");
+        resolve(result);
       }
-      state.adminUnlocked = true;
-      sessionStorage.setItem(ADMIN_KEY, "1");
-      backdrop.remove();
-      updateAdminUI();
-      renderDetailForm();
+
+      function showError(text) {
+        message.textContent = text;
+        message.classList.remove("hidden");
+        message.classList.add("is-error");
+      }
+
+      function handleSubmit(event) {
+        event.preventDefault();
+        const passcode = input.value.trim();
+        if (passcode !== ADMIN_PASSCODE) {
+          showError("密碼不正確，未開放修改。");
+          input.select();
+          return;
+        }
+
+        setAdminUnlocked(true);
+        cleanup(true);
+      }
+
+      function handleCancel() {
+        cleanup(false);
+      }
+
+      function handleBackdropClick(event) {
+        if (event.target === modal) cleanup(false);
+      }
+
+      function handleKeydown(event) {
+        if (event.key === "Escape") cleanup(false);
+      }
+
+      input.value = "";
+      message.textContent = "";
+      message.classList.add("hidden");
+      message.classList.remove("is-error");
+      modal.classList.remove("hidden");
+
+      form.addEventListener("submit", handleSubmit);
+      cancel.addEventListener("click", handleCancel);
+      modal.addEventListener("click", handleBackdropClick);
+      window.addEventListener("keydown", handleKeydown);
+
+      setTimeout(() => input.focus(), 0);
     });
   }
 
-  function handleCanvasPointerDown(event) {
-    const nodeEl = event.target.closest(".map-node");
-    if (nodeEl) {
-      const nodeId = nodeEl.dataset.nodeId;
-      state.selectedId = nodeId;
-      renderMap();
+  async function requireAdmin() {
+    if (isAdminUnlocked()) return true;
+    return openAdminModal();
+  }
 
-      if (!state.adminUnlocked) return;
-      const placement = state.latestLayout?.placementById.get(nodeId);
-      const node = getSelectedNode();
-      if (!placement || !node) return;
-      event.preventDefault();
-      state.draggingNode = {
-        id: nodeId,
-        startClientX: event.clientX,
-        startClientY: event.clientY,
-        startXOffset: Number(node.xOffset || 0),
-        startYOffset: Number(node.yOffset || 0),
-      };
-      return;
+  function injectAdminControl() {
+    if (!refs.addTheme || document.getElementById("map-admin-toggle")) return;
+
+    const button = document.createElement("button");
+    button.type = "button";
+    button.id = "map-admin-toggle";
+    button.className = "btn ghost map-admin-toggle";
+    button.addEventListener("click", async () => {
+      if (isAdminUnlocked()) {
+        setAdminUnlocked(false);
+        return;
+      }
+      await openAdminModal();
+    });
+
+    refs.addTheme.parentElement?.prepend(button);
+    refs.adminToggle = button;
+  }
+
+  function updateAdminControls() {
+    const unlocked = isAdminUnlocked();
+    const editButtons = [refs.addTheme, refs.addReading, refs.addEvent, refs.deleteNode, refs.resetData].filter(Boolean);
+
+    editButtons.forEach((button) => {
+      button.classList.toggle("is-locked", !unlocked);
+      button.title = unlocked ? "" : "目前僅管理員可修改";
+    });
+
+    if (refs.detailForm) {
+      refs.detailForm.classList.toggle("is-admin-locked", !unlocked);
     }
 
+    if (refs.adminToggle) {
+      refs.adminToggle.textContent = unlocked ? "管理員已解鎖｜登出" : "管理員登入";
+      refs.adminToggle.classList.toggle("is-unlocked", unlocked);
+    }
+  }
+
+  async function addTheme() {
+    if (!(await requireAdmin())) return;
+
+    const title = await openTextModal({
+      title: "新增主題流",
+      description: "請輸入主題流名稱，例如：A 關係驗證、轉職驗證。",
+      label: "主題流名稱",
+      placeholder: "例如：A 關係驗證",
+      required: true,
+    });
+    if (!title) return;
+
+    const description = await openTextModal({
+      title: "主題說明",
+      description: "可補一句這條主題流要追蹤的範圍；也可以留空。",
+      label: "主題說明",
+      placeholder: "例如：觀察互動是否從冷淡轉為主動",
+      required: false,
+    });
+
+    const theme = createThemeObject(title.trim(), (description || "").trim(), state.themes.length);
+    state.themes.push(theme);
+    state.ui.activeThemeId = theme.id;
+    saveState();
+    renderAll();
+  }
+
+  function ensureTextModal() {
+    let modal = document.getElementById("map-text-modal");
+    if (modal) return modal;
+
+    modal = document.createElement("div");
+    modal.id = "map-text-modal";
+    modal.className = "map-modal-backdrop hidden";
+    modal.innerHTML = `
+      <div class="map-modal" role="dialog" aria-modal="true" aria-labelledby="map-text-modal-title">
+        <div class="map-modal-orb" aria-hidden="true"></div>
+        <div class="map-modal-header">
+          <p class="map-form-kicker">Timeflow Editor</p>
+          <h3 id="map-text-modal-title"></h3>
+          <p id="map-text-modal-description"></p>
+        </div>
+        <form id="map-text-form" class="map-modal-form">
+          <label>
+            <span id="map-text-label"></span>
+            <input id="map-text-input" type="text" autocomplete="off" />
+          </label>
+          <p id="map-text-message" class="map-modal-message hidden" aria-live="polite"></p>
+          <div class="map-modal-actions">
+            <button type="button" id="map-text-cancel" class="btn ghost">取消</button>
+            <button type="submit" class="btn primary">確認</button>
+          </div>
+        </form>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    return modal;
+  }
+
+  function openTextModal(options) {
+    return new Promise((resolve) => {
+      const modal = ensureTextModal();
+      const title = modal.querySelector("#map-text-modal-title");
+      const description = modal.querySelector("#map-text-modal-description");
+      const label = modal.querySelector("#map-text-label");
+      const form = modal.querySelector("#map-text-form");
+      const input = modal.querySelector("#map-text-input");
+      const cancel = modal.querySelector("#map-text-cancel");
+      const message = modal.querySelector("#map-text-message");
+
+      function cleanup(result) {
+        form.removeEventListener("submit", handleSubmit);
+        cancel.removeEventListener("click", handleCancel);
+        modal.removeEventListener("click", handleBackdropClick);
+        window.removeEventListener("keydown", handleKeydown);
+        modal.classList.add("hidden");
+        resolve(result);
+      }
+
+      function handleSubmit(event) {
+        event.preventDefault();
+        const value = input.value.trim();
+        if (options.required && !value) {
+          message.textContent = "此欄位必填。";
+          message.classList.remove("hidden");
+          message.classList.add("is-error");
+          input.focus();
+          return;
+        }
+        cleanup(value);
+      }
+
+      function handleCancel() {
+        cleanup(null);
+      }
+
+      function handleBackdropClick(event) {
+        if (event.target === modal) cleanup(null);
+      }
+
+      function handleKeydown(event) {
+        if (event.key === "Escape") cleanup(null);
+      }
+
+      title.textContent = options.title || "輸入內容";
+      description.textContent = options.description || "";
+      label.textContent = options.label || "內容";
+      input.placeholder = options.placeholder || "";
+      input.value = options.defaultValue || "";
+      message.textContent = "";
+      message.classList.add("hidden");
+      message.classList.remove("is-error");
+      modal.classList.remove("hidden");
+
+      form.addEventListener("submit", handleSubmit);
+      cancel.addEventListener("click", handleCancel);
+      modal.addEventListener("click", handleBackdropClick);
+      window.addEventListener("keydown", handleKeydown);
+
+      setTimeout(() => input.focus(), 0);
+    });
+  }
+
+  async function addReading() {
+    if (!(await requireAdmin())) return;
+    const node = createReadingNode(getDefaultCreateThemeId());
+    state.readings.push(node);
+    state.ui.selectedId = node.id;
+    saveState();
+    renderAll();
+  }
+
+  async function addEvent() {
+    if (!(await requireAdmin())) return;
+    const selectedNode = state.ui.selectedId ? getNodeById(state.ui.selectedId) : null;
+    const relatedReadingId =
+      selectedNode?.type === "reading"
+        ? selectedNode.id
+        : selectedNode?.type === "event"
+        ? selectedNode.relatedReadingId || ""
+        : "";
+
+    const relatedReading = relatedReadingId ? getNodeById(relatedReadingId) : null;
+    const themeId = relatedReading?.themeId || getDefaultCreateThemeId();
+
+    const node = createEventNode(themeId, relatedReadingId);
+    state.events.push(node);
+    state.ui.selectedId = node.id;
+    saveState();
+    renderAll();
+  }
+
+  function syncReadingEventsTheme(readingId, themeId) {
+    state.events = state.events.map((eventNode) => {
+      if (eventNode.relatedReadingId !== readingId) return eventNode;
+      return {
+        ...eventNode,
+        themeId,
+        updatedAt: getNowIso(),
+      };
+    });
+  }
+
+  async function saveDetailForm(event) {
     event.preventDefault();
-    els.viewport.classList.add("is-panning");
-    state.panning = {
-      startClientX: event.clientX,
-      startClientY: event.clientY,
-      startPanX: state.panX,
-      startPanY: state.panY,
+    if (!(await requireAdmin())) return;
+    const nodeId = refs.detailId.value;
+    const currentNode = getNodeById(nodeId);
+    if (!currentNode) return;
+
+    updateNodeById(nodeId, (node) => {
+      const base = {
+        ...node,
+        title: refs.fieldTitle.value.trim(),
+        date: refs.fieldDate.value,
+        category: refs.fieldCategory.value,
+        status: refs.fieldStatus.value,
+        note: refs.fieldNote.value.trim(),
+        themeId: refs.fieldTheme.value || node.themeId,
+        updatedAt: getNowIso(),
+      };
+
+      if (node.type === "reading") {
+        return {
+          ...base,
+          subject: refs.fieldSubject.value.trim(),
+          cards: refs.fieldCards.value.trim(),
+          interpretation: refs.fieldInterpretation.value.trim(),
+          predictions: refs.fieldPredictions.value.trim(),
+        };
+      }
+
+      const relatedReadingId = refs.fieldRelatedReading.value;
+      const relatedReading = relatedReadingId ? getNodeById(relatedReadingId) : null;
+
+      return {
+        ...base,
+        description: refs.fieldEventDescription.value.trim(),
+        relatedReadingId,
+        themeId: relatedReading?.themeId || base.themeId,
+        category: relatedReading?.category || base.category,
+      };
+    });
+
+    const updatedNode = getNodeById(nodeId);
+    if (updatedNode?.type === "reading") {
+      syncReadingEventsTheme(nodeId, updatedNode.themeId);
+    }
+
+    saveState();
+    renderAll();
+  }
+
+  function handleNodeClick(event) {
+    const nodeId = event.currentTarget.dataset.id;
+    state.ui.selectedId = nodeId;
+    renderAll();
+  }
+
+  function screenToScene(clientX, clientY) {
+    const rect = refs.viewport.getBoundingClientRect();
+    return {
+      x: (clientX - rect.left - state.ui.panX) / state.ui.zoom,
+      y: (clientY - rect.top - state.ui.panY) / state.ui.zoom,
     };
   }
 
-  function handlePointerMove(event) {
-    if (state.draggingNode) {
-      const node = state.data.nodes.find((item) => item.id === state.draggingNode.id);
-      if (!node) return;
-      node.xOffset = state.draggingNode.startXOffset + (event.clientX - state.draggingNode.startClientX) / state.zoom;
-      node.yOffset = state.draggingNode.startYOffset + (event.clientY - state.draggingNode.startClientY) / state.zoom;
-      renderMap();
-      return;
-    }
+  function handleNodePointerDown(event) {
+    event.stopPropagation();
+    const nodeId = event.currentTarget.dataset.id;
+    const placement = currentLayout.placements.get(nodeId);
+    if (!placement) return;
 
-    if (state.panning) {
-      state.panX = state.panning.startPanX + (event.clientX - state.panning.startClientX);
-      state.panY = state.panning.startPanY + (event.clientY - state.panning.startClientY);
-      applySceneTransform();
-    }
+    state.ui.selectedId = nodeId;
+    const point = screenToScene(event.clientX, event.clientY);
+
+    dragState = {
+      nodeId,
+      pointerOffsetX: point.x - placement.x,
+      pointerOffsetY: point.y - placement.y,
+      baseX: placement.baseX,
+      baseY: placement.baseY,
+    };
+
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+    window.addEventListener("pointermove", handleNodePointerMove);
+    window.addEventListener("pointerup", handleNodePointerUp, { once: true });
+
+    renderAll();
   }
 
-  function handlePointerUp() {
-    if (state.draggingNode) {
-      saveData();
-      state.draggingNode = null;
-    }
-    state.panning = null;
-    els.viewport?.classList.remove("is-panning");
+  function handleNodePointerMove(event) {
+    if (!dragState) return;
+    const point = screenToScene(event.clientX, event.clientY);
+
+    updateNodeById(dragState.nodeId, (node) => ({
+      ...node,
+      position: {
+        x: clamp(point.x - dragState.pointerOffsetX - dragState.baseX, -190, 190),
+        y: clamp(point.y - dragState.pointerOffsetY - dragState.baseY, -90, 90),
+      },
+      updatedAt: getNowIso(),
+    }));
+
+    renderMap(getVisibleNodes());
+    renderDetailPanel();
   }
 
-  function handleWheel(event) {
-    event.preventDefault();
-    const delta = event.deltaY > 0 ? -0.08 : 0.08;
-    state.zoom = Math.min(1.7, Math.max(0.55, state.zoom + delta));
+  function handleNodePointerUp() {
+    window.removeEventListener("pointermove", handleNodePointerMove);
+    dragState = null;
+    saveState();
+    renderAll();
+  }
+
+  function handleViewportPointerDown(event) {
+    if (event.target.closest(".map-node")) return;
+
+    panState = {
+      startX: event.clientX,
+      startY: event.clientY,
+      originPanX: state.ui.panX,
+      originPanY: state.ui.panY,
+    };
+
+    refs.viewport.classList.add("is-panning");
+    window.addEventListener("pointermove", handleViewportPointerMove);
+    window.addEventListener("pointerup", handleViewportPointerUp, { once: true });
+  }
+
+  function handleViewportPointerMove(event) {
+    if (!panState) return;
+    state.ui.panX = panState.originPanX + (event.clientX - panState.startX);
+    state.ui.panY = panState.originPanY + (event.clientY - panState.startY);
     applySceneTransform();
+    renderStats(getVisibleNodes());
+  }
+
+  function handleViewportPointerUp() {
+    refs.viewport.classList.remove("is-panning");
+    window.removeEventListener("pointermove", handleViewportPointerMove);
+    panState = null;
+    saveState();
+  }
+
+  function handleViewportWheel(event) {
+    event.preventDefault();
+
+    const delta = event.deltaY > 0 ? -0.08 : 0.08;
+    const nextZoom = clamp(Number((state.ui.zoom + delta).toFixed(2)), 0.45, 1.8);
+    if (nextZoom === state.ui.zoom) return;
+
+    const rect = refs.viewport.getBoundingClientRect();
+    const pointerX = event.clientX - rect.left;
+    const pointerY = event.clientY - rect.top;
+    const worldX = (pointerX - state.ui.panX) / state.ui.zoom;
+    const worldY = (pointerY - state.ui.panY) / state.ui.zoom;
+
+    state.ui.zoom = nextZoom;
+    state.ui.panX = pointerX - worldX * nextZoom;
+    state.ui.panY = pointerY - worldY * nextZoom;
+
+    saveState();
+    renderAll();
+  }
+
+  async function resetData() {
+    if (!(await requireAdmin())) return;
+    const confirmed = await window.EvanDialog.confirm("要清空占卜時間流的所有本機資料嗎？此動作無法復原。", "清空資料");
+    if (!confirmed) return;
+
+    state = createInitialState();
+    saveState();
+    renderAll();
+  }
+
+  function exportJson() {
+    const blob = new Blob([JSON.stringify(state, null, 2)], {
+      type: "application/json;charset=utf-8",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `evan-tarot-timeflow-${getTodayTaipeiDate()}.json`;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function adjustZoom(delta) {
+    state.ui.zoom = clamp(Number((state.ui.zoom + delta).toFixed(2)), 0.45, 1.8);
+    saveState();
+    renderAll();
+  }
+
+  function resetView() {
+    state.ui.zoom = 0.88;
+    state.ui.panX = -120;
+    state.ui.panY = 0;
+    saveState();
+    renderAll();
   }
 
   function bindEvents() {
-    els.addTheme.addEventListener("click", addTheme);
-    els.addReading.addEventListener("click", () => addNode("reading"));
-    els.addEvent.addEventListener("click", () => addNode("event"));
-    els.detailForm.addEventListener("submit", saveSelectedNode);
-    els.deleteNode.addEventListener("click", deleteSelectedNode);
-    els.exportJson.addEventListener("click", exportJson);
-    els.resetData.addEventListener("click", resetData);
+    refs.addTheme.addEventListener("click", addTheme);
+    refs.addReading.addEventListener("click", addReading);
+    refs.addEvent.addEventListener("click", addEvent);
+    refs.detailForm.addEventListener("submit", saveDetailForm);
 
-    els.viewMode.addEventListener("change", () => { state.data.viewMode = els.viewMode.value; saveData(); renderMap(); });
-    els.activeTheme.addEventListener("change", () => { state.data.activeThemeId = els.activeTheme.value; saveData(); renderMap(); });
-    els.filterStatus.addEventListener("change", () => { state.data.filterStatus = els.filterStatus.value; saveData(); renderMap(); });
-    els.filterCategory.addEventListener("change", () => { state.data.filterCategory = els.filterCategory.value; saveData(); renderMap(); });
-    els.search.addEventListener("input", () => { state.data.search = els.search.value; saveData(); renderMap(); });
-    els.fieldTheme.addEventListener("change", renderRelatedReadingOptions);
-
-    els.zoomOut.addEventListener("click", () => { state.zoom = Math.max(0.55, state.zoom - 0.1); applySceneTransform(); });
-    els.zoomIn.addEventListener("click", () => { state.zoom = Math.min(1.7, state.zoom + 0.1); applySceneTransform(); });
-    els.zoomReset.addEventListener("click", () => { state.zoom = 1; state.panX = 0; state.panY = 0; applySceneTransform(); });
-
-    els.viewport.addEventListener("pointerdown", handleCanvasPointerDown);
-    els.viewport.addEventListener("wheel", handleWheel, { passive: false });
-    window.addEventListener("pointermove", handlePointerMove);
-    window.addEventListener("pointerup", handlePointerUp);
-
-    els.timeline.addEventListener("click", (event) => {
-      const item = event.target.closest(".map-timeline-item");
-      if (!item) return;
-      state.selectedId = item.dataset.timelineId;
-      renderMap();
+    refs.deleteNode.addEventListener("click", async () => {
+      if (!(await requireAdmin())) return;
+      const nodeId = refs.detailId.value;
+      if (!nodeId) return;
+      const confirmed = await window.EvanDialog.confirm("確定要刪除此節點嗎？刪除後無法直接復原。", "刪除節點");
+      if (!confirmed) return;
+      deleteNodeById(nodeId);
+      saveState();
+      renderAll();
     });
 
-    els.adminToggle?.addEventListener("click", () => {
-      if (state.adminUnlocked) {
-        state.adminUnlocked = false;
-        sessionStorage.removeItem(ADMIN_KEY);
-        updateAdminUI();
-        renderDetailForm();
-        return;
+    refs.filterStatus.addEventListener("change", (event) => {
+      state.ui.filterStatus = event.target.value;
+      saveState();
+      renderAll();
+    });
+
+    refs.filterCategory.addEventListener("change", (event) => {
+      state.ui.filterCategory = event.target.value;
+      saveState();
+      renderAll();
+    });
+
+    refs.search.addEventListener("input", (event) => {
+      state.ui.search = event.target.value;
+      saveState();
+      renderAll();
+    });
+
+    refs.viewMode.addEventListener("change", (event) => {
+      state.ui.viewMode = event.target.value;
+      saveState();
+      renderAll();
+    });
+
+    refs.activeTheme.addEventListener("change", (event) => {
+      state.ui.activeThemeId = event.target.value;
+      saveState();
+      renderAll();
+    });
+
+    refs.fieldTheme.addEventListener("change", (event) => {
+      const theme = getThemeById(event.target.value);
+      refs.detailThemeHint.textContent = theme
+        ? `${theme.title}${theme.description ? "｜" + theme.description : ""}`
+        : "請先建立主題流";
+
+      const currentNode = state.ui.selectedId ? getNodeById(state.ui.selectedId) : null;
+      if (currentNode?.type === "event") {
+        renderRelatedReadingOptions(refs.fieldRelatedReading.value, event.target.value);
       }
-      showAdminModal();
     });
+
+    refs.zoomIn.addEventListener("click", () => adjustZoom(0.1));
+    refs.zoomOut.addEventListener("click", () => adjustZoom(-0.1));
+    refs.zoomReset.addEventListener("click", resetView);
+    refs.exportJson.addEventListener("click", exportJson);
+    refs.resetData.addEventListener("click", resetData);
+
+    refs.viewport.addEventListener("pointerdown", handleViewportPointerDown);
+    refs.viewport.addEventListener("wheel", handleViewportWheel, { passive: false });
   }
 
-  function createAdminButtonIfMissing() {
-    const controls = document.querySelector(".map-view-controls");
-    if (!controls || $("map-admin-toggle")) return;
-    const button = document.createElement("button");
-    button.className = "map-icon-btn map-text-btn map-admin-toggle";
-    button.id = "map-admin-toggle";
-    button.type = "button";
-    button.textContent = "管理員登入";
-    controls.prepend(button);
+  function cacheRefs(root) {
+    refs = {
+      root,
+      addTheme: root.querySelector("#map-add-theme"),
+      addReading: root.querySelector("#map-add-reading"),
+      addEvent: root.querySelector("#map-add-event"),
+      filterStatus: root.querySelector("#map-filter-status"),
+      filterCategory: root.querySelector("#map-filter-category"),
+      search: root.querySelector("#map-search"),
+      activeTheme: root.querySelector("#map-active-theme"),
+      viewMode: root.querySelector("#map-view-mode"),
+      stats: root.querySelector("#map-stats"),
+      viewport: root.querySelector("#map-viewport"),
+      scene: root.querySelector("#map-scene"),
+      connections: root.querySelector("#map-connections"),
+      canvas: root.querySelector("#map-canvas"),
+      zoomIn: root.querySelector("#map-zoom-in"),
+      zoomOut: root.querySelector("#map-zoom-out"),
+      zoomReset: root.querySelector("#map-zoom-reset"),
+      exportJson: root.querySelector("#map-export-json"),
+      resetData: root.querySelector("#map-reset-data"),
+      emptyState: root.querySelector("#map-empty-state"),
+      detailForm: root.querySelector("#map-detail-form"),
+      detailTypeLabel: root.querySelector("#map-detail-type-label"),
+      detailTitle: root.querySelector("#map-detail-title"),
+      selectedId: root.querySelector("#map-selected-id"),
+      detailId: root.querySelector("#map-detail-id"),
+      fieldTheme: root.querySelector("#map-field-theme"),
+      detailThemeHint: root.querySelector("#map-detail-theme-hint"),
+      fieldTitle: root.querySelector("#map-field-title"),
+      fieldDate: root.querySelector("#map-field-date"),
+      fieldCategory: root.querySelector("#map-field-category"),
+      fieldSubject: root.querySelector("#map-field-subject"),
+      fieldCards: root.querySelector("#map-field-cards"),
+      fieldInterpretation: root.querySelector("#map-field-interpretation"),
+      fieldPredictions: root.querySelector("#map-field-predictions"),
+      fieldEventDescription: root.querySelector("#map-field-event-description"),
+      fieldRelatedReading: root.querySelector("#map-field-related-reading"),
+      fieldStatus: root.querySelector("#map-field-status"),
+      fieldNote: root.querySelector("#map-field-note"),
+      deleteNode: root.querySelector("#map-delete-node"),
+      timeline: root.querySelector("#map-timeline"),
+    };
   }
 
   window.initDivinationMap = function initDivinationMap() {
-    const app = $("divination-map-app");
-    if (!app) return;
+    const root = document.getElementById("divination-map-app");
+    if (!root || root.dataset.initialized === "true") return;
 
-    createAdminButtonIfMissing();
+    root.dataset.initialized = "true";
+    cacheRefs(root);
+    state = loadState();
 
-    Object.assign(els, {
-      app,
-      addTheme: $("map-add-theme"),
-      addReading: $("map-add-reading"),
-      addEvent: $("map-add-event"),
-      viewMode: $("map-view-mode"),
-      activeTheme: $("map-active-theme"),
-      filterStatus: $("map-filter-status"),
-      filterCategory: $("map-filter-category"),
-      search: $("map-search"),
-      stats: $("map-stats"),
-      viewport: $("map-viewport"),
-      scene: $("map-scene"),
-      connections: $("map-connections"),
-      canvas: $("map-canvas"),
-      timeline: $("map-timeline"),
-      zoomOut: $("map-zoom-out"),
-      zoomReset: $("map-zoom-reset"),
-      zoomIn: $("map-zoom-in"),
-      exportJson: $("map-export-json"),
-      resetData: $("map-reset-data"),
-      emptyState: $("map-empty-state"),
-      detailForm: $("map-detail-form"),
-      detailTypeLabel: $("map-detail-type-label"),
-      detailTitle: $("map-detail-title"),
-      selectedId: $("map-selected-id"),
-      detailId: $("map-detail-id"),
-      fieldTheme: $("map-field-theme"),
-      fieldDate: $("map-field-date"),
-      detailThemeHint: $("map-detail-theme-hint"),
-      fieldTitle: $("map-field-title"),
-      fieldCategory: $("map-field-category"),
-      fieldSubject: $("map-field-subject"),
-      fieldRelatedReading: $("map-field-related-reading"),
-      fieldStatus: $("map-field-status"),
-      fieldCards: $("map-field-cards"),
-      fieldInterpretation: $("map-field-interpretation"),
-      fieldPredictions: $("map-field-predictions"),
-      fieldEventDescription: $("map-field-event-description"),
-      fieldNote: $("map-field-note"),
-      deleteNode: $("map-delete-node"),
-      adminToggle: $("map-admin-toggle"),
-    });
-
-    const missing = Object.entries(els).filter(([, value]) => !value).map(([key]) => key);
-    if (missing.length) {
-      console.warn("[divination-map] 缺少必要元素：", missing);
-      return;
-    }
-
-    state.data = loadData();
-    state.adminUnlocked = sessionStorage.getItem(ADMIN_KEY) === "1";
-
+    injectAdminControl();
     bindEvents();
-    updateAdminUI();
-    renderMap();
+    updateAdminControls();
+    renderAll();
   };
+
+  function hexToRgba(hex, alpha) {
+    const clean = String(hex || "").replace("#", "");
+    if (clean.length !== 6) return `rgba(183, 148, 255, ${alpha})`;
+    const bigint = Number.parseInt(clean, 16);
+    const r = (bigint >> 16) & 255;
+    const g = (bigint >> 8) & 255;
+    const b = bigint & 255;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+
+  function clamp(value, min, max) {
+    return Math.min(Math.max(value, min), max);
+  }
+
+  function escapeHtml(input) {
+    if (input == null) return "";
+    return String(input)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
 })();

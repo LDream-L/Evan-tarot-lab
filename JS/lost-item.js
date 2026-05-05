@@ -340,14 +340,14 @@ window.handleLostItemForm = async function handleLostItemForm(event) {
     }
 
     if (!cards || !cards.length) {
-      alert("目前沒有可用的牌組資料，請稍後再試一次。");
+      window.EvanDialog?.alert("目前沒有可用的牌組資料，請稍後再試一次。", "牌組資料未載入");
       return;
     }
 
     renderLostItemResult({ itemName, notes, lastLocation, cards });
   } catch (e) {
     console.error("[lost-item] 占卜流程錯誤", e);
-    alert("占卜過程發生錯誤，請稍後再試一次。");
+    window.EvanDialog?.alert("占卜過程發生錯誤，請稍後再試一次。", "占卜流程錯誤");
   }
 };
 

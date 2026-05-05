@@ -69,13 +69,11 @@ window.handleBookingForm = function handleBookingForm(event) {
 
   postToGoogleForm(BOOKING_GOOGLE_FORM.url, formData)
     .then(() => {
-      alert("已送出預約意願，感謝你。\n我會依照你留下的聯絡方式回覆時間與細節。");
+      window.EvanDialog?.alert("已送出預約意願，感謝你。<br>我會依照你留下的聯絡方式回覆時間與細節。", "預約已送出");
       form.reset();
     })
     .catch(() => {
       // 只有在網路真的錯誤時才會進到這裡
-      alert(
-        "預約送出時遇到網路問題。\n建議你暫時改用 IG / Email 聯絡一次，避免漏接。"
-      );
+      window.EvanDialog?.alert("預約送出時遇到網路問題。<br>建議你暫時改用 IG / Email 聯絡一次，避免漏接。", "送出失敗");
     });
 };
