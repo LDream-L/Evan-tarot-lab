@@ -989,8 +989,10 @@ main,
 }
 
 .map-stream-branch {
+  fill: none;
   stroke-width: 2.4;
   stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .map-stream-branch.reading {
@@ -1546,4 +1548,25 @@ main,
   .map-modal-actions .btn {
     width: 100%;
   }
+}
+
+/* ===== 2026-05 fixed curved timeline connection ===== */
+.map-stream-axis,
+.map-stream-branch,
+.map-link-line {
+  vector-effect: non-scaling-stroke;
+}
+
+.map-stream-branch {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px rgba(183, 148, 255, 0.18));
+}
+
+.map-stream-marker {
+  filter: drop-shadow(0 0 7px rgba(183, 148, 255, 0.35));
+}
+
+.map-node {
+  touch-action: none;
 }
