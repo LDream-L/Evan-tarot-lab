@@ -1666,3 +1666,52 @@ main,
     width: 100%;
   }
 }
+
+
+/* ===== 2026-05 articles category system ===== */
+.article-category-bar {
+  margin: 20px 0 18px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.article-category-pill {
+  border: 1px solid rgba(139, 123, 255, 0.34);
+  border-radius: 999px;
+  background: rgba(7, 8, 26, 0.92);
+  color: var(--text-muted);
+  padding: 7px 13px;
+  cursor: pointer;
+  font-size: 0.86rem;
+  transition: background 0.18s, color 0.18s, border-color 0.18s, transform 0.1s;
+}
+
+.article-category-pill:hover,
+.article-category-pill.is-active {
+  color: #ffffff;
+  border-color: rgba(183, 148, 255, 0.72);
+  background: radial-gradient(circle at 10% 0, rgba(249, 168, 255, 0.26), rgba(139, 123, 255, 0.34));
+  transform: translateY(-1px);
+}
+
+.article-read-more {
+  position: relative;
+  z-index: 1;
+  display: inline-flex;
+  margin-top: 10px;
+  color: var(--accent-strong);
+  text-decoration: none;
+  border-bottom: 1px solid rgba(183, 148, 255, 0.46);
+  font-size: 0.86rem;
+}
+
+.article-read-more:hover {
+  color: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+.article-empty {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
