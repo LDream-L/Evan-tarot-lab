@@ -30,7 +30,7 @@
 
   // 管理員鎖：GitHub Pages 是純前端，這只能防一般訪客誤改；真正防竄改仍需後端權限。
   // 上線前請把這串改成你自己的密碼。
-  const ADMIN_PASSCODE = "EVAN-TAROT-ADMIN-2026";
+  const ADMIN_PASSCODE = "EVAN";
   const ADMIN_SESSION_KEY = "evanTarotTimeflowAdminUnlocked";
 
   const DEFAULT_SCENE_WIDTH = 1680;
@@ -458,10 +458,10 @@
           : options.streamX + options.eventBaseOffset + outerShift + innerShift;
 
       const baseY = options.groupStartY + index * options.verticalGap;
-      // Y 軸代表日期，不允許靠拖曳偏移，避免節點視覺位置與資料日期不一致。
+      // 日期由欄位固定；position 只作為視覺偏移，方便檢閱與避開重疊。
       // 時間複雜度：O(1)；空間複雜度：O(1)。
-      const offsetX = clamp(Number(node.position?.x || 0), -190, 190);
-      const offsetY = 0;
+      const offsetX = clamp(Number(node.position?.x || 0), -260, 260);
+      const offsetY = clamp(Number(node.position?.y || 0), -220, 220);
 
       placements.push(
         createPlacement(
@@ -1344,10 +1344,10 @@
     updateNodeById(dragState.nodeId, (node) => ({
       ...node,
       position: {
-        // 只允許 X 軸微調；Y 軸由日期排序決定。
+        // X/Y 都是視覺偏移，只用來讓窗格更好檢閱，不改日期。
         // 時間複雜度：O(1)；空間複雜度：O(1)。
-        x: clamp(point.x - dragState.pointerOffsetX - dragState.baseX, -190, 190),
-        y: 0,
+        x: clamp(point.x - dragState.pointerOffsetX - dragState.baseX, -260, 260),
+        y: clamp(point.y - dragState.pointerOffsetY - dragState.baseY, -220, 220),
       },
       updatedAt: getNowIso(),
     }));
@@ -1357,6 +1357,8 @@
   }
 
   function handleNodePointerUp() {
+    // 純視覺拖曳：只保存 position.x / position.y，不改 date。
+    // 時間複雜度：O(1)；空間複雜度：O(1)。
     window.removeEventListener("pointermove", handleNodePointerMove);
     dragState = null;
     saveState();
@@ -1524,6 +1526,7 @@
     refs = {
       root,
       addTheme: root.querySelector("#map-add-theme"),
+      adminToggle: root.querySelector("#map-admin-toggle"),
       addReading: root.querySelector("#map-add-reading"),
       addEvent: root.querySelector("#map-add-event"),
       filterStatus: root.querySelector("#map-filter-status"),

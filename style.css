@@ -1746,3 +1746,35 @@ main,
   vector-effect: non-scaling-stroke;
   filter: drop-shadow(0 0 6px rgba(126, 222, 255, 0.16));
 }
+
+
+/* ===== 20260505-free-drag-v4: free visual drag, fixed date ===== */
+.map-node {
+  cursor: grab;
+}
+
+.map-node:active {
+  cursor: grabbing;
+}
+
+.map-node::after {
+  content: "拖曳只整理位置，不改日期";
+  position: absolute;
+  left: 12px;
+  bottom: -26px;
+  font-size: 0.72rem;
+  color: rgba(210, 214, 255, 0.58);
+  opacity: 0;
+  transition: opacity 0.16s;
+  pointer-events: none;
+  white-space: nowrap;
+}
+
+.map-node:hover::after {
+  opacity: 1;
+}
+
+.map-stream-branch,
+.map-link-line {
+  vector-effect: non-scaling-stroke;
+}
