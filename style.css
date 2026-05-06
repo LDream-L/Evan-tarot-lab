@@ -1786,3 +1786,15 @@ main,
 .map-stream-marker {
   vector-effect: non-scaling-stroke;
 }
+
+
+/* ===== inline text link ===== */
+.inline-link {
+  color: var(--accent-strong);
+  text-decoration: none;
+  border-bottom: 1px dashed rgba(183, 148, 255, 0.58);
+}
+.inline-link:hover {
+  color: #ffffff;
+  border-bottom-color: rgba(255, 255, 255, 0.72);
+}
