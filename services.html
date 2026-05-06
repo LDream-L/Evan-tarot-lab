@@ -21,7 +21,7 @@
         <a href="articles.html">文章</a>
         <a href="lost-item.html">尋物工具</a>
         <a href="timeflow.html">時間流</a>
-        <a href="index.html#booking">預約</a>
+        <a href="#booking">預約</a>
       </nav>
     </div>
   </header>
@@ -38,7 +38,7 @@
           </p>
           <div class="hero-cta">
             <a href="#services" class="btn primary">查看項目</a>
-            <a href="index.html#booking" class="btn ghost">回到預約</a>
+            <a href="#booking" class="btn ghost">我要預約</a>
           </div>
           <div class="hero-meta">
             <span class="pill pill-soft">服務分頁</span>
@@ -99,6 +99,55 @@
 </div>
 </div>
 </section>
+<section class="section" id="booking">
+<div class="container">
+<h2>預約占卜</h2>
+<p class="section-lead">
+          看完上面的占卜項目後，如果你想正式聊聊，可以先留下簡單資訊。<br/>
+          我會依你填寫的聯絡方式回覆，確認時間與形式（文字 / 語音 / 視訊）。
+        </p>
+<form class="booking-form" id="booking-form">
+<div class="form-row">
+<label>
+              暱稱
+              <input name="name" placeholder="例如：小鹿、H、匿名也可以" required="" type="text"/>
+</label>
+<label>
+              聯絡方式
+              <input name="contact" placeholder="例如：IG 帳號、Email、Line ID" required="" type="text"/>
+</label>
+</div>
+<div class="form-row">
+<label>
+              想占卜的主題
+              <select name="topic" required="">
+<option value="">請選擇</option>
+<option value="relationship">人際 / 感情</option>
+<option value="career">工作 / 職涯</option>
+<option value="self">自我成長 / 人生卡點</option>
+<option value="other">其他（請在下方說明）</option>
+</select>
+</label>
+<label>
+              希望的形式
+              <select name="mode" required="">
+<option value="">請選擇</option>
+<option value="text">文字占卜</option>
+<option value="voice">語音 / 通話</option>
+<option value="video">視訊</option>
+<option value="flexible">都可以，看當天狀況</option>
+</select>
+</label>
+</div>
+<label>
+            想說的話（越具體越好，但一句話也可以）
+            <textarea name="message" placeholder="可以寫：目前狀況、你最在意的是什麼、希望占卜幫你釐清什麼。" rows="4"></textarea>
+</label>
+<button class="btn primary full" type="submit">送出預約意願</button>
+<p aria-live="polite" class="tool-feedback-message hidden" id="booking-message"></p>
+</form>
+</div>
+</section>
   </main>
 
   <footer class="site-footer">
@@ -111,6 +160,7 @@
   </footer>
 
   <script src="JS/utils.js?v=20260505-dialog-v6"></script>
+  <script src="JS/booking.js?v=20260505-dialog-v6"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
   <script src="JS/main.js?v=20260505-dialog-v6"></script>
 </body>
