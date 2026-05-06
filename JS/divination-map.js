@@ -437,6 +437,9 @@
       baseX,
       baseY,
       streamX,
+      // anchorY 是固定在主軸上的時間點；不會因為卡片拖曳而改變。
+      // 時間複雜度：O(1)；空間複雜度：O(1)。
+      anchorY: baseY + size.height / 2,
       centerX: x + size.width / 2,
       centerY: y + size.height / 2,
     };
@@ -460,8 +463,8 @@
       const baseY = options.groupStartY + index * options.verticalGap;
       // 日期由欄位固定；position 只作為視覺偏移，方便檢閱與避開重疊。
       // 時間複雜度：O(1)；空間複雜度：O(1)。
-      const offsetX = clamp(Number(node.position?.x || 0), -260, 260);
-      const offsetY = clamp(Number(node.position?.y || 0), -220, 220);
+      const offsetX = clamp(Number(node.position?.x || 0), -300, 300);
+      const offsetY = clamp(Number(node.position?.y || 0), -260, 260);
 
       placements.push(
         createPlacement(
@@ -716,38 +719,33 @@
       );
     });
 
-    // 節點 → 主軸：柔和曲線，不做過度上下繞線。
-    // 時間複雜度：O(k)，k = 顯示節點數；空間複雜度：O(k)。
+    // 節點 → 固定主軸時間點：
+    // 卡片可自由拖曳，但主軸上的時間點不動；線條會從卡片目前位置接回固定 anchorY。
+    // 時間複雜度：O(k)，k = 顯示節點數；空間複雜度：O(1)。
     // 更快替代方案比較：
-    // - 暴力法：直接畫水平直線 O(k)，最快但同日多節點時容易重疊、視覺生硬。
-    // - 本實作：每條線仍只算一次 O(k)，用同日/同側路由給極小弧度，保留可讀性。
-    const branchRouteCount = new Map();
-
+    // - 直線：計算最少，但拖曳後容易穿過卡片或過於生硬。
+    // - 本實作：每條線仍只計算一次，用 Bézier 曲線接回固定主軸點，成本同為 O(k)，視覺更清楚。
     Array.from(layout.placements.values()).forEach((placement) => {
       const node = placement.node;
+
       const startX =
         node.type === "reading"
-          ? placement.x + placement.width - 4
-          : placement.x + 4;
+          ? placement.x + placement.width
+          : placement.x;
+
       const startY = placement.centerY;
       const endX = placement.streamX;
-      const endY = placement.centerY;
+      const endY = placement.anchorY;
+
       const direction = endX >= startX ? 1 : -1;
       const distance = Math.abs(endX - startX);
-      const curveStrength = clamp(distance * 0.32, 58, 138);
-
-      const routeKey = `${endX}|${node.date || "nodate"}|${node.type}`;
-      const routeIndex = branchRouteCount.get(routeKey) || 0;
-      branchRouteCount.set(routeKey, routeIndex + 1);
-
-      // 同日多線只加非常小的側向張力，不改變時間高度，避免曲線看起來亂飛。
-      const routeLevel = routeIndex === 0 ? 0 : Math.ceil(routeIndex / 2) * (routeIndex % 2 === 1 ? 1 : -1);
-      const routeBend = routeLevel * 10;
+      const curveStrength = clamp(distance * 0.42, 70, 180);
+      const verticalGap = endY - startY;
 
       const c1x = startX + direction * curveStrength;
-      const c1y = startY + routeBend;
-      const c2x = endX - direction * curveStrength * 0.62;
-      const c2y = endY + routeBend;
+      const c1y = startY + verticalGap * 0.08;
+      const c2x = endX - direction * curveStrength * 0.45;
+      const c2y = endY - verticalGap * 0.18;
 
       fragments.push(
         `<path class="map-stream-branch ${node.type}" d="M ${startX} ${startY} C ${c1x} ${c1y}, ${c2x} ${c2y}, ${endX} ${endY}" style="stroke:${hexToRgba(getThemeColor(node.themeId), node.type === "reading" ? 0.58 : 0.52)};" />`
@@ -1346,8 +1344,8 @@
       position: {
         // X/Y 都是視覺偏移，只用來讓窗格更好檢閱，不改日期。
         // 時間複雜度：O(1)；空間複雜度：O(1)。
-        x: clamp(point.x - dragState.pointerOffsetX - dragState.baseX, -260, 260),
-        y: clamp(point.y - dragState.pointerOffsetY - dragState.baseY, -220, 220),
+        x: clamp(point.x - dragState.pointerOffsetX - dragState.baseX, -300, 300),
+        y: clamp(point.y - dragState.pointerOffsetY - dragState.baseY, -260, 260),
       },
       updatedAt: getNowIso(),
     }));

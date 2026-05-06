@@ -1748,7 +1748,7 @@ main,
 }
 
 
-/* ===== 20260505-free-drag-v4: free visual drag, fixed date ===== */
+/* ===== 20260505-fixed-axis-free-card-v5: fixed axis point, free card drag ===== */
 .map-node {
   cursor: grab;
 }
@@ -1758,7 +1758,7 @@ main,
 }
 
 .map-node::after {
-  content: "拖曳只整理位置，不改日期";
+  content: "拖曳只整理窗格，主軸時間點固定";
   position: absolute;
   left: 12px;
   bottom: -26px;
@@ -1774,7 +1774,15 @@ main,
   opacity: 1;
 }
 
-.map-stream-branch,
-.map-link-line {
+.map-stream-branch {
+  stroke-width: 2.8 !important;
+  stroke-linecap: round !important;
+  stroke-linejoin: round !important;
+  fill: none !important;
+  vector-effect: non-scaling-stroke;
+  filter: drop-shadow(0 0 6px rgba(183, 148, 255, 0.20));
+}
+
+.map-stream-marker {
   vector-effect: non-scaling-stroke;
 }
