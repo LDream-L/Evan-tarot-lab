@@ -3,54 +3,85 @@
 // 初始化：事件綁定、預載資料、平滑滾動
 // ==============================
 //
-// 時間複雜度：O(n)（renderComments 與載入 Mapping 各一次）
+// 時間複雜度：O(n)
 // 空間複雜度：O(n)
 // ==============================
 
-document.addEventListener("DOMContentLoaded", () => {
+function loadArticleCommentsScript() {
+  return new Promise((resolve) => {
+    if (window.EvanArticleComments) {
+      resolve(true);
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "JS/article-comments.js?v=20260624-article-comments-v1";
+    script.onload = () => resolve(Boolean(window.EvanArticleComments));
+    script.onerror = () => resolve(false);
+    document.head.appendChild(script);
+  });
+}
+
+document.addEventListener("DOMContentLoaded", async () => {
+  const articlePage = Boolean(
+    document.getElementById("article-list") &&
+    document.getElementById("comment-form")
+  );
+
+  let articleCommentsReady = false;
+
+  if (articlePage) {
+    const stylesheet = document.createElement("link");
+    stylesheet.rel = "stylesheet";
+    stylesheet.href = "article-comments.css?v=20260624-article-comments-v1";
+    document.head.appendChild(stylesheet);
+
+    articleCommentsReady = await loadArticleCommentsScript();
+    if (articleCommentsReady) {
+      await window.EvanArticleComments.init();
+    }
+  }
+
   const lostItemForm = document.getElementById("lost-item-form");
-  if (lostItemForm) {
+  if (lostItemForm && window.handleLostItemForm) {
     lostItemForm.addEventListener("submit", window.handleLostItemForm);
   }
 
-  // 失物占卜回饋表單
-  const lostItemFeedbackForm = document.getElementById(
-    "lost-item-feedback-form"
-  );
+  const lostItemFeedbackForm = document.getElementById("lost-item-feedback-form");
   if (lostItemFeedbackForm && window.handleLostItemFeedbackForm) {
-    lostItemFeedbackForm.addEventListener(
-      "submit",
-      window.handleLostItemFeedbackForm
-    );
+    lostItemFeedbackForm.addEventListener("submit", window.handleLostItemFeedbackForm);
   }
 
   const bookingForm = document.getElementById("booking-form");
-  if (bookingForm) {
+  if (bookingForm && window.handleBookingForm) {
     bookingForm.addEventListener("submit", window.handleBookingForm);
   }
 
   const commentForm = document.getElementById("comment-form");
   if (commentForm) {
-    commentForm.addEventListener("submit", window.handleCommentForm);
+    const commentHandler = articleCommentsReady
+      ? window.EvanArticleComments.handleArticleCommentForm
+      : window.handleCommentForm;
+
+    if (commentHandler) commentForm.addEventListener("submit", commentHandler);
   }
 
-  // 一進頁面就先背景載入 Mapping，使用體驗會比較順
   window.loadMappingFromSheet?.();
 
-  // 初始渲染留言
-  window.renderComments?.();
+  if (!articleCommentsReady) {
+    window.renderComments?.();
+  }
 
-  // 初始化占卜驗證圖譜
   window.initDivinationMap?.();
 
-  // 錨點平滑滾動
   document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
-    anchor.addEventListener("click", function (e) {
+    anchor.addEventListener("click", function (event) {
       const targetId = this.getAttribute("href");
-      const targetEl = document.querySelector(targetId);
-      if (!targetEl) return;
-      e.preventDefault();
-      targetEl.scrollIntoView({ behavior: "smooth", block: "start" });
+      const targetElement = document.querySelector(targetId);
+      if (!targetElement) return;
+
+      event.preventDefault();
+      targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 });
