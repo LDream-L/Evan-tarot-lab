@@ -22,7 +22,7 @@
         <a href="index.html#intro">介紹</a>
         <a href="services.html">占卜項目</a>
         <a href="articles.html" aria-current="page">文章</a>
-        <a href="lost-item.html">尋物工具</a>
+        <a href="lab.html">實驗室</a>
         <a href="timeflow.html">時間流</a>
         <a href="services.html#booking">預約</a>
       </nav>
@@ -33,7 +33,6 @@
     <section class="section article-detail-section">
       <div class="container article-detail-container">
         <a class="article-back-link" href="articles.html">← 回文章總覽</a>
-
         <article class="article-detail-card" id="article-detail" aria-live="polite">
           <p class="article-loading">文章載入中…</p>
         </article>
@@ -53,21 +52,12 @@
               <strong>Google 帳號登入</strong>
               <p id="google-auth-status">載入登入元件中…</p>
             </div>
-
             <div id="google-signin-button"></div>
-
             <div class="google-user-panel hidden" id="google-user-panel">
               <div class="google-nickname-editor">
                 <label for="google-nickname-input">公開暱稱</label>
                 <div class="google-nickname-row">
-                  <input
-                    id="google-nickname-input"
-                    type="text"
-                    minlength="2"
-                    maxlength="20"
-                    autocomplete="nickname"
-                    placeholder="2～20 個字"
-                  />
+                  <input id="google-nickname-input" type="text" minlength="2" maxlength="20" autocomplete="nickname" placeholder="2～20 個字" />
                   <button class="btn primary" id="google-nickname-save" type="button">儲存暱稱</button>
                 </div>
                 <p class="google-nickname-help">Email 不會公開；留言僅顯示公開暱稱。</p>
@@ -77,10 +67,7 @@
             </div>
           </div>
 
-          <p class="comment-login-required" id="comment-login-required">
-            請先登入 Google 帳號，登入後才可設定暱稱並留言。
-          </p>
-
+          <p class="comment-login-required" id="comment-login-required">請先登入 Google 帳號，登入後才可設定暱稱並留言。</p>
           <form class="comment-form article-main-comment-form is-auth-locked" id="comment-form">
             <label>
               留言內容
@@ -89,7 +76,6 @@
             <button class="btn primary full" type="submit" disabled>送出留言</button>
             <p class="tool-feedback-message hidden" id="comment-message" aria-live="polite"></p>
           </form>
-
           <div class="comment-list article-thread-list" id="comment-list" aria-live="polite"></div>
         </section>
       </div>
@@ -98,7 +84,7 @@
 
   <footer class="site-footer">
     <div class="container footer-inner">
-      <p>Evan Tarot ｜塔羅占卜 & 小工具實驗室</p>
+      <p>Evan Tarot ｜塔羅記事與文章</p>
     </div>
   </footer>
 
@@ -109,7 +95,7 @@
   <script src="JS/google-auth.js?v=20260624-copy-cleanup-v1"></script>
   <script src="JS/article-comments.js?v=20260624-copy-cleanup-v1"></script>
   <script src="JS/copy-cleanup.js?v=20260624-copy-cleanup-v1"></script>
-  <script src="JS/article-detail.js?v=20260624-articles-cloud-v1"></script>
+  <script src="JS/article-detail.js?v=20260624-lab-v3"></script>
   <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
 </body>
 </html>
