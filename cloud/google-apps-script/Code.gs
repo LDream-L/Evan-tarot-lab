@@ -1,15 +1,17 @@
 // ==============================
 // Evan Tarot Cloud Comments API
-// Google Apps Script（綁定 Google 試算表）
+// Google 帳號驗證＋文章留言／回覆
 // ==============================
 //
 // 主要函式複雜度：
-// - doPost / createComment：O(1)（固定欄位追加一列）
-// - doGet / listComments：O(n)（n = Comments 工作表資料列數）
+// - doPost / createComment：O(1)
+// - doGet / listComments：O(n)
+// - verifyGoogleCredential_：O(1)（單次 Google 驗證請求）
 // 空間複雜度：O(n)（讀取留言清單時）
 //
-// 暴力法：前端直接存 localStorage，無法跨裝置同步。
-// 優化法（本實作）：前端只呼叫 API；Apps Script 統一驗證、追加與篩選。
+// 更快替代方案比較：
+// - 暴力法：只在前端判斷是否登入，可被直接呼叫 API 繞過。
+// - 本實作：每次寫入都由 Apps Script 驗證 Google ID Token，未驗證者不能寫入。
 // ==============================
 
 const COMMENTS_CONFIG = Object.freeze({
@@ -17,9 +19,10 @@ const COMMENTS_CONFIG = Object.freeze({
   timeZone: "Asia/Taipei",
   defaultLimit: 100,
   maxLimit: 300,
-  maxNameLength: 40,
   maxTitleLength: 80,
   maxTextLength: 1000,
+  oauthClientIdProperty: "GOOGLE_OAUTH_CLIENT_ID",
+  adminEmailsProperty: "ADMIN_EMAILS",
   headers: [
     "id",
     "createdAt",
@@ -34,9 +37,7 @@ const COMMENTS_CONFIG = Object.freeze({
 
 function setupCommentsSheet() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  if (!spreadsheet) {
-    throw new Error("此 Apps Script 必須綁定在 Google 試算表內。");
-  }
+  if (!spreadsheet) throw new Error("此 Apps Script 必須綁定在 Google 試算表內。");
 
   spreadsheet.setSpreadsheetTimeZone(COMMENTS_CONFIG.timeZone);
 
@@ -54,12 +55,12 @@ function setupCommentsSheet() {
   sheet.setFrozenRows(1);
   sheet.setColumnWidth(1, 230);
   sheet.setColumnWidth(2, 170);
-  sheet.setColumnWidth(3, 110);
-  sheet.setColumnWidth(4, 220);
+  sheet.setColumnWidth(3, 130);
+  sheet.setColumnWidth(4, 260);
   sheet.setColumnWidth(5, 420);
   sheet.setColumnWidth(6, 90);
   sheet.setColumnWidth(7, 220);
-  sheet.setColumnWidth(8, 110);
+  sheet.setColumnWidth(8, 260);
   sheet.getRange("B:B").setNumberFormat("yyyy-mm-dd hh:mm:ss");
 
   return jsonOutput_({ success: true, message: "Comments 工作表已完成設定。" });
@@ -72,7 +73,8 @@ function doGet(e) {
     if (action === "health") {
       return jsonOutput_({
         success: true,
-        service: "Evan Tarot Cloud Comments",
+        service: "Evan Tarot Google Comments",
+        authConfigured: Boolean(getOAuthClientId_()),
         time: formatTaipeiDate_(new Date()),
       });
     }
@@ -112,7 +114,10 @@ function doPost(e) {
       return jsonOutput_({ success: false, error: "不支援的 POST action。" });
     }
 
-    const comment = normalizeIncomingComment_(payload);
+    const googleUser = verifyGoogleCredential_(payload.credential);
+    enforceRateLimit_(googleUser.sub);
+
+    const comment = normalizeIncomingComment_(payload, googleUser);
     if (!comment.text) {
       return jsonOutput_({ success: false, error: "留言內容不可空白。" });
     }
@@ -124,12 +129,12 @@ function doPost(e) {
     getCommentsSheet_().appendRow([
       comment.id,
       comment.createdAt,
-      comment.name,
+      comment.publicAlias,
       comment.title,
       comment.text,
       "visible",
-      comment.clientId,
-      "website",
+      googleUser.sub,
+      googleUser.email,
     ]);
 
     SpreadsheetApp.flush();
@@ -138,6 +143,7 @@ function doPost(e) {
       success: true,
       id: comment.id,
       createdAt: formatTaipeiDate_(comment.createdAt),
+      alias: comment.publicAlias,
     });
   } catch (error) {
     console.error(error);
@@ -168,13 +174,101 @@ function listComments_(limit) {
     result.push({
       id: String(row[0] || ""),
       createdAt: formatTaipeiDate_(row[1]),
-      name: String(row[2] || ""),
+      name: String(row[2] || "Google 訪客"),
       title: String(row[3] || ""),
       text,
     });
   }
 
   return result;
+}
+
+function verifyGoogleCredential_(credential) {
+  const idToken = String(credential || "").trim();
+  if (!idToken) throw new Error("請先使用 Google 帳號登入。");
+
+  const clientId = getOAuthClientId_();
+  if (!clientId) throw new Error("Apps Script 尚未設定 GOOGLE_OAUTH_CLIENT_ID。");
+
+  const cache = CacheService.getScriptCache();
+  const cacheKey = `googleUser:${hashHex_(idToken).slice(0, 32)}`;
+  const cached = cache.get(cacheKey);
+  if (cached) return JSON.parse(cached);
+
+  const response = UrlFetchApp.fetch(
+    `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(idToken)}`,
+    { muteHttpExceptions: true }
+  );
+
+  if (response.getResponseCode() !== 200) {
+    throw new Error("Google 登入憑證無效或已過期，請重新登入。");
+  }
+
+  const tokenInfo = JSON.parse(response.getContentText());
+  const issuer = String(tokenInfo.iss || "");
+  const audience = String(tokenInfo.aud || "");
+  const expiresAt = Number(tokenInfo.exp || 0);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+
+  if (audience !== clientId) throw new Error("Google 登入來源不正確。");
+  if (issuer !== "accounts.google.com" && issuer !== "https://accounts.google.com") {
+    throw new Error("Google 登入簽發者不正確。");
+  }
+  if (expiresAt <= nowSeconds) throw new Error("Google 登入已過期，請重新登入。");
+  if (String(tokenInfo.email_verified) !== "true") {
+    throw new Error("Google Email 尚未完成驗證。");
+  }
+
+  const user = {
+    sub: sanitizeText_(tokenInfo.sub, 128),
+    email: sanitizeText_(tokenInfo.email, 254).toLowerCase(),
+  };
+
+  if (!user.sub || !user.email) throw new Error("Google 帳號資料不完整。");
+
+  const cacheSeconds = Math.max(60, Math.min(3000, expiresAt - nowSeconds - 30));
+  cache.put(cacheKey, JSON.stringify(user), cacheSeconds);
+  return user;
+}
+
+function enforceRateLimit_(subject) {
+  const cache = CacheService.getScriptCache();
+  const key = `rate:${hashHex_(subject).slice(0, 24)}`;
+  const current = Number(cache.get(key) || 0);
+
+  if (current >= 10) {
+    throw new Error("短時間留言次數過多，請稍後再試。");
+  }
+
+  cache.put(key, String(current + 1), 60);
+}
+
+function normalizeIncomingComment_(payload, googleUser) {
+  return {
+    id: Utilities.getUuid(),
+    createdAt: parseIncomingDate_(payload.createdAt),
+    publicAlias: createPublicAlias_(googleUser.sub),
+    title: sanitizeText_(payload.title, COMMENTS_CONFIG.maxTitleLength),
+    text: sanitizeText_(payload.text || payload.comment, COMMENTS_CONFIG.maxTextLength),
+  };
+}
+
+function createPublicAlias_(subject) {
+  return `Google 訪客 ${hashHex_(subject).slice(0, 4).toUpperCase()}`;
+}
+
+function getOAuthClientId_() {
+  return String(
+    PropertiesService.getScriptProperties().getProperty(COMMENTS_CONFIG.oauthClientIdProperty) || ""
+  ).trim();
+}
+
+function isAdmin_(email) {
+  const raw = PropertiesService
+    .getScriptProperties()
+    .getProperty(COMMENTS_CONFIG.adminEmailsProperty) || "";
+  const admins = raw.split(",").map((item) => item.trim().toLowerCase()).filter(Boolean);
+  return admins.includes(String(email || "").trim().toLowerCase());
 }
 
 function getCommentsSheet_() {
@@ -203,22 +297,21 @@ function parsePayload_(e) {
   return Object.assign({}, e?.parameter || {});
 }
 
-function normalizeIncomingComment_(payload) {
-  return {
-    id: Utilities.getUuid(),
-    createdAt: parseIncomingDate_(payload.createdAt),
-    name: sanitizeText_(payload.name, COMMENTS_CONFIG.maxNameLength),
-    title: sanitizeText_(payload.title, COMMENTS_CONFIG.maxTitleLength),
-    text: sanitizeText_(payload.text || payload.comment, COMMENTS_CONFIG.maxTextLength),
-    clientId: sanitizeText_(payload.clientId, 100),
-  };
-}
-
 function sanitizeText_(value, maxLength) {
   return String(value == null ? "" : value)
     .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
     .trim()
     .slice(0, maxLength);
+}
+
+function hashHex_(value) {
+  const bytes = Utilities.computeDigest(
+    Utilities.DigestAlgorithm.SHA_256,
+    String(value || ""),
+    Utilities.Charset.UTF_8
+  );
+
+  return bytes.map((byte) => ((byte + 256) % 256).toString(16).padStart(2, "0")).join("");
 }
 
 function parseIncomingDate_(value) {
