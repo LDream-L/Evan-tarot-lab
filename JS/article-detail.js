@@ -12,20 +12,37 @@
 (function initArticleDetailPage() {
   "use strict";
 
-  function normalizeLabNavigation() {
+  function normalizeArticleNavigation() {
     const nav = document.querySelector(".nav");
     if (!nav) return;
 
-    const labLink = nav.querySelector('a[href="articles.html"]');
+    let articleLink = nav.querySelector('a[href="articles.html"]');
+    let labLink = nav.querySelector('a[href="lab.html"]');
     const lostItemLink = nav.querySelector('a[href="lost-item.html"]');
-    if (labLink) {
-      labLink.textContent = "實驗室";
-      labLink.setAttribute("aria-current", "page");
+    const timeflowLink = nav.querySelector('a[href="timeflow.html"]');
+
+    if (!articleLink) {
+      articleLink = document.createElement("a");
+      articleLink.href = "articles.html";
+      articleLink.textContent = "文章";
+      nav.insertBefore(articleLink, timeflowLink || null);
     }
+
+    if (!labLink) {
+      labLink = document.createElement("a");
+      labLink.href = "lab.html";
+      labLink.textContent = "實驗室";
+      articleLink.insertAdjacentElement("afterend", labLink);
+    }
+
+    articleLink.textContent = "文章";
+    articleLink.setAttribute("aria-current", "page");
+    labLink.textContent = "實驗室";
+    labLink.removeAttribute("aria-current");
     lostItemLink?.remove();
 
     const backLink = document.querySelector(".article-back-link");
-    if (backLink) backLink.textContent = "← 回塔羅實驗室";
+    if (backLink) backLink.textContent = "← 回文章總覽";
   }
 
   function createParagraph(text) {
@@ -46,7 +63,7 @@
     const link = document.createElement("a");
     link.className = "btn primary";
     link.href = "articles.html";
-    link.textContent = "回塔羅實驗室";
+    link.textContent = "回文章總覽";
 
     container.replaceChildren(title, text, link);
     document.getElementById("article-discussion")?.classList.add("hidden");
@@ -100,7 +117,7 @@
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
-    normalizeLabNavigation();
+    normalizeArticleNavigation();
 
     const container = document.getElementById("article-detail");
     if (!container) return;
