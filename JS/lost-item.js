@@ -1,407 +1,380 @@
 // ==============================
 // lost-item.js
-// 失物占卜表單邏輯 + 回饋紀錄（本機）
+// 塔羅尋物 v4.7：私人 Apps Script 後端運算＋Google Form 回饋
 // ==============================
+// 主要函式複雜度：
+// - handleLostItemForm：O(1)（固定欄位，不含網路延遲）
+// - renderLostItemResult：O(c + a + e)，c <= 3、a <= 5、e <= 6
+// - handleLostItemFeedbackForm：O(1)
+// 空間複雜度：O(c + a + e)
 //
-// 占卜主流程（handleLostItemForm + renderLostItemResult）：
-//   時間複雜度：O(1)（抽 3 張＋渲染固定結構，牌數固定）
-//   空間複雜度：O(1)
-//
-// 回饋儲存（localStorage）：
-//   單次寫入：O(n)（n = 目前紀錄數，用於序列化 JSON）
-//   單次讀取：O(n)
-//   目前資料量極小，可視為常數成本。
-//
-// 暴力法 vs 優化法：
-//   暴力法：每次占卜都把所有牌洗牌（O(N)）或打 API 取遠端資料。
-//   優化法：mapping 已在 tarot-mapping.js 載入到記憶體，只抽固定 3 張，
-//           並把渲染邏輯限制在固定結構 → 每次請求成本近似常數。
-//
-// ==============================
-// 基本設定
+// 暴力法：將 78 張牌與全部權重公開在 GitHub，前端自行掃描計分。
+// 優化法：前端只送固定輸入並渲染本次結果；完整資料與計分留在
+// Google Sheets／Apps Script 後端，降低公開資料量與前端維護成本。
 // ==============================
 
-// 台灣固定 UTC+8（無夏令時間）
-const TAIPEI_OFFSET_MS = 8 * 60 * 60 * 1000;
+(function initLostItemV47() {
+  "use strict";
 
-// 台灣年月日+時間：2025-12-21 22:26
-function nowTaipeiStamp() {
-  const d = new Date(Date.now() + TAIPEI_OFFSET_MS);
-  return d.toISOString().slice(0, 16).replace("T", " ");
-}
-
-
-
-// localStorage 存放 key
-const LOST_FEEDBACK_STORAGE_KEY = "evanLostItemFeedback";
-
-// 最近一次占卜的上下文（給回饋使用）
-window.lastLostItemContext = null;
-
-// ==============================
-// 小工具：HTML 轉義
-// ==============================
-//
-// 時間複雜度：O(m)（m = 字串長度）
-// 空間複雜度：O(1)
-function escapeHtmlInline(str) {
-  if (!str) return "";
-  return String(str)
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
-// ★ 跟留言共用「Evan Tarot 網站回饋」表單
-const LOST_ITEM_FEEDBACK_FORM = {
-  url: "https://docs.google.com/forms/d/e/1FAIpQLScdDR6CrMrs_G7HVMAbQYo95s4AaH5b3KDupUZ9TlD5e5yKLQ/formResponse",
-  fields: {
-    type: "entry.1980954123",        // 回饋類型
-    title: "entry.2042241666",       // ✅ 標題/物品名稱（拿來放 itemName）
-    note: "entry.243999010",         // ✅ 留言內容/補充（放 item-notes + 回饋補充）
-    lastLocation: "entry.1220725361",// ✅ 最後位置
-    status: "entry.2036025518",      // ✅ 失物狀態（找到/尚未找到）
-    feedbackAt: "entry.1203451900",  // ✅ 建立時間
-  },
-};
-
-
-
-
-
-/**
- * 共用的 Google Form POST（跟 comments.js 類似）
- * 時間複雜度：O(1)
- * 空間複雜度：O(1)
- */
-function postToGoogleForm(url, formData) {
-  return fetch(url, {
-    method: "POST",
-    mode: "no-cors",
-    body: formData,
-  });
-}
-
-/**
- * 把失物回饋紀錄組成 FormData
- */
-function buildLostItemFeedbackFormData(record) {
-  const fd = new FormData();
-  const f = LOST_ITEM_FEEDBACK_FORM.fields;
-
-  // type
-  fd.append(f.type, "lost_item");
-
-  // ✅ 物品名稱 → 放到「標題/物品名稱」
-  fd.append(f.title, record.itemName || "");
-
-  // ✅ 最後位置（你指定：要連結到「簡單描述一下狀況」）
-  // 也順便把真正的「最後位置」一起附上，避免資訊消失
-  const lastLocParts = [];
-  if (record.itemNotes) lastLocParts.push(`狀況描述：${record.itemNotes}`);
-  if (record.lastLocation) lastLocParts.push(`最後位置：${record.lastLocation}`);
-
-  // ✅ 最後位置：只放「簡單描述」
-  fd.append(f.lastLocation, record.lastLocation || record.itemNotes || "");
-
-  // ✅ 留言內容/補充說明：只放「回饋補充」
-  fd.append(f.note, record.feedbackNote || "");
-
-  // ✅ 失物狀態
-  fd.append(f.status, record.foundStatus || "");
-
-  // ✅ 建立時間
-  fd.append(f.feedbackAt, record.feedbackAt || nowTaipeiStamp());
-
-  fd.append("submit", "Submit");
-  return fd;
-}
-
-
-
-// ==============================
-// 儲存回饋到 localStorage
-// ==============================
-//
-// 時間複雜度：O(n)（n = 目前紀錄數）
-// 空間複雜度：O(n)
-function saveLostItemFeedback(record) {
-  try {
-    const raw = localStorage.getItem(LOST_FEEDBACK_STORAGE_KEY);
-    const list = raw ? JSON.parse(raw) : [];
-    list.push(record);
-    localStorage.setItem(LOST_FEEDBACK_STORAGE_KEY, JSON.stringify(list));
-  } catch (e) {
-    console.error("儲存失物回饋失敗", e);
-  }
-}
-
-// ==============================
-// 匯出單筆回饋為文字檔並下載
-// ==============================
-//
-// 時間複雜度：O(m)（m = 這次紀錄字串長度）
-// 空間複雜度：O(m)
-//
-// 暴力法：自己開 DevTools 把 JSON 複製貼到記事本再存檔。
-// 優化法：程式自動把本次紀錄排版成文字，建立 Blob 觸發下載。
-function downloadLostItemFeedbackRecord(record) {
-  if (!record) return;
-
-  const itemName = record.itemName || "";
-  const createdAt = record.createdAt || "";
-  const resultStatus =
-    record.resultStatus === "found" ? "最後有找到" : "暫時還沒找到";
-
-  const cards = Array.isArray(record.cards) ? record.cards : [];
-  const cardLine = cards
-    .map((c) => (c && c.name ? c.name : ""))
-    .filter(Boolean)
-    .join(" / ");
-
-  const lines = [
-    `物品：${itemName}`,
-    `占卜時間：${createdAt}`,
-    `牌組：${cardLine}`,
-    `回饋結果：${resultStatus}`,
-    record.feedbackNote ? `補充說明：${record.feedbackNote}` : "",
-    record.feedbackAt ? `回饋時間：${record.feedbackAt}` : ""
-  ].filter(Boolean);
-
-  const content = lines.join("\n");
-
-  const blob = new Blob([content], {
-    type: "text/plain;charset=utf-8"
+  const REQUEST_TIMEOUT_MS = 18000;
+  const CLIENT_ID_KEY = "evanLostItemClientIdV47";
+  const FEEDBACK_FORM = Object.freeze({
+    url: "https://docs.google.com/forms/d/e/1FAIpQLScdDR6CrMrs_G7HVMAbQYo95s4AaH5b3KDupUZ9TlD5e5yKLQ/formResponse",
+    fields: {
+      type: "entry.1980954123",
+      title: "entry.2042241666",
+      note: "entry.243999010",
+      lastLocation: "entry.1220725361",
+      status: "entry.2036025518",
+      feedbackAt: "entry.1203451900",
+    },
   });
 
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
+  window.lastLostItemContext = null;
 
-  // 檔名：lost-item-耳機-2025-12-07-19-30-15.txt
-  const safeName = (itemName || "lost-item")
-    .replace(/[^\w\u4e00-\u9fa5\-]+/g, "_")
-    .slice(0, 20);
-  const ts = new Date().toISOString().replace(/[:.]/g, "-");
-
-  a.download = `lost-item-${safeName}-${ts}.txt`;
-  a.href = url;
-
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-}
-
-// ==============================
-// 渲染占卜結果（卡片＋文字解釋整合進卡片）
-// ==============================
-//
-// 時間複雜度：O(1)（固定 3 張牌）
-// 空間複雜度：O(1)
-function renderLostItemResult(ctx) {
-  const { itemName, notes, lastLocation, cards } = ctx;
-
-  const resultSection = document.getElementById("lost-item-result");
-  const cardsContainer = document.getElementById("lost-item-cards");
-  const detailsEl = document.getElementById("lost-item-details");
-
-  if (!resultSection || !cardsContainer) {
-    console.warn("[lost-item] 缺少結果容器元素");
-    return;
+  function readValue(id) {
+    return String(document.getElementById(id)?.value || "").trim();
   }
 
-  // 清空舊結果
-  cardsContainer.innerHTML = "";
-
-  // 將說明 details 隱藏（第二張圖整塊不顯示）
-  if (detailsEl) {
-    detailsEl.classList.add("hidden");
+  function getApiUrl() {
+    const config = window.EVAN_CLOUD_CONFIG || {};
+    return String(config.lostItemApiUrl || config.commentsApiUrl || "").trim();
   }
 
-  if (!cards || cards.length === 0) {
-    console.warn("[lost-item] 沒有牌可以渲染");
-    return;
+  function isApiConfigured() {
+    return /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/.test(getApiUrl());
   }
 
-  const safeItemName = escapeHtmlInline(itemName);
-  const safeNotes = escapeHtmlInline(notes);
-
-  // 標題改成「占卜結果｜關於『XXX』」
-  const titleEl = resultSection.querySelector("h4");
-  if (titleEl) {
-    const label = safeItemName || "這個物品";
-    titleEl.innerHTML = `占卜結果｜關於「${label}」`;
+  /** 時間複雜度 O(1)，空間複雜度 O(1)。 */
+  function getClientId() {
+    let value = localStorage.getItem(CLIENT_ID_KEY);
+    if (value) return value;
+    value = window.crypto?.randomUUID?.() ||
+      `lost_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+    localStorage.setItem(CLIENT_ID_KEY, value);
+    return value;
   }
 
-  const statusCard = cards[0];
-  const locationCard = cards[1] || cards[0];
-  const actionCard = cards[2] || cards[0];
-
-  const cardConfigs = [
-    {
-      index: 1,
-      card: statusCard,
-      bodyHtml: `<p>目前狀態：${statusCard.statusHint}</p>`
-    },
-    {
-      index: 2,
-      card: locationCard,
-      bodyHtml:
-        `<p><strong>${locationCard.areaHint}</strong></p>` +
-        `<p>比較可能出現的場域：${locationCard.locationHint}。</p>`
-    },
-    {
-      index: 3,
-      card: actionCard,
-      bodyHtml: `<p>搜尋建議：${actionCard.actionHint}</p>`
+  async function fetchWithTimeout(url, options = {}) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await fetch(url, {
+        ...options,
+        signal: controller.signal,
+        redirect: "follow",
+        cache: "no-store",
+      });
+    } finally {
+      window.clearTimeout(timer);
     }
-  ];
-
-  // 固定 3 張 → 迴圈次數為常數，時間複雜度 O(1)
-  for (let i = 0; i < cardConfigs.length; i++) {
-    const cfg = cardConfigs[i];
-    if (!cfg.card) continue;
-
-    const div = document.createElement("div");
-    div.className = "card small-card";
-    div.innerHTML =
-      `<strong>第 ${cfg.index} 張｜${cfg.card.name}</strong>` +
-      cfg.bodyHtml;
-
-    cardsContainer.appendChild(div);
   }
 
-  // 表單補充說明，放在卡片下面
-  if (safeNotes) {
-    const noteP = document.createElement("p");
-    noteP.className = "tool-interpretation";
-    noteP.innerHTML = `<em>你補充的狀況：「${safeNotes}」，可以當作第一輪搜尋的起點；如果這一輪沒找到，建議換一個場域再跑一次。</em>`;
-    cardsContainer.appendChild(noteP);
+  function setMessage(text, type = "") {
+    const element = document.getElementById("lost-item-message");
+    if (!element) return;
+    element.textContent = text;
+    element.classList.remove("hidden", "is-error", "is-success");
+    if (type) element.classList.add(type);
   }
 
-  // 保存上下文給回饋表單使用
-  window.lastLostItemContext = {
-    itemName,
-    notes,
-    lastLocation,
-    cards,
-    createdAt: nowTaipeiStamp()
-  };
-
-  resultSection.classList.remove("hidden");
-  resultSection.scrollIntoView({ behavior: "smooth", block: "start" });
-}
-
-// ==============================
-// 占卜表單送出
-// ==============================
-//
-// 時間複雜度：O(1)
-// 空間複雜度：O(1)
-window.handleLostItemForm = async function handleLostItemForm(event) {
-  event.preventDefault();
-
-  const itemNameInput = document.getElementById("item-name");
-  const notesInput = document.getElementById("item-notes");
-  const itemName = itemNameInput ? itemNameInput.value.trim() : "";
-  const notes = notesInput ? notesInput.value.trim() : "";
-  // 你指定：把「簡單描述一下狀況」當作表單的「最後位置」
-  const lastLocation = notes;
-
-
-  if (!itemName) {
-    itemNameInput?.focus();
-    return;
+  function clearMessage() {
+    const element = document.getElementById("lost-item-message");
+    if (!element) return;
+    element.textContent = "";
+    element.classList.add("hidden");
+    element.classList.remove("is-error", "is-success");
   }
 
+  function buildRequestPayload() {
+    return {
+      action: "lostitem",
+      itemName: readValue("item-name"),
+      cardCount: Number(readValue("card-count") || 3),
+      itemType: readValue("item-type"),
+      lastAction: readValue("last-action"),
+      scene: readValue("scene"),
+      roughSearched: readValue("rough-searched"),
+      lostDuration: readValue("lost-duration"),
+      touchedByOther: readValue("touched-by-other"),
+      clientId: getClientId(),
+    };
+  }
 
-  try {
-    // 確保 mapping 已載入
-    if (typeof window.loadMappingFromSheet === "function") {
-      await window.loadMappingFromSheet();
+  async function requestByPost(payload) {
+    const response = await fetchWithTimeout(getApiUrl(), {
+      method: "POST",
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
+      body: JSON.stringify(payload),
+    });
+    if (!response.ok) throw new Error(`後端回應失敗：HTTP ${response.status}`);
+    return response.json();
+  }
+
+  async function requestByGet(payload) {
+    const url = new URL(getApiUrl());
+    Object.entries(payload).forEach(([key, value]) => {
+      url.searchParams.set(key, String(value == null ? "" : value));
+    });
+    url.searchParams.set("_", String(Date.now()));
+    const response = await fetchWithTimeout(url.toString(), { method: "GET" });
+    if (!response.ok) throw new Error(`後端備援回應失敗：HTTP ${response.status}`);
+    return response.json();
+  }
+
+  async function requestLostItem(payload) {
+    try {
+      return await requestByPost(payload);
+    } catch (error) {
+      console.warn("[lost-item] POST 失敗，改用 GET：", error);
+      return requestByGet(payload);
     }
+  }
 
-    let cards = null;
+  function addSummary(container, label, value) {
+    if (!value) return;
+    const item = document.createElement("div");
+    item.className = "lost-v47-summary-item";
+    const small = document.createElement("small");
+    small.textContent = label;
+    const strong = document.createElement("strong");
+    strong.textContent = value;
+    item.append(small, strong);
+    container.appendChild(item);
+  }
 
-    // 優先使用 drawThreeFromEngine（O(1)）
-    if (typeof window.drawThreeFromEngine === "function") {
-      cards = window.drawThreeFromEngine();
-    } else if (Array.isArray(window.mappingEngine)) {
-      const engine = window.mappingEngine;
-      const n = engine.length;
-      const count = Math.min(3, n);
-      const indices = new Set();
-      while (indices.size < count) {
-        indices.add(Math.floor(Math.random() * n));
-      }
-      cards = Array.from(indices).map((idx) => engine[idx]);
-    }
+  /** 時間複雜度 O(c)，c <= 3；空間複雜度 O(c)。 */
+  function renderCards(cards) {
+    const container = document.getElementById("lost-item-cards");
+    if (!container) return;
+    const fragment = document.createDocumentFragment();
 
-    if (!cards || !cards.length) {
-      window.EvanDialog?.alert("目前沒有可用的牌組資料，請稍後再試一次。", "牌組資料未載入");
+    (cards || []).forEach((card, index) => {
+      const article = document.createElement("article");
+      article.className = "lost-v47-card";
+
+      const title = document.createElement("h5");
+      title.textContent = `第 ${index + 1} 張｜${card.name || card.code || "未命名牌"}`;
+
+      const orientation = document.createElement("span");
+      orientation.className = `lost-v47-orientation${card.orientation === "逆位" ? " is-reversed" : ""}`;
+      orientation.textContent = card.orientation || "正位";
+      title.appendChild(orientation);
+
+      const status = document.createElement("p");
+      status.textContent = `狀態：${card.statusHint || "—"}`;
+      const location = document.createElement("p");
+      location.textContent = `場域：${card.areaHint || card.primaryArea || "—"}`;
+      const action = document.createElement("p");
+      action.textContent = `牌面建議：${card.actionHint || "—"}`;
+
+      article.append(title, status, location, action);
+      fragment.appendChild(article);
+    });
+    container.replaceChildren(fragment);
+  }
+
+  /** 時間複雜度 O(a)，a <= 5；空間複雜度 O(a)。 */
+  function renderRanking(areas) {
+    const body = document.getElementById("lost-item-ranking-body");
+    if (!body) return;
+    const fragment = document.createDocumentFragment();
+
+    (areas || []).forEach((area, index) => {
+      const row = document.createElement("tr");
+      [
+        index + 1,
+        area.area || "—",
+        area.score ?? "—",
+        area.confidence || "—",
+        area.reason || "—",
+        area.firstAction || "—",
+      ].forEach((value) => {
+        const cell = document.createElement("td");
+        cell.textContent = String(value);
+        row.appendChild(cell);
+      });
+      fragment.appendChild(row);
+    });
+    body.replaceChildren(fragment);
+  }
+
+  /** 時間複雜度 O(e)，e <= 6；空間複雜度 O(e)。 */
+  function renderEvents(events) {
+    const section = document.getElementById("lost-item-events-section");
+    const container = document.getElementById("lost-item-events");
+    if (!section || !container) return;
+
+    if (!Array.isArray(events) || events.length === 0) {
+      container.replaceChildren();
+      section.classList.add("hidden");
       return;
     }
 
-    renderLostItemResult({ itemName, notes, lastLocation, cards });
-  } catch (e) {
-    console.error("[lost-item] 占卜流程錯誤", e);
-    window.EvanDialog?.alert("占卜過程發生錯誤，請稍後再試一次。", "占卜流程錯誤");
+    const fragment = document.createDocumentFragment();
+    events.forEach((event) => {
+      const article = document.createElement("article");
+      article.className = "lost-v47-event";
+      const title = document.createElement("h5");
+      title.textContent = event.name || "事件核對";
+      const state = document.createElement("p");
+      state.textContent = event.state || "";
+      const check = document.createElement("p");
+      check.textContent = event.check || "";
+      article.append(title, state, check);
+      if (event.common) {
+        const common = document.createElement("p");
+        common.textContent = `常見對應：${event.common}`;
+        article.appendChild(common);
+      }
+      fragment.appendChild(article);
+    });
+    container.replaceChildren(fragment);
+    section.classList.remove("hidden");
   }
-};
 
-// 主要：失物回饋表單 submit
-// 時間複雜度：O(1)
-// 空間複雜度：O(1)
-//
-// 暴力法：同時存 localStorage + 下載 txt + alert。
-// 優化法（本實作）：只送 Google Form，頁面內顯示簡短提示，
-//                  不在使用者裝置留下額外檔案或本機紀錄。
-window.handleLostItemFeedbackForm = function handleLostItemFeedbackForm(event) {
-  event.preventDefault();
-  const form = event.target;
+  function renderLostItemResult(payload) {
+    const result = document.getElementById("lost-item-result");
+    const title = document.getElementById("lost-item-result-title");
+    const zeroStep = document.getElementById("lost-item-zero-step");
+    const summary = document.getElementById("lost-item-summary");
+    if (!result || !summary) return;
 
-  const statusInput = form.querySelector('input[name="found-status"]:checked');
-  const status = statusInput ? statusInput.value : "";
-  const notes =
-    document.getElementById("found-notes")?.value.trim() || "";
+    title.textContent = `占卜結果｜關於「${payload.itemName || "這個物品"}」`;
+    summary.replaceChildren();
+    addSummary(summary, "模型", payload.model);
+    addSummary(summary, "聚焦程度", payload.focusLevel);
+    addSummary(summary, "判讀模式", payload.readingMode);
+    addSummary(summary, "先搜順序", payload.searchOrder);
 
-  const ctx = window.lastLostItemContext;
-
-  if (!ctx || !ctx.itemName) {
-    const msgEl = document.getElementById("lost-item-feedback-message");
-    if (msgEl) {
-      msgEl.textContent = "請先抽牌產生結果後再回饋。";
-      msgEl.classList.remove("hidden");
+    if (payload.zeroStep) {
+      zeroStep.textContent = payload.zeroStep;
+      zeroStep.classList.remove("hidden");
+    } else {
+      zeroStep.textContent = "";
+      zeroStep.classList.add("hidden");
     }
-    return;
+
+    renderCards(payload.cards);
+    renderRanking(payload.topAreas);
+    renderEvents(payload.events);
+
+    window.lastLostItemContext = {
+      itemName: payload.itemName || readValue("item-name"),
+      itemNotes: readValue("item-notes"),
+      cards: payload.cards || [],
+      topAreas: payload.topAreas || [],
+      createdAt: payload.createdAt || new Date().toISOString(),
+    };
+
+    result.classList.remove("hidden");
+    result.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
+  window.handleLostItemForm = async function handleLostItemForm(event) {
+    event.preventDefault();
+    const itemNameInput = document.getElementById("item-name");
+    const submit = document.getElementById("lost-item-submit");
+    const payload = buildRequestPayload();
 
-  const record = {
-    foundStatus: status,                          // "找到" / "尚未找到"
-    feedbackNote: notes,                          // 回饋補充
-    feedbackAt: nowTaipeiStamp(),                 // ✅ 建立時間（真的時間）
-    itemName: ctx.itemName || "",                 // ✅ 物品名稱
-    itemNotes: ctx.notes || "",                   // ✅ 簡述狀況（你原本的 item-notes）
-    lastLocation: ctx.lastLocation || ""          // ✅ 最後位置
+    if (!payload.itemName) {
+      itemNameInput?.focus();
+      setMessage("請先輸入要找的物品。", "is-error");
+      return;
+    }
+    if (!isApiConfigured()) {
+      setMessage("尋物後端尚未完成設定，請稍後再試。", "is-error");
+      return;
+    }
+
+    clearMessage();
+    if (submit) {
+      submit.disabled = true;
+      submit.textContent = "後端抽牌與計算中…";
+    }
+
+    try {
+      const response = await requestLostItem(payload);
+      if (!response?.success) throw new Error(response?.error || "後端回傳格式不正確。");
+      renderLostItemResult(response);
+      setMessage("已完成 v4.7 搜尋排序。", "is-success");
+    } catch (error) {
+      console.error("[lost-item] 尋物失敗：", error);
+      setMessage(error?.message || "尋物計算失敗，請稍後再試。", "is-error");
+    } finally {
+      if (submit) {
+        submit.disabled = false;
+        submit.textContent = "抽牌並產生 Top 5 搜尋順序";
+      }
+    }
   };
 
-
-
-  // ✅ 只送到 Google Form，不再存 localStorage / 下載文字檔
-  const fd = buildLostItemFeedbackFormData(record);
-  postToGoogleForm(LOST_ITEM_FEEDBACK_FORM.url, fd).catch((e) => {
-    console.warn("失物回饋送到 Google 失敗：", e);
-  });
-
-  form.reset();
-
-  // ✅ 不用 alert，改在頁面上顯示「感謝你的回饋」
-  const msgEl = document.getElementById("lost-item-feedback-message");
-  if (msgEl) {
-    msgEl.textContent = "感謝你的回饋。";
-    msgEl.classList.remove("hidden");
+  function nowTaipeiStamp() {
+    return new Intl.DateTimeFormat("sv-SE", {
+      timeZone: "Asia/Taipei",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    }).format(new Date());
   }
-};
+
+  function buildFeedbackFormData(record) {
+    const data = new FormData();
+    const fields = FEEDBACK_FORM.fields;
+    data.append(fields.type, "lost_item");
+    data.append(fields.title, record.itemName || "");
+    data.append(fields.note, record.note || "");
+    data.append(fields.lastLocation, record.itemNotes || "");
+    data.append(fields.status, record.status || "");
+    data.append(fields.feedbackAt, record.feedbackAt || nowTaipeiStamp());
+    data.append("submit", "Submit");
+    return data;
+  }
+
+  window.handleLostItemFeedbackForm = function handleLostItemFeedbackForm(event) {
+    event.preventDefault();
+    const form = event.target;
+    const status = String(form.querySelector('input[name="found-status"]:checked')?.value || "");
+    const context = window.lastLostItemContext;
+    const message = document.getElementById("lost-item-feedback-message");
+
+    if (!context?.itemName) {
+      if (message) {
+        message.textContent = "請先抽牌產生結果後再回饋。";
+        message.classList.remove("hidden");
+      }
+      return;
+    }
+    if (!status) return;
+
+    const cards = (context.cards || [])
+      .map((card) => `${card.name || card.code || "牌"}${card.orientation ? `（${card.orientation}）` : ""}`)
+      .join("、");
+    const order = (context.topAreas || []).map((area) => area.area).filter(Boolean).join(" → ");
+    const userNote = readValue("found-notes");
+    const note = [userNote, cards ? `抽牌：${cards}` : "", order ? `搜尋順序：${order}` : ""]
+      .filter(Boolean)
+      .join("\n");
+
+    const data = buildFeedbackFormData({
+      itemName: context.itemName,
+      itemNotes: context.itemNotes,
+      status,
+      note,
+      feedbackAt: nowTaipeiStamp(),
+    });
+
+    fetch(FEEDBACK_FORM.url, { method: "POST", mode: "no-cors", body: data })
+      .catch((error) => console.warn("[lost-item] 回饋送出失敗：", error));
+
+    form.reset();
+    if (message) {
+      message.textContent = "感謝你的回饋。";
+      message.classList.remove("hidden");
+    }
+  };
+})();
