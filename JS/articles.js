@@ -1,9 +1,10 @@
 // ==============================
 // articles.js
-// 文章資料與總覽渲染
+// 從私人 Google Sheets／Apps Script 讀取已發布文章
 // ==============================
 //
 // 主要函式複雜度：
+// - loadArticles：O(n)
 // - getArticleById：O(n)
 // - filterArticles：O(n)
 // - renderArticles：O(n)
@@ -11,21 +12,24 @@
 // 空間複雜度：O(n + c)
 //
 // 更快替代方案比較：
-// - 暴力法：每篇文章建立獨立 HTML 並重複維護標題、日期與分類。
-// - 本實作：文章資料集中於 ARTICLE_DATA；總覽與獨立文章頁共用同一份資料，避免內容不同步。
+// - 暴力法：每篇文章直接寫入 GitHub，新增與修改都要重新部署網站。
+// - 本實作：公開頁只讀取 Apps Script 回傳的已發布文章；GitHub 內建資料僅作後端未部署時的備援。
 // ==============================
 
 (function initArticleData() {
-  const ARTICLE_CATEGORIES = [
+  "use strict";
+
+  const REQUEST_TIMEOUT_MS = 12000;
+  const ARTICLE_CATEGORIES = Object.freeze([
     { id: "all", label: "全部" },
     { id: "experiment", label: "實驗紀錄" },
     { id: "system", label: "系統思維" },
     { id: "case", label: "匿名案例" },
     { id: "guide", label: "占卜教學" },
     { id: "reflection", label: "思考短文" },
-  ];
+  ]);
 
-  const ARTICLE_DATA = [
+  const FALLBACK_ARTICLES = Object.freeze([
     {
       id: "tarot-as-system",
       category: "system",
@@ -86,9 +90,19 @@
       relatedLink: "",
       relatedLabel: "",
     },
-  ];
+  ]);
 
   let activeCategory = "all";
+  let articleData = FALLBACK_ARTICLES.slice();
+  let dataSource = "fallback";
+
+  function getApiUrl() {
+    return String(
+      window.EVAN_CLOUD_CONFIG?.articlesApiUrl ||
+      window.EVAN_CLOUD_CONFIG?.commentsApiUrl ||
+      ""
+    ).trim();
+  }
 
   function escapeHtml(input) {
     if (input == null) return "";
@@ -100,8 +114,78 @@
       .replace(/'/g, "&#39;");
   }
 
+  function normalizeArticle(raw) {
+    const id = String(raw?.id || "").trim().toLowerCase();
+    const title = String(raw?.title || "").trim();
+    const excerpt = String(raw?.excerpt || "").trim();
+    if (!/^[a-z0-9][a-z0-9_-]{1,79}$/.test(id) || !title) return null;
+
+    const content = Array.isArray(raw?.content)
+      ? raw.content.map((paragraph) => String(paragraph || "").trim()).filter(Boolean)
+      : [String(raw?.content || excerpt).trim()].filter(Boolean);
+
+    return Object.freeze({
+      id,
+      category: String(raw?.category || "reflection").trim(),
+      tag: String(raw?.tag || "文章").trim(),
+      title,
+      date: String(raw?.date || "").trim(),
+      author: String(raw?.author || "Evan").trim(),
+      excerpt: excerpt || content[0] || "",
+      content,
+      relatedLink: String(raw?.relatedLink || "").trim(),
+      relatedLabel: String(raw?.relatedLabel || "").trim(),
+    });
+  }
+
+  async function fetchWithTimeout(url) {
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    try {
+      return await fetch(url, {
+        method: "GET",
+        signal: controller.signal,
+        cache: "no-store",
+        redirect: "follow",
+      });
+    } finally {
+      window.clearTimeout(timer);
+    }
+  }
+
+  async function loadArticles() {
+    const apiUrl = getApiUrl();
+    if (!apiUrl) return articleData;
+
+    try {
+      const url = new URL(apiUrl);
+      url.searchParams.set("action", "articles");
+      url.searchParams.set("limit", "200");
+      url.searchParams.set("_", String(Date.now()));
+
+      const response = await fetchWithTimeout(url.toString());
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const payload = await response.json();
+      if (!payload?.success || !Array.isArray(payload.articles)) {
+        throw new Error(payload?.error || "文章 API 格式不正確");
+      }
+
+      articleData = payload.articles.map(normalizeArticle).filter(Boolean);
+      dataSource = "cloud";
+      return articleData;
+    } catch (error) {
+      console.warn("[articles] 雲端文章讀取失敗，使用內建備援：", error);
+      articleData = FALLBACK_ARTICLES.slice();
+      dataSource = "fallback";
+      return articleData;
+    }
+  }
+
+  const ready = loadArticles();
+
   function getArticleById(articleId) {
-    return ARTICLE_DATA.find((article) => article.id === articleId) || null;
+    return articleData.find((article) => article.id === articleId) || null;
   }
 
   function getCategoryLabel(categoryId) {
@@ -110,8 +194,8 @@
   }
 
   function filterArticles() {
-    if (activeCategory === "all") return ARTICLE_DATA;
-    return ARTICLE_DATA.filter((article) => article.category === activeCategory);
+    if (activeCategory === "all") return articleData;
+    return articleData.filter((article) => article.category === activeCategory);
   }
 
   function renderArticleCategories() {
@@ -146,7 +230,7 @@
 
     const articles = filterArticles();
     if (!articles.length) {
-      list.innerHTML = '<p class="article-empty">此分類目前還沒有文章。</p>';
+      list.innerHTML = '<p class="article-empty">此分類目前沒有已發布文章。</p>';
       return;
     }
 
@@ -164,15 +248,19 @@
     }).join("");
   }
 
-  document.addEventListener("DOMContentLoaded", () => {
+  document.addEventListener("DOMContentLoaded", async () => {
+    await ready;
     renderArticleCategories();
     renderArticles();
   });
 
   window.EvanArticles = Object.freeze({
-    data: ARTICLE_DATA,
     categories: ARTICLE_CATEGORIES,
+    ready,
     getById: getArticleById,
+    getData: () => articleData.slice(),
+    getSource: () => dataSource,
+    reload: loadArticles,
     renderArticles,
   });
 })();
