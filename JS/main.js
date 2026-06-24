@@ -3,8 +3,15 @@
 // 初始化：導覽、頁面脈絡、事件綁定與平滑滾動
 // ==============================
 //
-// 時間複雜度：O(n)
+// 主要函式複雜度：
+// - normalizeSiteNavigation：O(n)，n = 導覽連結數
+// - normalizeLostItemLabContext：O(1)
+// - DOMContentLoaded 初始化：O(n)
 // 空間複雜度：O(n)
+//
+// 更快替代方案比較：
+// - 各頁分別維護導覽：容易出現文章／實驗室名稱不同步。
+// - 共用導覽修正：載入時一次補齊文章與實驗室入口，並移除舊尋物主選單。
 // ==============================
 
 function loadArticleCommentsScript() {
@@ -22,38 +29,69 @@ function loadArticleCommentsScript() {
   });
 }
 
-/**
- * 將「文章＋尋物工具」整合為「實驗室」主入口。
- * 時間複雜度：O(n)，n = 導覽連結數
- * 空間複雜度：O(1)
- */
-function normalizeLabNavigation() {
-  const nav = document.querySelector(".nav");
-  if (!nav) return;
+function ensureLabStyles() {
+  if (document.querySelector('link[href*="lab.css"]')) return;
+  const stylesheet = document.createElement("link");
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = "lab.css?v=20260624-lab-v2";
+  document.head.appendChild(stylesheet);
+}
 
-  const labLink = nav.querySelector('a[href="articles.html"]');
-  const lostItemLink = nav.querySelector('a[href="lost-item.html"]');
-  const currentPage = window.location.pathname.split("/").pop() || "index.html";
-
-  if (labLink) {
-    labLink.textContent = "實驗室";
-    if (["articles.html", "article.html", "lost-item.html"].includes(currentPage)) {
-      labLink.setAttribute("aria-current", "page");
-    } else {
-      labLink.removeAttribute("aria-current");
-    }
-  }
-
-  lostItemLink?.remove();
+function createNavLink(href, text) {
+  const link = document.createElement("a");
+  link.href = href;
+  link.textContent = text;
+  return link;
 }
 
 /**
- * 將塔羅尋物明確標示為實驗室子項目。
+ * 文章與實驗室保持獨立，塔羅尋物歸入實驗室。
+ * 時間複雜度：O(n)
+ * 空間複雜度：O(1)
+ */
+function normalizeSiteNavigation() {
+  const nav = document.querySelector(".nav");
+  if (!nav) return;
+
+  let articleLink = nav.querySelector('a[href="articles.html"]');
+  let labLink = nav.querySelector('a[href="lab.html"]');
+  const lostItemLink = nav.querySelector('a[href="lost-item.html"]');
+  const timeflowLink = nav.querySelector('a[href="timeflow.html"]');
+  const currentPage = window.location.pathname.split("/").pop() || "index.html";
+
+  if (!articleLink) {
+    articleLink = createNavLink("articles.html", "文章");
+    nav.insertBefore(articleLink, timeflowLink || null);
+  }
+  articleLink.textContent = "文章";
+
+  if (!labLink) {
+    labLink = createNavLink("lab.html", "實驗室");
+    articleLink.insertAdjacentElement("afterend", labLink);
+  }
+  labLink.textContent = "實驗室";
+
+  lostItemLink?.remove();
+  articleLink.removeAttribute("aria-current");
+  labLink.removeAttribute("aria-current");
+
+  if (currentPage === "articles.html" || currentPage === "article.html") {
+    articleLink.setAttribute("aria-current", "page");
+  }
+  if (currentPage === "lab.html" || currentPage === "lost-item.html") {
+    labLink.setAttribute("aria-current", "page");
+  }
+}
+
+/**
+ * 將塔羅尋物標示為實驗室內的實驗物件。
  * 時間複雜度：O(1)
  * 空間複雜度：O(1)
  */
 function normalizeLostItemLabContext() {
   if (!document.getElementById("lost-item-tool")) return;
+
+  ensureLabStyles();
 
   const heroText = document.querySelector(".subpage-hero .hero-text");
   const heroButtons = heroText?.querySelectorAll(".hero-cta .btn");
@@ -63,17 +101,17 @@ function normalizeLostItemLabContext() {
   if (heroText && !heroText.querySelector(".lab-breadcrumb")) {
     const breadcrumb = document.createElement("a");
     breadcrumb.className = "lab-breadcrumb";
-    breadcrumb.href = "articles.html#projects";
-    breadcrumb.textContent = "← 塔羅實驗室 / 實驗項目";
+    breadcrumb.href = "lab.html#projects";
+    breadcrumb.textContent = "← 塔羅實驗室 / 實驗物件";
     heroText.prepend(breadcrumb);
   }
 
   if (heroButtons?.[1]) {
-    heroButtons[1].href = "articles.html#projects";
+    heroButtons[1].href = "lab.html#projects";
     heroButtons[1].textContent = "回實驗室";
   }
 
-  if (heroPills?.[0]) heroPills[0].textContent = "實驗項目";
+  if (heroPills?.[0]) heroPills[0].textContent = "實驗物件";
   if (heroPills?.[1]) heroPills[1].textContent = "塔羅尋物 v4.7";
 
   if (heroCard) {
@@ -90,7 +128,7 @@ function normalizeLostItemLabContext() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
-  normalizeLabNavigation();
+  normalizeSiteNavigation();
   normalizeLostItemLabContext();
 
   const articlePage = Boolean(
