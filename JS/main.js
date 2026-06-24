@@ -1,6 +1,6 @@
 // ==============================
 // main.js
-// 初始化：事件綁定、預載資料、平滑滾動
+// 初始化：導覽、事件綁定、預載資料、平滑滾動
 // ==============================
 //
 // 時間複雜度：O(n)
@@ -22,7 +22,34 @@ function loadArticleCommentsScript() {
   });
 }
 
+/**
+ * 將「文章＋尋物工具」整合為「實驗室」主入口。
+ * 時間複雜度：O(n)，n = 導覽連結數
+ * 空間複雜度：O(1)
+ */
+function normalizeLabNavigation() {
+  const nav = document.querySelector(".nav");
+  if (!nav) return;
+
+  const labLink = nav.querySelector('a[href="articles.html"]');
+  const lostItemLink = nav.querySelector('a[href="lost-item.html"]');
+  const currentPage = window.location.pathname.split("/").pop() || "index.html";
+
+  if (labLink) {
+    labLink.textContent = "實驗室";
+    if (currentPage === "articles.html" || currentPage === "article.html" || currentPage === "lost-item.html") {
+      labLink.setAttribute("aria-current", "page");
+    } else {
+      labLink.removeAttribute("aria-current");
+    }
+  }
+
+  lostItemLink?.remove();
+}
+
 document.addEventListener("DOMContentLoaded", async () => {
+  normalizeLabNavigation();
+
   const articlePage = Boolean(
     document.getElementById("article-list") &&
     document.getElementById("comment-form")
