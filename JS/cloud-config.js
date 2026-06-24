@@ -3,7 +3,10 @@
 // Evan Tarot 雲端服務設定
 // ==============================
 //
-// 此檔案只放公開端點，不可放密碼、Token 或私人金鑰。
+// 此檔案只放可公開的前端設定：
+// - Apps Script Web App URL
+// - Google OAuth Web Client ID
+// 不可放 Client Secret、管理員密碼或 service account 金鑰。
 //
 // 時間複雜度：O(1)
 // 空間複雜度：O(1)
@@ -15,4 +18,5 @@ const EVAN_COMMENTS_API_URL = String.fromCharCode(
 
 window.EVAN_CLOUD_CONFIG = Object.freeze({
   commentsApiUrl: EVAN_COMMENTS_API_URL,
+  googleClientId: "PASTE_GOOGLE_OAUTH_WEB_CLIENT_ID_HERE",
 });
