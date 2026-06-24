@@ -1,0 +1,78 @@
+/* ==============================
+   Evan Tarot｜文章專屬留言
+   ============================== */
+
+.comment-article-field {
+  display: block;
+  margin-bottom: 14px;
+  font-size: 0.86rem;
+}
+
+.comment-article-field select {
+  width: 100%;
+  margin-top: 4px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(5, 6, 24, 0.98);
+  color: var(--text-main);
+  outline: none;
+  transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+.comment-article-field select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft);
+  background: rgba(10, 11, 32, 0.98);
+}
+
+.article-comment-actions {
+  margin-top: 14px;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.article-comment-button {
+  width: 100%;
+}
+
+.article-comment-list-header {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px dashed rgba(120, 120, 180, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.article-comment-list-header h4 {
+  margin: 0;
+  font-size: 0.96rem;
+}
+
+.article-comment-count {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 123, 255, 0.28);
+  background: rgba(139, 123, 255, 0.12);
+  color: var(--accent-strong);
+  font-size: 0.76rem;
+}
+
+.comments-block:target {
+  border-color: rgba(183, 148, 255, 0.88);
+  box-shadow:
+    var(--shadow-subtle),
+    0 0 0 1px rgba(183, 148, 255, 0.16);
+}
+
+@media (min-width: 640px) {
+  .article-comment-button {
+    width: auto;
+  }
+}
