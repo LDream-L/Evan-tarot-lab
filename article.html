@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Evan Tarot｜文章</title>
+  <meta name="description" content="Evan Tarot 文章內容與留言討論。" />
+  <meta name="theme-color" content="#050518" />
+  <link rel="stylesheet" href="style.css?v=20260505-polish-v2" />
+  <link rel="stylesheet" href="article-detail.css?v=20260624-threaded-comments-v1" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="logo">
+        <span class="logo-main">Evan Tarot</span>
+        <span class="logo-sub">Tarot Lab ／ Systematic Divination</span>
+      </div>
+      <nav class="nav" aria-label="主選單">
+        <a href="index.html#intro">介紹</a>
+        <a href="services.html">占卜項目</a>
+        <a href="articles.html" aria-current="page">文章</a>
+        <a href="lost-item.html">尋物工具</a>
+        <a href="timeflow.html">時間流</a>
+        <a href="services.html#booking">預約</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="section article-detail-section">
+      <div class="container article-detail-container">
+        <a class="article-back-link" href="articles.html">← 回文章總覽</a>
+
+        <article class="article-detail-card" id="article-detail" aria-live="polite">
+          <p class="article-loading">文章載入中…</p>
+        </article>
+
+        <section class="comments-block article-thread-block" id="article-discussion" aria-labelledby="discussion-title">
+          <div class="article-thread-heading">
+            <div>
+              <p class="article-thread-kicker">Discussion</p>
+              <h2 id="discussion-title">留言討論</h2>
+              <p class="comments-note">針對這篇文章留言；每則主留言可有不限數量的回覆，但回覆不會再往下開子留言。</p>
+            </div>
+            <span class="article-comment-count" id="comment-count">0 則留言</span>
+          </div>
+
+          <form class="comment-form article-main-comment-form" id="comment-form">
+            <div class="form-row">
+              <label>
+                暱稱（可留空）
+                <input id="comment-name" type="text" maxlength="40" placeholder="例如：Evan、路人甲、匿名" />
+              </label>
+              <label>
+                留言標題（可留空）
+                <input id="comment-title" type="text" maxlength="30" placeholder="例如：關於這篇文章的疑問" />
+              </label>
+            </div>
+            <label>
+              留言內容
+              <textarea id="comment-text" rows="4" maxlength="1000" required placeholder="寫下你對這篇文章的想法、問題或經驗。"></textarea>
+            </label>
+            <button class="btn primary full" type="submit">送出留言</button>
+            <p class="tool-feedback-message hidden" id="comment-message" aria-live="polite"></p>
+          </form>
+
+          <div class="comment-list article-thread-list" id="comment-list" aria-live="polite"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>Evan Tarot ｜塔羅占卜 & 小工具實驗室</p>
+    </div>
+  </footer>
+
+  <script src="JS/utils.js?v=20260505-polish-v2"></script>
+  <script src="JS/cloud-config.js?v=20260624-cloud-comments-v2"></script>
+  <script src="JS/articles.js?v=20260624-threaded-comments-v1"></script>
+  <script src="JS/article-comments.js?v=20260624-threaded-comments-v1"></script>
+  <script src="JS/article-detail.js?v=20260624-threaded-comments-v1"></script>
+  <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
+</body>
+</html>
