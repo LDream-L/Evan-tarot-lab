@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Evan Tarot｜塔羅記事 / 文章</title>
-  <meta name="description" content="Evan Tarot 的塔羅記事、實驗紀錄、匿名案例與文章總覽。" />
+  <title>Evan Tarot｜塔羅實驗室</title>
+  <meta name="description" content="Evan Tarot 實驗室：塔羅尋物、占卜時間流、實驗紀錄與研究文章。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-polish-v2" />
   <link rel="stylesheet" href="article-detail.css?v=20260624-threaded-comments-v1" />
+  <link rel="stylesheet" href="lab.css?v=20260624-lab-v1" />
 </head>
 <body>
   <header class="site-header">
@@ -19,8 +20,7 @@
       <nav class="nav" aria-label="主選單">
         <a href="index.html#intro">介紹</a>
         <a href="services.html">占卜項目</a>
-        <a href="articles.html" aria-current="page">文章</a>
-        <a href="lost-item.html">尋物工具</a>
+        <a href="articles.html" aria-current="page">實驗室</a>
         <a href="timeflow.html">時間流</a>
         <a href="services.html#booking">預約</a>
       </nav>
@@ -32,38 +32,78 @@
       <div class="hero-bg-orbit" aria-hidden="true"></div>
       <div class="container hero-inner">
         <div class="hero-text">
-          <h1>塔羅記事與實驗紀錄。</h1>
-          <p>
-            收錄塔羅實驗、匿名案例、占卜工具與系統思維；可依分類瀏覽文章並參與留言討論。
-          </p>
+          <h1>塔羅實驗室。</h1>
+          <p>把塔羅問題做成可以測試、紀錄與修正的實驗。</p>
           <div class="hero-cta">
-            <a href="#articles" class="btn primary">瀏覽文章</a>
-            <a href="index.html" class="btn ghost">回首頁</a>
+            <a href="#projects" class="btn primary">查看實驗項目</a>
+            <a href="#records" class="btn ghost">閱讀實驗紀錄</a>
           </div>
           <div class="hero-meta">
-            <span class="pill pill-soft">文章總覽</span>
-            <span class="pill pill-outline">留言討論</span>
+            <span class="pill pill-soft">實驗項目</span>
+            <span class="pill pill-outline">紀錄與驗證</span>
           </div>
         </div>
-        <aside class="hero-card" aria-label="閱讀與討論方式">
+        <aside class="hero-card" aria-label="實驗室內容">
           <div class="hero-card-inner">
-            <p class="hero-tag">閱讀與討論</p>
+            <p class="hero-tag">實驗室內容</p>
             <ul>
-              <li>依分類篩選文章</li>
-              <li>點選標題閱讀全文</li>
-              <li>登入 Google 帳號後留言或回覆</li>
+              <li>可直接使用的塔羅工具</li>
+              <li>模型調整與驗證紀錄</li>
+              <li>案例、教學與研究文章</li>
             </ul>
           </div>
         </aside>
       </div>
     </section>
 
-    <section class="section" id="articles">
+    <section class="section alt lab-projects-section" id="projects">
       <div class="container">
-        <h2>塔羅記事 / 文章</h2>
-        <p class="section-lead">
-          關於塔羅實驗、匿名案例、占卜工具與系統思維的整理。
-        </p>
+        <h2>實驗項目</h2>
+        <p class="section-lead">每個項目都有工具、方法與後續驗證。</p>
+        <div class="lab-projects-grid">
+          <article class="lab-project-card is-featured">
+            <div class="lab-project-topline">
+              <p class="lab-project-kicker">Lost Item Lab</p>
+              <span class="lab-project-status">進行中</span>
+            </div>
+            <h3>塔羅尋物</h3>
+            <p>由失物占卜實驗發展而成，依抽牌、正逆位與情境權重，整理 Top 5 搜尋順序。</p>
+            <div class="lab-project-meta">
+              <span>v4.7</span><span>正逆位</span><span>Top 5</span>
+            </div>
+            <ul class="lab-project-points">
+              <li>記錄牌面、情境與找到位置</li>
+              <li>檢查區域排序是否有效</li>
+              <li>依結果修正牌義與權重</li>
+            </ul>
+            <div class="lab-project-actions">
+              <a class="btn primary" href="lost-item.html">開啟塔羅尋物</a>
+              <a class="btn ghost" href="#records">查看實驗紀錄</a>
+            </div>
+          </article>
+
+          <article class="lab-project-card">
+            <div class="lab-project-topline">
+              <p class="lab-project-kicker">Timeflow Lab</p>
+              <span class="lab-project-status">驗證工具</span>
+            </div>
+            <h3>占卜時間流</h3>
+            <p>將問題、牌面、後續事件與驗證結果接在同一條主題流上。</p>
+            <div class="lab-project-meta">
+              <span>主題流</span><span>事件連結</span><span>結果驗證</span>
+            </div>
+            <div class="lab-project-actions">
+              <a class="btn primary" href="timeflow.html">開啟時間流</a>
+            </div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section" id="records">
+      <div class="container">
+        <h2>實驗紀錄與文章</h2>
+        <p class="section-lead">實驗過程、匿名案例、占卜教學、方法調整與驗證結果。</p>
         <div class="article-category-bar" id="article-category-bar" aria-label="文章分類"></div>
         <div class="card-grid article-grid" id="article-list" aria-live="polite"></div>
       </div>
@@ -72,14 +112,15 @@
 
   <footer class="site-footer">
     <div class="container footer-inner">
-      <p>Evan Tarot ｜塔羅占卜 & 小工具實驗室</p>
+      <p>Evan Tarot ｜塔羅實驗室</p>
+      <p class="footer-sub">工具、紀錄與驗證共同構成每一個實驗項目。</p>
     </div>
   </footer>
 
   <script src="JS/utils.js?v=20260505-polish-v2"></script>
   <script src="JS/cloud-config.js?v=20260624-articles-cloud-v1"></script>
-  <script src="JS/articles.js?v=20260624-articles-cloud-v1"></script>
+  <script src="JS/articles.js?v=20260624-lab-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
-  <script src="JS/main.js?v=20260624-article-comments-v1"></script>
+  <script src="JS/main.js?v=20260624-lab-v1"></script>
 </body>
 </html>
