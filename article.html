@@ -7,7 +7,7 @@
   <meta name="description" content="Evan Tarot 文章內容與留言討論。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-polish-v2" />
-  <link rel="stylesheet" href="article-detail.css?v=20260624-threaded-comments-v1" />
+  <link rel="stylesheet" href="article-detail.css?v=20260624-threaded-comments-v2" />
 </head>
 <body>
   <header class="site-header">
@@ -47,16 +47,10 @@
           </div>
 
           <form class="comment-form article-main-comment-form" id="comment-form">
-            <div class="form-row">
-              <label>
-                暱稱（可留空）
-                <input id="comment-name" type="text" maxlength="40" placeholder="例如：Evan、路人甲、匿名" />
-              </label>
-              <label>
-                留言標題（可留空）
-                <input id="comment-title" type="text" maxlength="30" placeholder="例如：關於這篇文章的疑問" />
-              </label>
-            </div>
+            <label>
+              暱稱（可留空）
+              <input id="comment-name" type="text" maxlength="40" placeholder="例如：Evan、路人甲、匿名" />
+            </label>
             <label>
               留言內容
               <textarea id="comment-text" rows="4" maxlength="1000" required placeholder="寫下你對這篇文章的想法、問題或經驗。"></textarea>
@@ -80,7 +74,7 @@
   <script src="JS/utils.js?v=20260505-polish-v2"></script>
   <script src="JS/cloud-config.js?v=20260624-cloud-comments-v2"></script>
   <script src="JS/articles.js?v=20260624-threaded-comments-v1"></script>
-  <script src="JS/article-comments.js?v=20260624-threaded-comments-v1"></script>
+  <script src="JS/article-comments.js?v=20260624-threaded-comments-v2"></script>
   <script src="JS/article-detail.js?v=20260624-threaded-comments-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
 </body>
