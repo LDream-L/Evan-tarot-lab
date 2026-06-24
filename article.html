@@ -43,9 +43,7 @@
             <div>
               <p class="article-thread-kicker">Discussion</p>
               <h2 id="discussion-title">留言討論</h2>
-              <p class="comments-note">
-                使用 Google 帳號登入並設定暱稱後即可留言。暱稱更新時，這個帳號過去的留言名稱也會同步更新。
-              </p>
+              <p class="comments-note">登入 Google 帳號並設定公開暱稱後，即可留言或回覆。</p>
             </div>
             <span class="article-comment-count" id="comment-count">0 則留言</span>
           </div>
@@ -72,9 +70,7 @@
                   />
                   <button class="btn primary" id="google-nickname-save" type="button">儲存暱稱</button>
                 </div>
-                <p class="google-nickname-help">
-                  Email 只供 Evan 在後台辨識，同一 Google 帳號更改暱稱後，歷史留言會顯示最新暱稱。
-                </p>
+                <p class="google-nickname-help">Email 不會公開；留言僅顯示公開暱稱。</p>
                 <p class="google-nickname-status" id="google-nickname-status" aria-live="polite"></p>
               </div>
               <button class="btn ghost google-signout-button" id="google-signout-button" type="button">登出</button>
@@ -110,8 +106,8 @@
   <script src="JS/utils.js?v=20260505-polish-v2"></script>
   <script src="JS/cloud-config.js?v=20260624-google-auth-v1"></script>
   <script src="JS/articles.js?v=20260624-threaded-comments-v1"></script>
-  <script src="JS/google-auth.js?v=20260624-nickname-v1"></script>
-  <script src="JS/article-comments.js?v=20260624-nickname-v1"></script>
+  <script src="JS/google-auth.js?v=20260624-copy-cleanup-v1"></script>
+  <script src="JS/article-comments.js?v=20260624-copy-cleanup-v1"></script>
   <script src="JS/article-detail.js?v=20260624-google-auth-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
 </body>
