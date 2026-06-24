@@ -1,0 +1,122 @@
+.lab-projects-section {
+  position: relative;
+}
+
+.lab-projects-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1.5rem;
+}
+
+.lab-project-card {
+  display: flex;
+  min-height: 100%;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.4rem;
+  border: 1px solid rgba(171, 151, 255, 0.38);
+  border-radius: 22px;
+  background: rgba(17, 15, 49, 0.78);
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.18);
+}
+
+.lab-project-card.is-featured {
+  background:
+    radial-gradient(circle at 100% 0%, rgba(164, 118, 255, 0.2), transparent 40%),
+    rgba(17, 15, 49, 0.86);
+}
+
+.lab-project-topline,
+.lab-project-meta,
+.lab-project-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.65rem;
+}
+
+.lab-project-topline {
+  justify-content: space-between;
+}
+
+.lab-project-kicker {
+  margin: 0;
+  color: var(--text-soft, #bcb7d9);
+  font-size: 0.82rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.lab-project-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  padding: 0.25rem 0.7rem;
+  border: 1px solid rgba(170, 148, 255, 0.55);
+  border-radius: 999px;
+  font-size: 0.82rem;
+}
+
+.lab-project-card h3 {
+  margin: 0;
+  font-size: clamp(1.35rem, 2vw, 1.75rem);
+}
+
+.lab-project-card > p {
+  margin: 0;
+  line-height: 1.8;
+}
+
+.lab-project-meta span {
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.05);
+  font-size: 0.86rem;
+}
+
+.lab-project-points {
+  display: grid;
+  gap: 0.55rem;
+  margin: 0;
+  padding-left: 1.15rem;
+  line-height: 1.7;
+}
+
+.lab-project-actions {
+  margin-top: auto;
+  padding-top: 0.25rem;
+}
+
+.lab-records-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.lab-records-header .section-lead {
+  margin-bottom: 0;
+}
+
+.lab-breadcrumb {
+  display: inline-flex;
+  margin-bottom: 1rem;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.82;
+}
+
+.lab-breadcrumb:hover,
+.lab-breadcrumb:focus-visible {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+@media (max-width: 820px) {
+  .lab-projects-grid {
+    grid-template-columns: 1fr;
+  }
+}
