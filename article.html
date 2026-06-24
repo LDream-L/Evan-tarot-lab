@@ -3,11 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <title>Evan Tarot｜文章</title>
   <meta name="description" content="Evan Tarot 文章內容與留言討論。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-polish-v2" />
-  <link rel="stylesheet" href="article-detail.css?v=20260624-threaded-comments-v2" />
+  <link rel="stylesheet" href="article-detail.css?v=20260624-google-auth-v1" />
 </head>
 <body>
   <header class="site-header">
@@ -41,21 +42,33 @@
             <div>
               <p class="article-thread-kicker">Discussion</p>
               <h2 id="discussion-title">留言討論</h2>
-              <p class="comments-note">針對這篇文章留言；每則主留言可有不限數量的回覆，但回覆不會再往下開子留言。</p>
+              <p class="comments-note">使用 Google 帳號登入後即可留言與回覆；Email 不會公開顯示。</p>
             </div>
             <span class="article-comment-count" id="comment-count">0 則留言</span>
           </div>
 
-          <form class="comment-form article-main-comment-form" id="comment-form">
-            <label>
-              暱稱（可留空）
-              <input id="comment-name" type="text" maxlength="40" placeholder="例如：Evan、路人甲、匿名" />
-            </label>
+          <div class="google-auth-card" id="google-auth-card">
+            <div>
+              <strong>Google 帳號登入</strong>
+              <p id="google-auth-status">載入登入元件中…</p>
+            </div>
+            <div id="google-signin-button"></div>
+            <div class="google-user-panel hidden" id="google-user-panel">
+              <span>已使用 Google 帳號登入</span>
+              <button class="btn ghost" id="google-signout-button" type="button">登出</button>
+            </div>
+          </div>
+
+          <p class="comment-login-required" id="comment-login-required">
+            請先登入 Google 帳號，登入後才可送出留言與回覆。
+          </p>
+
+          <form class="comment-form article-main-comment-form is-auth-locked" id="comment-form">
             <label>
               留言內容
-              <textarea id="comment-text" rows="4" maxlength="1000" required placeholder="寫下你對這篇文章的想法、問題或經驗。"></textarea>
+              <textarea id="comment-text" rows="4" maxlength="1000" required disabled placeholder="登入後即可留言。"></textarea>
             </label>
-            <button class="btn primary full" type="submit">送出留言</button>
+            <button class="btn primary full" type="submit" disabled>送出留言</button>
             <p class="tool-feedback-message hidden" id="comment-message" aria-live="polite"></p>
           </form>
 
@@ -71,11 +84,13 @@
     </div>
   </footer>
 
+  <script src="https://accounts.google.com/gsi/client?hl=zh-TW" async defer></script>
   <script src="JS/utils.js?v=20260505-polish-v2"></script>
-  <script src="JS/cloud-config.js?v=20260624-cloud-comments-v2"></script>
+  <script src="JS/cloud-config.js?v=20260624-google-auth-v1"></script>
   <script src="JS/articles.js?v=20260624-threaded-comments-v1"></script>
-  <script src="JS/article-comments.js?v=20260624-threaded-comments-v2"></script>
-  <script src="JS/article-detail.js?v=20260624-threaded-comments-v1"></script>
+  <script src="JS/google-auth.js?v=20260624-google-auth-v1"></script>
+  <script src="JS/article-comments.js?v=20260624-google-auth-v1"></script>
+  <script src="JS/article-detail.js?v=20260624-google-auth-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
 </body>
 </html>
