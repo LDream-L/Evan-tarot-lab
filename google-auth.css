@@ -1,18 +1,15 @@
-/* ===== Google 帳號登入／留言鎖定 ===== */
+/* ===== Google 帳號登入／雲端暱稱 ===== */
 .google-auth-card {
   margin-top: 18px;
-  padding: 14px 16px;
+  padding: 16px;
   border-radius: 16px;
   border: 1px solid rgba(139, 123, 255, 0.36);
   background: rgba(12, 13, 38, 0.92);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
+  display: grid;
   gap: 14px;
-  flex-wrap: wrap;
 }
 
-.google-auth-card strong {
+.google-auth-intro strong {
   display: block;
   margin-bottom: 3px;
 }
@@ -24,15 +21,53 @@
 }
 
 .google-user-panel {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: end;
+  gap: 14px;
 }
 
-.google-user-panel span {
-  color: var(--success);
-  font-size: 0.86rem;
+.google-nickname-editor label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.84rem;
+  font-weight: 600;
+}
+
+.google-nickname-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.google-nickname-row input {
+  width: 100%;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid var(--border-subtle);
+  background: rgba(5, 6, 24, 0.98);
+  color: var(--text-main);
+  outline: none;
+}
+
+.google-nickname-row input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+
+.google-nickname-help {
+  margin-top: 7px !important;
+}
+
+.google-nickname-status {
+  min-height: 1.25em;
+  margin-top: 5px !important;
+  color: var(--accent-strong) !important;
+}
+
+.google-signout-button {
+  white-space: nowrap;
 }
 
 .comment-login-required {
@@ -54,17 +89,17 @@
 }
 
 @media (max-width: 640px) {
-  .google-auth-card,
-  .google-user-panel {
-    align-items: stretch;
-    flex-direction: column;
+  .google-user-panel,
+  .google-nickname-row {
+    grid-template-columns: 1fr;
   }
 
   #google-signin-button {
     min-height: 44px;
   }
 
-  .google-user-panel .btn {
+  .google-user-panel .btn,
+  .google-nickname-row .btn {
     width: 100%;
   }
 }
