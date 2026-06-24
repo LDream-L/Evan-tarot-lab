@@ -10,10 +10,12 @@
 //
 // 更快替代方案比較：
 // - 暴力法：每篇文章各維護一份 HTML。
-// - 本實作：以 query string 的文章 ID 讀取集中資料；新增文章時不必複製頁面骨架。
+// - 本實作：等待共用文章資料載入後，以文章 ID 渲染內容；新增文章不需建立新頁面。
 // ==============================
 
 (function initArticleDetailPage() {
+  "use strict";
+
   function createParagraph(text) {
     const paragraph = document.createElement("p");
     paragraph.textContent = text;
@@ -27,7 +29,7 @@
     title.textContent = "找不到這篇文章";
 
     const text = document.createElement("p");
-    text.textContent = "文章可能已移動、尚未公開，或網址中的文章 ID 不正確。";
+    text.textContent = "文章可能尚未發布、已封存，或網址中的文章 ID 不正確。";
 
     const link = document.createElement("a");
     link.className = "btn primary";
@@ -88,6 +90,12 @@
   document.addEventListener("DOMContentLoaded", async () => {
     const container = document.getElementById("article-detail");
     if (!container) return;
+
+    try {
+      await window.EvanArticles?.ready;
+    } catch (error) {
+      console.warn("[article-detail] 等待文章資料時發生錯誤：", error);
+    }
 
     const articleId = new URLSearchParams(window.location.search).get("id") || "";
     const article = window.EvanArticles?.getById?.(articleId) || null;
