@@ -19,8 +19,8 @@
 <a href="index.html#intro">介紹</a>
 <a href="services.html">占卜項目</a>
 <a href="articles.html">文章</a>
-<a href="lost-item.html">尋物工具</a>
-<a href="timeflow.html">時間流</a>
+<a href="lab.html">實驗室</a>
+<a aria-current="page" href="timeflow.html">時間流</a>
 <a href="services.html#booking">預約</a>
 </nav>
 </div>
@@ -31,12 +31,10 @@
 <div class="container hero-inner">
 <div class="hero-text">
 <h1>把占卜，接成可驗證的主題流。</h1>
-<p>
-            將問題、占卜案例、後續事件與驗證結果連成主題流；也可用平行時間流比較多個主題。
-          </p>
+<p>將問題、占卜案例、後續事件與驗證結果連成主題流；也可用平行時間流比較多個主題。</p>
 <div class="hero-cta">
 <a class="btn primary" href="#divination-map-app">開始建立時間流</a>
-<a class="btn ghost" href="index.html">回首頁</a>
+<a class="btn ghost" href="lab.html">回實驗室</a>
 </div>
 <div class="hero-meta">
 <span class="pill pill-soft">主題流管理</span>
@@ -61,9 +59,7 @@
 <div class="tool-card map-tool-card standalone-map-card">
 <div class="tool-header">
 <h2>占卜時間流</h2>
-<p>
-              建立主題流後，加入占卜案例與後續事件；可切換單一或平行檢視。
-            </p>
+<p>建立主題流後，加入占卜案例與後續事件；可切換單一或平行檢視。</p>
 </div>
 <div class="map-tool-layout" id="divination-map-app">
 <div aria-label="占卜時間流工具列" class="map-toolbar">
@@ -73,39 +69,11 @@
 <button class="btn ghost" id="map-add-event" type="button">新增事件</button>
 </div>
 <div class="map-toolbar-group map-toolbar-filters">
-<label>
-                  檢視方式
-                  <select id="map-view-mode">
-<option value="single">單一時間流</option>
-<option value="parallel">平行時間流</option>
-</select>
-</label>
-<label>
-                  聚焦主題流
-                  <select id="map-active-theme">
-<option value="all">全部主題</option>
-</select>
-</label>
-<label>
-                  驗證狀態
-                  <select id="map-filter-status">
-<option value="all">全部狀態</option>
-<option value="pending">尚未驗證</option>
-<option value="partial">部分驗證</option>
-<option value="verified">驗證成立</option>
-<option value="missed">未應驗</option>
-</select>
-</label>
-<label>
-                  主題分類
-                  <select id="map-filter-category">
-<option value="all">全部主題分類</option>
-</select>
-</label>
-<label class="map-search-field">
-                  關鍵字搜尋
-                  <input id="map-search" placeholder="搜尋問題、人物、主題流、牌名、事件" type="search"/>
-</label>
+<label>檢視方式<select id="map-view-mode"><option value="single">單一時間流</option><option value="parallel">平行時間流</option></select></label>
+<label>聚焦主題流<select id="map-active-theme"><option value="all">全部主題</option></select></label>
+<label>驗證狀態<select id="map-filter-status"><option value="all">全部狀態</option><option value="pending">尚未驗證</option><option value="partial">部分驗證</option><option value="verified">驗證成立</option><option value="missed">未應驗</option></select></label>
+<label>主題分類<select id="map-filter-category"><option value="all">全部主題分類</option></select></label>
+<label class="map-search-field">關鍵字搜尋<input id="map-search" placeholder="搜尋問題、人物、主題流、牌名、事件" type="search"/></label>
 </div>
 </div>
 <div class="map-workspace">
@@ -127,110 +95,42 @@
 <div class="map-canvas" id="map-canvas"></div>
 </div>
 </div>
-<p class="tool-note-small">
-                  操作方式：主軸時間點固定；節點窗格可自由拖曳作為視覺整理，不會改變日期；連結線會從窗格目前位置接回固定主軸時間點；日期只會在右側欄位手動修改時變更；拖曳空白區可平移；滑鼠滾輪可縮放。
-                </p>
+<p class="tool-note-small">操作方式：主軸時間點固定；節點窗格可自由拖曳作為視覺整理，不會改變日期；連結線會從窗格目前位置接回固定主軸時間點；日期只會在右側欄位手動修改時變更；拖曳空白區可平移；滑鼠滾輪可縮放。</p>
 </section>
 <aside aria-label="節點詳細資料" class="map-sidebar">
-<div class="map-empty-state" id="map-empty-state">
-<h4>先建立一條主題流</h4>
-<p>按「新增主題流」建立主題，再加入占卜案例與後續事件。</p>
-</div>
+<div class="map-empty-state" id="map-empty-state"><h4>先建立一條主題流</h4><p>按「新增主題流」建立主題，再加入占卜案例與後續事件。</p></div>
 <form class="map-detail-form hidden" id="map-detail-form">
-<div class="map-form-header">
-<div>
-<p class="map-form-kicker" id="map-detail-type-label">占卜案例</p>
-<h4 id="map-detail-title">節點內容</h4>
-</div>
-<span class="map-id-pill" id="map-selected-id"></span>
-</div>
+<div class="map-form-header"><div><p class="map-form-kicker" id="map-detail-type-label">占卜案例</p><h4 id="map-detail-title">節點內容</h4></div><span class="map-id-pill" id="map-selected-id"></span></div>
 <input id="map-detail-id" type="hidden"/>
 <div class="form-row">
-<label>
-                      主題流
-                      <select id="map-field-theme"></select>
-</label>
-<label>
-                      日期
-                      <input id="map-field-date" type="date"/>
-</label>
+<label>主題流<select id="map-field-theme"></select></label>
+<label>日期<input id="map-field-date" type="date"/></label>
 </div>
 <p class="map-inline-help" id="map-detail-theme-hint"></p>
 <div class="form-row">
-<label>
-                      標題 / 問題
-                      <input id="map-field-title" placeholder="例如：他接下來會不會主動靠近" type="text"/>
-</label>
-<label>
-                      主題分類
-                      <select id="map-field-category">
-<option value="relationship">人際 / 感情</option>
-<option value="career">工作 / 職涯</option>
-<option value="self">自我成長</option>
-<option value="money">金錢 / 資源</option>
-<option value="study">學習 / 考試</option>
-<option value="family">家庭 / 關係</option>
-<option value="other">其他</option>
-</select>
-</label>
+<label>標題 / 問題<input id="map-field-title" placeholder="例如：他接下來會不會主動靠近" type="text"/></label>
+<label>主題分類<select id="map-field-category"><option value="relationship">人際 / 感情</option><option value="career">工作 / 職涯</option><option value="self">自我成長</option><option value="money">金錢 / 資源</option><option value="study">學習 / 考試</option><option value="family">家庭 / 關係</option><option value="other">其他</option></select></label>
 </div>
 <div class="form-row">
-<label data-reading-only="">
-                      對象 / 關鍵人物
-                      <input id="map-field-subject" placeholder="例如：A、同事、合作對象" type="text"/>
-</label>
-<label class="hidden" data-event-only="">
-                      關聯占卜案例
-                      <select id="map-field-related-reading">
-<option value="">未連結</option>
-</select>
-</label>
-<label>
-                      驗證狀態
-                      <select id="map-field-status">
-<option value="pending">尚未驗證</option>
-<option value="partial">部分驗證</option>
-<option value="verified">驗證成立</option>
-<option value="missed">未應驗</option>
-</select>
-</label>
+<label data-reading-only="">對象 / 關鍵人物<input id="map-field-subject" placeholder="例如：A、同事、合作對象" type="text"/></label>
+<label class="hidden" data-event-only="">關聯占卜案例<select id="map-field-related-reading"><option value="">未連結</option></select></label>
+<label>驗證狀態<select id="map-field-status"><option value="pending">尚未驗證</option><option value="partial">部分驗證</option><option value="verified">驗證成立</option><option value="missed">未應驗</option></select></label>
 </div>
-<label data-reading-only="">
-                    牌組 / 牌陣（可一行一張）
-                    <textarea id="map-field-cards" placeholder="例如：
+<label data-reading-only="">牌組 / 牌陣（可一行一張）<textarea id="map-field-cards" placeholder="例如：
 權杖六正位｜現況
-寶劍侍者正位｜對方想法" rows="3"></textarea>
-</label>
-<label data-reading-only="">
-                    解讀
-                    <textarea id="map-field-interpretation" placeholder="寫下你當下的解讀。" rows="4"></textarea>
-</label>
-<label data-reading-only="">
-                    推測 / 驗證重點
-                    <textarea id="map-field-predictions" placeholder="例如：
+寶劍侍者正位｜對方想法" rows="3"></textarea></label>
+<label data-reading-only="">解讀<textarea id="map-field-interpretation" placeholder="寫下你當下的解讀。" rows="4"></textarea></label>
+<label data-reading-only="">推測 / 驗證重點<textarea id="map-field-predictions" placeholder="例如：
 短期會有靠近跡象
-先觀察，不一定直接表態" rows="3"></textarea>
-</label>
-<label class="hidden" data-event-only="">
-                    事件描述
-                    <textarea id="map-field-event-description" placeholder="寫下實際發生的事件。" rows="4"></textarea>
-</label>
-<label>
-                    驗證備註
-                    <input id="map-field-note" placeholder="例如：有靠近，但不是直接表態" type="text"/>
-</label>
-<div class="map-form-actions">
-<button class="btn primary" type="submit">儲存內容</button>
-<button class="btn ghost" id="map-delete-node" type="button">刪除此節點</button>
-</div>
+先觀察，不一定直接表態" rows="3"></textarea></label>
+<label class="hidden" data-event-only="">事件描述<textarea id="map-field-event-description" placeholder="寫下實際發生的事件。" rows="4"></textarea></label>
+<label>驗證備註<input id="map-field-note" placeholder="例如：有靠近，但不是直接表態" type="text"/></label>
+<div class="map-form-actions"><button class="btn primary" type="submit">儲存內容</button><button class="btn ghost" id="map-delete-node" type="button">刪除此節點</button></div>
 </form>
 </aside>
 </div>
 <section aria-label="下方驗證時間軸" class="map-timeline-block">
-<div class="map-timeline-header">
-<h4>下方驗證時間軸</h4>
-<p>依日期列出目前篩選後的占卜案例與事件。</p>
-</div>
+<div class="map-timeline-header"><h4>下方驗證時間軸</h4><p>依日期列出目前篩選後的占卜案例與事件。</p></div>
 <div class="map-timeline" id="map-timeline"></div>
 </section>
 </div>
@@ -240,13 +140,13 @@
 </main>
 <footer class="site-footer">
 <div class="container footer-inner">
-<p>Evan Tarot ｜占卜時間流</p>
+<p>Evan Tarot ｜塔羅實驗室 / 占卜時間流</p>
 <p class="footer-sub">以主題流整理「問題 → 事件 → 驗證」，保留可回顧的占卜紀錄。</p>
 </div>
 </footer>
 <script src="JS/utils.js?v=20260505-fixed-axis-free-card-v5"></script>
 <script src="JS/ripple-effect.js?v=20260505-fixed-axis-free-card-v5"></script>
 <script src="JS/divination-map.js?v=20260505-fixed-axis-free-card-v5"></script>
-<script src="JS/main.js?v=20260505-fixed-axis-free-card-v5"></script>
+<script src="JS/main.js?v=20260624-lab-v3"></script>
 </body>
 </html>
