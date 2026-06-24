@@ -1,0 +1,184 @@
+.lost-v47-shell {
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.lost-v47-form {
+  margin-bottom: 2rem;
+}
+
+.lost-v47-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.lost-v47-span-2 {
+  grid-column: 1 / -1;
+}
+
+.lost-v47-grid select,
+.lost-v47-grid input,
+.lost-v47-grid textarea {
+  width: 100%;
+}
+
+.lost-v47-result {
+  display: grid;
+  gap: 1.2rem;
+}
+
+.lost-v47-zero-step {
+  padding: 1rem 1.1rem;
+  border: 1px solid rgba(255, 215, 128, 0.45);
+  border-radius: 14px;
+  background: rgba(255, 211, 105, 0.09);
+  line-height: 1.7;
+}
+
+.lost-v47-summary {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+}
+
+.lost-v47-summary-item {
+  min-width: 150px;
+  flex: 1 1 150px;
+  padding: 0.8rem 0.9rem;
+  border: 1px solid rgba(175, 166, 255, 0.2);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.035);
+}
+
+.lost-v47-summary-item small {
+  display: block;
+  margin-bottom: 0.25rem;
+  opacity: 0.72;
+}
+
+.lost-v47-summary-item strong {
+  display: block;
+  line-height: 1.45;
+}
+
+.lost-v47-card-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.lost-v47-card {
+  padding: 1rem;
+  border: 1px solid rgba(175, 166, 255, 0.22);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.lost-v47-card h5 {
+  margin: 0 0 0.65rem;
+  font-size: 1.05rem;
+}
+
+.lost-v47-card p {
+  margin: 0.45rem 0;
+  line-height: 1.65;
+}
+
+.lost-v47-orientation {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0.15rem 0.48rem;
+  border-radius: 999px;
+  font-size: 0.78rem;
+  border: 1px solid rgba(175, 166, 255, 0.35);
+}
+
+.lost-v47-orientation.is-reversed {
+  border-color: rgba(255, 155, 155, 0.45);
+  background: rgba(255, 120, 120, 0.08);
+}
+
+.lost-v47-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  border-radius: 14px;
+  border: 1px solid rgba(175, 166, 255, 0.18);
+}
+
+.lost-v47-table {
+  width: 100%;
+  min-width: 900px;
+  border-collapse: collapse;
+  background: rgba(5, 5, 24, 0.26);
+}
+
+.lost-v47-table th,
+.lost-v47-table td {
+  padding: 0.8rem;
+  border-bottom: 1px solid rgba(175, 166, 255, 0.13);
+  text-align: left;
+  vertical-align: top;
+  line-height: 1.55;
+}
+
+.lost-v47-table th {
+  white-space: nowrap;
+  background: rgba(87, 72, 160, 0.18);
+}
+
+.lost-v47-table tr:last-child td {
+  border-bottom: 0;
+}
+
+.lost-v47-events {
+  padding: 1rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.lost-v47-event {
+  padding: 0.9rem 0;
+  border-bottom: 1px solid rgba(175, 166, 255, 0.13);
+}
+
+.lost-v47-event:last-child {
+  border-bottom: 0;
+}
+
+.lost-v47-event h5 {
+  margin: 0 0 0.35rem;
+}
+
+.lost-v47-event p {
+  margin: 0.25rem 0;
+  line-height: 1.6;
+}
+
+.tool-feedback-message.is-error {
+  color: #ffb2b2;
+}
+
+.tool-feedback-message.is-success {
+  color: #baf7ce;
+}
+
+@media (max-width: 860px) {
+  .lost-v47-card-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 680px) {
+  .lost-v47-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .lost-v47-span-2 {
+    grid-column: auto;
+  }
+
+  .lost-v47-summary-item {
+    min-width: 100%;
+  }
+}
