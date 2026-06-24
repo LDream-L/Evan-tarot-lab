@@ -1,0 +1,70 @@
+/* ===== Google 帳號登入／留言鎖定 ===== */
+.google-auth-card {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  border: 1px solid rgba(139, 123, 255, 0.36);
+  background: rgba(12, 13, 38, 0.92);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.google-auth-card strong {
+  display: block;
+  margin-bottom: 3px;
+}
+
+.google-auth-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.google-user-panel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.google-user-panel span {
+  color: var(--success);
+  font-size: 0.86rem;
+}
+
+.comment-login-required {
+  margin: 14px 0 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 211, 122, 0.28);
+  background: rgba(255, 211, 122, 0.07);
+  color: #ffe8b8;
+  font-size: 0.84rem;
+}
+
+.article-main-comment-form.is-auth-locked {
+  opacity: 0.64;
+}
+
+.article-main-comment-form.is-auth-locked textarea {
+  cursor: not-allowed;
+}
+
+@media (max-width: 640px) {
+  .google-auth-card,
+  .google-user-panel {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  #google-signin-button {
+    min-height: 44px;
+  }
+
+  .google-user-panel .btn {
+    width: 100%;
+  }
+}
