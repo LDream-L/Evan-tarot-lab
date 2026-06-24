@@ -1,125 +1,38 @@
 // ==============================
 // article-comments.js
-// 文章專屬留言：依 articleId 分流顯示與保存
+// 單篇文章留言＋單層無限回覆
 // ==============================
+//
+// 資料結構：
+// - comment：主留言
+// - reply：主留言下的回覆
+// - 回覆不提供再次回覆入口，因此固定只有兩層。
 //
 // 主要函式複雜度：
-// - normalizeComment：O(1)
-// - fetchCloudComments：O(n)
-// - renderActiveComments：O(n)
-// - updateArticleButtonCounts：O(n + a)
-// - handleArticleCommentForm：O(1)（不含網路延遲）
-// 空間複雜度：O(n + a)
+// - fetchCloudRecords：O(n)
+// - buildThreads：O(n)
+// - renderThreads：O(n)
+// - submitMainComment / submitReply：O(1)（不含網路延遲）
+// 空間複雜度：O(n)
 //
 // 更快替代方案比較：
-// - 暴力法：每篇文章各自建立一套留言表單與網路請求，DOM 與 API 請求會隨文章數增加。
-// - 本實作：共用一套表單與留言快取，再以 articleId 做 O(n) 單次篩選；避免重複請求與重複 DOM。
+// - 暴力法：每個主留言再遞迴掃描所有留言找子項，最差 O(n²)。
+// - 本實作：先用 Map 建立 threadId 查表，再單次分配回覆，維持 O(n)。
 // ==============================
 
-(function initArticleCommentsModule() {
-  const LOCAL_STORAGE_KEY = "evanTarotComments";
+(function initThreadedArticleComments() {
+  const LOCAL_STORAGE_KEY = "evanTarotArticleThreadsV2";
   const CLIENT_ID_KEY = "evanTarotCommentClientId";
-  const LEGACY_ARTICLE_ID = "__legacy__";
-  const MAX_DISPLAY = 300;
   const REQUEST_TIMEOUT_MS = 12000;
-  const ARTICLE_MARKER_PATTERN = /^\[\[article:([a-zA-Z0-9_-]+)\]\]([\s\S]*)$/;
+  const MAX_RECORDS = 300;
+  const META_PATTERN = /^\[\[v2;a=([a-zA-Z0-9_-]+);k=([cr]);i=([a-zA-Z0-9_-]+);p=([a-zA-Z0-9_-]*)\]\]([\s\S]*)$/;
+  const LEGACY_ARTICLE_PATTERN = /^\[\[article:([a-zA-Z0-9_-]+)\]\]([\s\S]*)$/;
 
-  const FEEDBACK_GOOGLE_FORM = Object.freeze({
-    url: "https://docs.google.com/forms/d/e/1FAIpQLScdDR6CrMrs_G7HVMAbQYo95s4AaH5b3KDupUZ9TlD5e5yKLQ/formResponse",
-    fields: {
-      type: "entry.1980954123",
-      name: "entry.1821676998",
-      title: "entry.2042241666",
-      text: "entry.243999010",
-      createdAt: "entry.1203451900",
-    },
-  });
-
-  let cachedComments = [];
-  let activeArticleId = "";
+  let currentArticle = null;
+  let records = [];
+  let openReplyThreadId = "";
   let initialized = false;
-  let articleObserver = null;
 
-  /**
-   * 取得文章資料。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
-  function getArticles() {
-    return Array.isArray(window.EvanArticles?.data) ? window.EvanArticles.data : [];
-  }
-
-  /**
-   * 依 ID 找文章。
-   * 時間複雜度：O(a)
-   * 空間複雜度：O(1)
-   */
-  function getArticleById(articleId) {
-    return getArticles().find((article) => article.id === articleId) || null;
-  }
-
-  /**
-   * 解析相容舊版 Apps Script 的文章標記。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
-  function parseStoredTitle(value) {
-    const rawTitle = String(value || "");
-    const match = rawTitle.match(ARTICLE_MARKER_PATTERN);
-
-    if (!match) {
-      return {
-        articleId: "",
-        userTitle: rawTitle.trim(),
-      };
-    }
-
-    return {
-      articleId: match[1],
-      userTitle: String(match[2] || "").trim(),
-    };
-  }
-
-  /**
-   * 將文章 ID 暫存於既有 title 欄位，讓尚未升級的 Apps Script 也能分篇。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
-  function encodeStoredTitle(articleId, userTitle) {
-    if (!articleId || articleId === LEGACY_ARTICLE_ID) return String(userTitle || "").trim();
-    return `[[article:${articleId}]]${String(userTitle || "").trim()}`;
-  }
-
-  /**
-   * 正規化雲端與本機留言。
-   * 時間複雜度：O(a)（文章標題回填）
-   * 空間複雜度：O(1)
-   */
-  function normalizeComment(raw) {
-    const parsedTitle = parseStoredTitle(raw?.title);
-    const articleId = String(raw?.articleId || parsedTitle.articleId || LEGACY_ARTICLE_ID).trim();
-    const article = getArticleById(articleId);
-
-    return {
-      id: String(raw?.id || ""),
-      articleId,
-      articleTitle: String(
-        raw?.articleTitle ||
-        article?.title ||
-        (articleId === LEGACY_ARTICLE_ID ? "舊留言（未指定文章）" : articleId)
-      ).trim(),
-      name: String(raw?.name || "").trim(),
-      title: parsedTitle.userTitle,
-      text: String(raw?.text ?? raw?.comment ?? "").trim(),
-      createdAt: raw?.createdAt || raw?.timestamp || new Date().toISOString(),
-    };
-  }
-
-  /**
-   * 取得 API URL。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function getApiUrl() {
     return String(window.EVAN_CLOUD_CONFIG?.commentsApiUrl || "").trim();
   }
@@ -128,55 +41,93 @@
     return /^https:\/\/script\.google\.com\/macros\/s\/.+\/exec(?:\?.*)?$/.test(getApiUrl());
   }
 
-  /**
-   * 取得匿名瀏覽器識別碼。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
   function getClientId() {
     let clientId = localStorage.getItem(CLIENT_ID_KEY);
     if (clientId) return clientId;
 
-    clientId =
-      window.crypto?.randomUUID?.() ||
+    clientId = window.crypto?.randomUUID?.() ||
       `client_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
     localStorage.setItem(CLIENT_ID_KEY, clientId);
     return clientId;
   }
 
-  /**
-   * 讀取本機留言備援。
-   * 時間複雜度：O(n)
-   * 空間複雜度：O(n)
-   */
-  function loadLocalComments() {
+  function createThreadId() {
+    return `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 7)}`.slice(0, 12);
+  }
+
+  function encodeMetadata(record) {
+    const marker = `[[v2;a=${record.articleId};k=${record.kind === "reply" ? "r" : "c"};i=${record.threadId};p=${record.parentThreadId || ""}]]`;
+    const availableTitleLength = Math.max(0, 80 - marker.length);
+    return `${marker}${String(record.title || "").slice(0, availableTitleLength)}`;
+  }
+
+  function normalizeRecord(raw) {
+    const rawTitle = String(raw?.title || "");
+    const v2Match = rawTitle.match(META_PATTERN);
+
+    if (v2Match) {
+      return {
+        id: String(raw?.id || ""),
+        articleId: v2Match[1],
+        kind: v2Match[2] === "r" ? "reply" : "comment",
+        threadId: v2Match[3],
+        parentThreadId: v2Match[4],
+        title: String(v2Match[5] || "").trim(),
+        name: String(raw?.name || "").trim(),
+        text: String(raw?.text ?? raw?.comment ?? "").trim(),
+        createdAt: raw?.createdAt || raw?.timestamp || new Date().toISOString(),
+      };
+    }
+
+    const legacyMatch = rawTitle.match(LEGACY_ARTICLE_PATTERN);
+    if (legacyMatch) {
+      return {
+        id: String(raw?.id || ""),
+        articleId: legacyMatch[1],
+        kind: "comment",
+        threadId: String(raw?.id || createThreadId()),
+        parentThreadId: "",
+        title: String(legacyMatch[2] || "").trim(),
+        name: String(raw?.name || "").trim(),
+        text: String(raw?.text ?? raw?.comment ?? "").trim(),
+        createdAt: raw?.createdAt || raw?.timestamp || new Date().toISOString(),
+      };
+    }
+
+    if (raw?.articleId) {
+      return {
+        id: String(raw?.id || ""),
+        articleId: String(raw.articleId),
+        kind: raw?.parentThreadId ? "reply" : "comment",
+        threadId: String(raw?.threadId || raw?.id || createThreadId()),
+        parentThreadId: String(raw?.parentThreadId || ""),
+        title: rawTitle.trim(),
+        name: String(raw?.name || "").trim(),
+        text: String(raw?.text ?? raw?.comment ?? "").trim(),
+        createdAt: raw?.createdAt || raw?.timestamp || new Date().toISOString(),
+      };
+    }
+
+    return null;
+  }
+
+  function loadLocalRecords() {
     try {
       const raw = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (!raw) return [];
-      const data = JSON.parse(raw);
-      return Array.isArray(data)
-        ? data.map(normalizeComment).filter((comment) => comment.text)
+      const parsed = raw ? JSON.parse(raw) : [];
+      return Array.isArray(parsed)
+        ? parsed.map(normalizeRecord).filter(Boolean)
         : [];
     } catch (error) {
-      console.warn("[article-comments] 本機留言讀取失敗：", error);
+      console.warn("[article-comments] 本機備援讀取失敗：", error);
       return [];
     }
   }
 
-  /**
-   * 寫入本機留言備援。
-   * 時間複雜度：O(n)
-   * 空間複雜度：O(n)
-   */
-  function saveLocalComments(comments) {
-    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(comments));
+  function saveLocalRecords(items) {
+    localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(items));
   }
 
-  /**
-   * 帶逾時的 fetch。
-   * 時間複雜度：O(1)（不含回傳資料解析）
-   * 空間複雜度：O(1)
-   */
   async function fetchWithTimeout(url, options = {}) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -192,15 +143,10 @@
     }
   }
 
-  /**
-   * 讀取全部雲端留言，再由前端依文章分流。
-   * 時間複雜度：O(n)
-   * 空間複雜度：O(n)
-   */
-  async function fetchCloudComments() {
+  async function fetchCloudRecords() {
     const url = new URL(getApiUrl());
     url.searchParams.set("action", "list");
-    url.searchParams.set("limit", String(MAX_DISPLAY));
+    url.searchParams.set("limit", String(MAX_RECORDS));
     url.searchParams.set("_", String(Date.now()));
 
     const response = await fetchWithTimeout(url.toString(), {
@@ -208,35 +154,25 @@
       cache: "no-store",
     });
 
-    if (!response.ok) {
-      throw new Error(`讀取留言失敗：HTTP ${response.status}`);
-    }
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const payload = await response.json();
     if (!payload?.success || !Array.isArray(payload.comments)) {
-      throw new Error(payload?.error || "API 回傳格式不正確");
+      throw new Error(payload?.error || "雲端留言格式不正確");
     }
 
     return payload.comments
-      .map(normalizeComment)
-      .filter((comment) => comment.text)
-      .slice(0, MAX_DISPLAY);
+      .map(normalizeRecord)
+      .filter((record) => record && record.text);
   }
 
-  /**
-   * 送出文章留言。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
-  async function postCloudComment(comment) {
+  async function postCloudRecord(record) {
     const payload = {
       action: "create",
-      articleId: comment.articleId,
-      articleTitle: comment.articleTitle,
-      name: comment.name,
-      title: encodeStoredTitle(comment.articleId, comment.title),
-      text: comment.text,
-      createdAt: comment.createdAt,
+      name: record.name,
+      title: encodeMetadata(record),
+      text: record.text,
+      createdAt: record.createdAt,
       clientId: getClientId(),
       website: "",
     };
@@ -245,35 +181,9 @@
       method: "POST",
       mode: "no-cors",
       cache: "no-store",
-      headers: {
-        "Content-Type": "text/plain;charset=UTF-8",
-      },
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: JSON.stringify(payload),
       keepalive: true,
-    });
-  }
-
-  /**
-   * 既有 Google Form 備援。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
-  function postGoogleFormBackup(comment) {
-    const formData = new FormData();
-    const fields = FEEDBACK_GOOGLE_FORM.fields;
-    const backupTitle = `【${comment.articleTitle}】${comment.title || "文章留言"}`;
-
-    formData.append(fields.type, "article_comment");
-    formData.append(fields.name, comment.name || "");
-    formData.append(fields.title, backupTitle);
-    formData.append(fields.text, comment.text || "");
-    formData.append(fields.createdAt, comment.createdAt || new Date().toISOString());
-    formData.append("submit", "Submit");
-
-    return fetch(FEEDBACK_GOOGLE_FORM.url, {
-      method: "POST",
-      mode: "no-cors",
-      body: formData,
     });
   }
 
@@ -304,331 +214,219 @@
   function clearMessage() {
     const element = document.getElementById("comment-message");
     if (!element) return;
-
     element.textContent = "";
     element.classList.add("hidden");
     element.classList.remove("is-error", "is-success");
   }
 
-  /**
-   * 建立文章選擇欄位與留言標題區。
-   * 時間複雜度：O(a)
-   * 空間複雜度：O(a)
-   */
-  function ensureCommentInterface() {
-    const block = document.querySelector(".comments-block");
-    const form = document.getElementById("comment-form");
-    const list = document.getElementById("comment-list");
-    if (!block || !form || !list) return false;
+  function buildThreads(articleRecords) {
+    const topLevel = [];
+    const threadMap = new Map();
 
-    block.id = "article-comments";
-
-    const heading = block.querySelector("h3");
-    if (heading) {
-      heading.id = "comments-heading";
-      heading.textContent = "文章留言";
-    }
-
-    const note = block.querySelector(".comments-note");
-    if (note) {
-      note.id = "comment-context";
-      note.textContent = "選擇一篇文章後，這裡只會顯示該篇文章的留言。";
-    }
-
-    let articleSelect = document.getElementById("comment-article");
-    if (!articleSelect) {
-      const label = document.createElement("label");
-      label.className = "comment-article-field";
-      label.textContent = "留言文章";
-
-      articleSelect = document.createElement("select");
-      articleSelect.id = "comment-article";
-      articleSelect.name = "articleId";
-      articleSelect.required = true;
-      label.appendChild(articleSelect);
-      form.insertBefore(label, form.firstElementChild);
-    }
-
-    populateArticleOptions(articleSelect);
-
-    const submitButton = form.querySelector('button[type="submit"]');
-    if (submitButton) submitButton.textContent = "送出這篇文章的留言";
-
-    const disclaimer = form.querySelector(".comments-disclaimer");
-    if (disclaimer) {
-      disclaimer.textContent = "留言會依文章分開保存到雲端；舊版尚未指定文章的留言仍會保留為「舊留言」。";
-    }
-
-    if (!document.getElementById("comment-list-title")) {
-      const header = document.createElement("div");
-      header.className = "article-comment-list-header";
-
-      const title = document.createElement("h4");
-      title.id = "comment-list-title";
-      title.textContent = "目前留言";
-
-      const count = document.createElement("span");
-      count.id = "comment-count";
-      count.className = "article-comment-count";
-      count.textContent = "0 則";
-
-      header.append(title, count);
-      list.before(header);
-    }
-
-    articleSelect.addEventListener("change", () => {
-      selectArticle(articleSelect.value || getArticles()[0]?.id || "");
+    articleRecords.forEach((record) => {
+      if (record.kind !== "comment") return;
+      const thread = { ...record, replies: [] };
+      topLevel.push(thread);
+      threadMap.set(record.threadId, thread);
     });
 
-    return true;
-  }
-
-  /**
-   * 產生文章選項；舊留言只在確實存在時出現。
-   * 時間複雜度：O(a + n)
-   * 空間複雜度：O(a)
-   */
-  function populateArticleOptions(select) {
-    const previousValue = select.value || activeArticleId;
-    const fragment = document.createDocumentFragment();
-
-    getArticles().forEach((article) => {
-      const option = document.createElement("option");
-      option.value = article.id;
-      option.textContent = article.title;
-      fragment.appendChild(option);
+    articleRecords.forEach((record) => {
+      if (record.kind !== "reply") return;
+      const parent = threadMap.get(record.parentThreadId);
+      if (parent) parent.replies.push(record);
     });
 
-    if (cachedComments.some((comment) => comment.articleId === LEGACY_ARTICLE_ID)) {
-      const option = document.createElement("option");
-      option.value = LEGACY_ARTICLE_ID;
-      option.textContent = "舊留言（未指定文章，僅查看）";
-      fragment.appendChild(option);
+    topLevel.sort((left, right) => new Date(right.createdAt) - new Date(left.createdAt));
+    topLevel.forEach((thread) => {
+      thread.replies.sort((left, right) => new Date(left.createdAt) - new Date(right.createdAt));
+    });
+
+    return topLevel;
+  }
+
+  function createReplyForm(threadId) {
+    const form = document.createElement("form");
+    form.className = "reply-form";
+    form.dataset.threadId = threadId;
+
+    const nameLabel = document.createElement("label");
+    nameLabel.textContent = "暱稱（可留空）";
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.maxLength = 40;
+    nameInput.placeholder = "例如：Evan、路人甲、匿名";
+    nameInput.name = "replyName";
+    nameLabel.appendChild(nameInput);
+
+    const textLabel = document.createElement("label");
+    textLabel.textContent = "回覆內容";
+    const textInput = document.createElement("textarea");
+    textInput.rows = 3;
+    textInput.maxLength = 1000;
+    textInput.required = true;
+    textInput.placeholder = "回覆這則留言。";
+    textInput.name = "replyText";
+    textLabel.appendChild(textInput);
+
+    const actions = document.createElement("div");
+    actions.className = "reply-form-actions";
+
+    const cancelButton = document.createElement("button");
+    cancelButton.type = "button";
+    cancelButton.className = "btn ghost";
+    cancelButton.textContent = "取消";
+    cancelButton.addEventListener("click", () => {
+      openReplyThreadId = "";
+      renderThreads();
+    });
+
+    const submitButton = document.createElement("button");
+    submitButton.type = "submit";
+    submitButton.className = "btn primary";
+    submitButton.textContent = "送出回覆";
+
+    actions.append(cancelButton, submitButton);
+    form.append(nameLabel, textLabel, actions);
+    form.addEventListener("submit", submitReply);
+    return form;
+  }
+
+  function createReplyItem(reply) {
+    const item = document.createElement("article");
+    item.className = "comment-reply-item";
+
+    const meta = document.createElement("p");
+    meta.className = "comment-meta";
+    meta.textContent = `${reply.name || "匿名"} ／ ${formatTaipeiDate(reply.createdAt)}`;
+
+    const text = document.createElement("p");
+    text.className = "comment-text";
+    text.textContent = reply.text;
+
+    item.append(meta, text);
+    return item;
+  }
+
+  function createThreadItem(thread) {
+    const item = document.createElement("article");
+    item.className = "comment-thread-item";
+
+    const main = document.createElement("div");
+    main.className = "comment-thread-main";
+
+    const header = document.createElement("div");
+    header.className = "comment-thread-header";
+
+    const title = document.createElement("h3");
+    title.textContent = thread.title || "（無標題）";
+
+    const meta = document.createElement("p");
+    meta.className = "comment-meta";
+    meta.textContent = `${thread.name || "匿名"} ／ ${formatTaipeiDate(thread.createdAt)}`;
+
+    header.append(title, meta);
+
+    const text = document.createElement("p");
+    text.className = "comment-text";
+    text.textContent = thread.text;
+
+    const actions = document.createElement("div");
+    actions.className = "comment-thread-actions";
+
+    const replyButton = document.createElement("button");
+    replyButton.type = "button";
+    replyButton.className = "comment-reply-button";
+    replyButton.textContent = thread.replies.length
+      ? `回覆（${thread.replies.length}）`
+      : "回覆";
+    replyButton.addEventListener("click", () => {
+      openReplyThreadId = openReplyThreadId === thread.threadId ? "" : thread.threadId;
+      renderThreads();
+    });
+
+    actions.appendChild(replyButton);
+    main.append(header, text, actions);
+    item.appendChild(main);
+
+    if (thread.replies.length) {
+      const replies = document.createElement("div");
+      replies.className = "comment-replies";
+      thread.replies.forEach((reply) => replies.appendChild(createReplyItem(reply)));
+      item.appendChild(replies);
     }
 
-    select.replaceChildren(fragment);
-
-    const validIds = new Set([
-      ...getArticles().map((article) => article.id),
-      ...(cachedComments.some((comment) => comment.articleId === LEGACY_ARTICLE_ID)
-        ? [LEGACY_ARTICLE_ID]
-        : []),
-    ]);
-
-    const firstArticleId = getArticles()[0]?.id || "";
-    select.value = validIds.has(previousValue) ? previousValue : firstArticleId;
-    activeArticleId = select.value;
-  }
-
-  /**
-   * 為每張文章卡片補上留言入口。
-   * 時間複雜度：O(a)
-   * 空間複雜度：O(1)
-   */
-  function decorateArticleCards() {
-    document.querySelectorAll(".article-card[data-article-id]").forEach((card) => {
-      if (card.querySelector(".article-comment-button")) return;
-
-      const articleId = card.dataset.articleId || "";
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = "btn ghost article-comment-button";
-      button.dataset.articleId = articleId;
-      button.addEventListener("click", () => {
-        selectArticle(articleId, { scroll: true });
-      });
-
-      const actions = document.createElement("div");
-      actions.className = "article-comment-actions";
-      actions.appendChild(button);
-      card.appendChild(actions);
-    });
-
-    updateArticleButtonCounts();
-  }
-
-  /**
-   * 以查表計算每篇文章留言數，避免每張卡片重複掃描全部留言。
-   * 時間複雜度：O(n + a)
-   * 空間複雜度：O(a)
-   */
-  function updateArticleButtonCounts() {
-    const counts = new Map();
-    cachedComments.forEach((comment) => {
-      counts.set(comment.articleId, (counts.get(comment.articleId) || 0) + 1);
-    });
-
-    document.querySelectorAll(".article-comment-button[data-article-id]").forEach((button) => {
-      const count = counts.get(button.dataset.articleId) || 0;
-      button.textContent = count > 0 ? `查看留言（${count}）` : "留言這篇文章";
-    });
-  }
-
-  function observeArticleList() {
-    const articleList = document.getElementById("article-list");
-    if (!articleList || articleObserver) return;
-
-    articleObserver = new MutationObserver(() => decorateArticleCards());
-    articleObserver.observe(articleList, { childList: true });
-  }
-
-  /**
-   * 切換目前文章。
-   * 時間複雜度：O(n)
-   * 空間複雜度：O(n)
-   */
-  function selectArticle(articleId, options = {}) {
-    const validArticle = getArticleById(articleId);
-    const hasLegacy = articleId === LEGACY_ARTICLE_ID &&
-      cachedComments.some((comment) => comment.articleId === LEGACY_ARTICLE_ID);
-
-    activeArticleId = validArticle ? validArticle.id : hasLegacy
-      ? LEGACY_ARTICLE_ID
-      : getArticles()[0]?.id || "";
-
-    const select = document.getElementById("comment-article");
-    if (select && select.value !== activeArticleId) select.value = activeArticleId;
-
-    renderActiveComments();
-
-    if (options.scroll) {
-      document.getElementById("article-comments")?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+    if (openReplyThreadId === thread.threadId) {
+      item.appendChild(createReplyForm(thread.threadId));
     }
+
+    return item;
   }
 
-  /**
-   * 渲染當前文章留言。
-   * 時間複雜度：O(n)
-   * 空間複雜度：O(n)
-   */
-  function renderActiveComments() {
+  function updateCount(articleRecords, threads) {
+    const replyCount = articleRecords.filter((record) => record.kind === "reply").length;
+    const element = document.getElementById("comment-count");
+    if (element) element.textContent = `${threads.length} 則留言 · ${replyCount} 則回覆`;
+  }
+
+  function renderThreads() {
     const container = document.getElementById("comment-list");
-    if (!container) return;
+    if (!container || !currentArticle) return;
 
-    const comments = cachedComments.filter((comment) => comment.articleId === activeArticleId);
-    const article = getArticleById(activeArticleId);
-    const isLegacy = activeArticleId === LEGACY_ARTICLE_ID;
-    const displayTitle = isLegacy
-      ? "舊留言（未指定文章）"
-      : article?.title || "請選擇文章";
+    const articleRecords = records.filter((record) => record.articleId === currentArticle.id);
+    const threads = buildThreads(articleRecords);
+    updateCount(articleRecords, threads);
 
-    const context = document.getElementById("comment-context");
-    if (context) {
-      context.textContent = isLegacy
-        ? "這些是舊版留言，當時尚未記錄所屬文章，因此僅供查看。"
-        : `目前顯示「${displayTitle}」的留言。`;
-    }
-
-    const listTitle = document.getElementById("comment-list-title");
-    if (listTitle) listTitle.textContent = displayTitle;
-
-    const count = document.getElementById("comment-count");
-    if (count) count.textContent = `${comments.length} 則`;
-
-    const submitButton = document.querySelector('#comment-form button[type="submit"]');
-    if (submitButton) {
-      submitButton.disabled = isLegacy || !article;
-      submitButton.textContent = isLegacy
-        ? "舊留言僅供查看"
-        : "送出這篇文章的留言";
-    }
-
-    if (!comments.length) {
+    if (!threads.length) {
       const empty = document.createElement("p");
       empty.className = "comment-empty";
-      empty.textContent = isLegacy
-        ? "目前沒有舊留言。"
-        : "這篇文章目前還沒有留言，可以成為第一個留言的人。";
+      empty.textContent = "這篇文章目前還沒有留言，可以成為第一個留言的人。";
       container.replaceChildren(empty);
       return;
     }
 
     const fragment = document.createDocumentFragment();
-
-    comments.forEach((comment) => {
-      const item = document.createElement("article");
-      item.className = "comment-item";
-
-      const title = document.createElement("h4");
-      title.textContent = comment.title || "（無標題）";
-
-      const meta = document.createElement("div");
-      meta.className = "comment-meta";
-      meta.textContent = `${comment.name || "匿名"} ／ ${formatTaipeiDate(comment.createdAt)}`;
-
-      const body = document.createElement("p");
-      body.className = "comment-text";
-      body.textContent = comment.text;
-
-      item.append(title, meta, body);
-      fragment.appendChild(item);
-    });
-
+    threads.forEach((thread) => fragment.appendChild(createThreadItem(thread)));
     container.replaceChildren(fragment);
+
+    if (openReplyThreadId) {
+      container.querySelector(`.reply-form[data-thread-id="${openReplyThreadId}"] textarea`)?.focus();
+    }
   }
 
-  /**
-   * 載入留言並按文章顯示。
-   * 時間複雜度：O(n + a)
-   * 空間複雜度：O(n + a)
-   */
-  async function renderArticleComments() {
-    const container = document.getElementById("comment-list");
-    if (!container) return false;
-
-    const loading = document.createElement("p");
-    loading.className = "comment-empty";
-    loading.textContent = "文章留言載入中…";
-    container.replaceChildren(loading);
-
+  async function reloadRecords() {
     try {
-      cachedComments = isApiConfigured()
-        ? await fetchCloudComments()
-        : loadLocalComments().slice().reverse();
+      records = isApiConfigured()
+        ? await fetchCloudRecords()
+        : loadLocalRecords();
     } catch (error) {
       console.error("[article-comments] 雲端留言載入失敗：", error);
-      cachedComments = loadLocalComments().slice().reverse();
-      showMessage("目前無法連上留言雲端，暫時顯示本機備援留言。", "is-error");
+      records = loadLocalRecords();
+      showMessage("目前無法連上留言雲端，暫時顯示本機備援資料。", "is-error");
     }
 
-    const select = document.getElementById("comment-article");
-    if (select) populateArticleOptions(select);
-
-    const requestedArticleId = new URLSearchParams(window.location.search).get("article");
-    if (requestedArticleId && getArticleById(requestedArticleId)) {
-      activeArticleId = requestedArticleId;
-      if (select) select.value = requestedArticleId;
-    }
-
-    if (!activeArticleId) activeArticleId = getArticles()[0]?.id || "";
-
-    decorateArticleCards();
-    renderActiveComments();
-    return true;
+    renderThreads();
   }
 
-  /**
-   * 文章留言送出。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
-  async function handleArticleCommentForm(event) {
+  async function persistRecord(record) {
+    if (isApiConfigured()) {
+      await postCloudRecord(record);
+      await new Promise((resolve) => window.setTimeout(resolve, 900));
+      await reloadRecords();
+      return;
+    }
+
+    const localRecords = loadLocalRecords();
+    localRecords.push(record);
+    saveLocalRecords(localRecords);
+    records = localRecords;
+    renderThreads();
+  }
+
+  async function submitMainComment(event) {
     event.preventDefault();
     clearMessage();
 
     const form = event.currentTarget;
-    const selectedArticleId = document.getElementById("comment-article")?.value || "";
-    const article = getArticleById(selectedArticleId);
-
-    if (!article) {
-      showMessage("請先選擇要留言的文章。", "is-error");
-      document.getElementById("comment-article")?.focus();
-      return;
-    }
-
     const name = document.getElementById("comment-name")?.value.trim() || "";
     const title = document.getElementById("comment-title")?.value.trim() || "";
     const text = document.getElementById("comment-text")?.value.trim() || "";
@@ -639,78 +437,90 @@
       return;
     }
 
-    const comment = normalizeComment({
-      articleId: article.id,
-      articleTitle: article.title,
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+    showMessage("留言送出中…");
+
+    const record = {
+      articleId: currentArticle.id,
+      kind: "comment",
+      threadId: createThreadId(),
+      parentThreadId: "",
       name: name.slice(0, 40),
-      title: title.slice(0, 80),
+      title: title.slice(0, 30),
       text: text.slice(0, 1000),
       createdAt: window.nowTaipeiISO?.() || new Date().toISOString(),
-    });
-
-    const submitButton = form.querySelector('button[type="submit"]');
-    submitButton?.setAttribute("disabled", "disabled");
-    showMessage(isApiConfigured() ? "留言送出中…" : "留言暫存中…");
-
-    activeArticleId = article.id;
-    cachedComments = [comment, ...cachedComments].slice(0, MAX_DISPLAY);
-    renderActiveComments();
-    updateArticleButtonCounts();
+    };
 
     try {
-      if (isApiConfigured()) {
-        await postCloudComment(comment);
-        form.reset();
-        document.getElementById("comment-article").value = article.id;
-        showMessage("留言已保存到這篇文章的雲端留言區。", "is-success");
-        await new Promise((resolve) => window.setTimeout(resolve, 900));
-        await renderArticleComments();
-      } else {
-        const localComments = loadLocalComments();
-        localComments.push(comment);
-        saveLocalComments(localComments);
-
-        postGoogleFormBackup(comment).catch((error) => {
-          console.warn("[article-comments] Google Form 備份失敗：", error);
-        });
-
-        form.reset();
-        document.getElementById("comment-article").value = article.id;
-        showMessage("留言已暫存在這篇文章；雲端恢復後可再同步。", "is-success");
-      }
+      await persistRecord(record);
+      form.reset();
+      showMessage("留言已送出。", "is-success");
     } catch (error) {
       console.error("[article-comments] 留言送出失敗：", error);
-      cachedComments = cachedComments.filter((item) => item !== comment);
-      renderActiveComments();
-      updateArticleButtonCounts();
-      showMessage("留言送出失敗，請檢查網路後再試。", "is-error");
+      showMessage("留言送出失敗，請稍後再試。", "is-error");
     } finally {
-      submitButton?.removeAttribute("disabled");
-      renderActiveComments();
+      submitButton.disabled = false;
     }
   }
 
-  /**
-   * 初始化文章留言。
-   * 時間複雜度：O(n + a)
-   * 空間複雜度：O(n + a)
-   */
-  async function init() {
-    if (initialized) return;
-    initialized = true;
+  async function submitReply(event) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const parentThreadId = form.dataset.threadId || "";
+    const name = form.elements.replyName.value.trim();
+    const text = form.elements.replyText.value.trim();
 
-    if (!ensureCommentInterface()) return;
+    if (!text) {
+      form.elements.replyText.focus();
+      return;
+    }
 
-    activeArticleId = getArticles()[0]?.id || "";
-    decorateArticleCards();
-    observeArticleList();
-    await renderArticleComments();
+    const submitButton = form.querySelector('button[type="submit"]');
+    submitButton.disabled = true;
+
+    const record = {
+      articleId: currentArticle.id,
+      kind: "reply",
+      threadId: createThreadId(),
+      parentThreadId,
+      name: name.slice(0, 40),
+      title: "",
+      text: text.slice(0, 1000),
+      createdAt: window.nowTaipeiISO?.() || new Date().toISOString(),
+    };
+
+    try {
+      await persistRecord(record);
+      openReplyThreadId = "";
+      renderThreads();
+    } catch (error) {
+      console.error("[article-comments] 回覆送出失敗：", error);
+      submitButton.disabled = false;
+      window.EvanDialog?.alert?.("回覆送出失敗，請稍後再試。", "送出失敗");
+    }
   }
 
-  window.EvanArticleComments = Object.freeze({
-    init,
-    selectArticle,
-    renderArticleComments,
-    handleArticleCommentForm,
-  });
+  async function init(article) {
+    if (initialized || !article) return;
+    initialized = true;
+    currentArticle = article;
+
+    const form = document.getElementById("comment-form");
+    if (!form) return;
+
+    form.addEventListener("submit", submitMainComment);
+
+    const container = document.getElementById("comment-list");
+    if (container) {
+      const loading = document.createElement("p");
+      loading.className = "comment-empty";
+      loading.textContent = "留言載入中…";
+      container.replaceChildren(loading);
+    }
+
+    await reloadRecords();
+  }
+
+  window.EvanArticleComments = Object.freeze({ init });
 })();
