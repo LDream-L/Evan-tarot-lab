@@ -1,14 +1,14 @@
 // ==============================
-// Evan Tarot Cloud API v4.7
-// Google 帳號驗證＋暱稱同步＋文章留言／回覆＋塔羅尋物
+// Evan Tarot Cloud API v4.8
+// Google 帳號驗證＋暱稱同步＋文章管理／留言＋塔羅尋物
 // ==============================
 //
 // 主要函式複雜度：
 // - doPost / createComment：O(p)，p = Profiles 列數
 // - doGet / listComments：O(n + p)，n = Comments 列數
-// - handleLostItemRequest_：O(c × a + a log a)，c <= 3、a = 18
-// - loadLostItemModel_：O(r × a)
-// 空間複雜度：O(n + p + r × a)
+// - listPublishedArticles_：O(a log a)，a = Articles 列數
+// - handleLostItemRequest_：O(c × z + z log z)，c <= 3、z = 18
+// 空間複雜度：O(n + p + a + r × z)
 // ==============================
 
 const COMMENTS_CONFIG = Object.freeze({
@@ -96,12 +96,19 @@ function doGet(e) {
 
     if (action === "health") {
       const lostItemHealth = getLostItemHealth_();
+      const articlesHealth =
+        typeof getArticlesHealth_ === "function"
+          ? getArticlesHealth_()
+          : { ready: false, error: "Articles.gs 尚未安裝" };
+
       return jsonOutput_({
         success: true,
         service: "Evan Tarot Cloud API",
         authConfigured: Boolean(getOAuthClientId_()),
         lostItemConfigured: lostItemHealth.ready,
         missingLostItemSheets: lostItemHealth.missingSheets,
+        articlesConfigured: articlesHealth.ready,
+        articlesError: articlesHealth.error || "",
         time: formatTaipeiDate_(new Date()),
       });
     }
@@ -120,6 +127,45 @@ function doGet(e) {
     if (action === "lostitem") {
       enforcePublicRateLimit_(e?.parameter?.clientId);
       return jsonOutput_(handleLostItemRequest_(e?.parameter || {}));
+    }
+
+    if (action === "articles-health") {
+      if (typeof getArticlesHealth_ !== "function") {
+        return jsonOutput_({ success: false, ready: false, error: "Articles.gs 尚未安裝" });
+      }
+      const health = getArticlesHealth_();
+      return jsonOutput_({
+        success: health.ready,
+        ready: health.ready,
+        service: "Evan Tarot Articles",
+        error: health.error || "",
+        missingHeaders: health.missingHeaders || [],
+        time: formatTaipeiDate_(new Date()),
+      });
+    }
+
+    if (action === "articles") {
+      if (typeof listPublishedArticles_ !== "function") {
+        return jsonOutput_({ success: false, error: "文章後端尚未安裝。" });
+      }
+      const limit = clampInteger_(Number(e?.parameter?.limit) || 200, 1, 200);
+      return jsonOutput_({
+        success: true,
+        articles: listPublishedArticles_(limit),
+        time: formatTaipeiDate_(new Date()),
+      });
+    }
+
+    if (action === "article") {
+      if (typeof getPublishedArticleById_ !== "function") {
+        return jsonOutput_({ success: false, error: "文章後端尚未安裝。" });
+      }
+      const article = getPublishedArticleById_(e?.parameter?.id);
+      return jsonOutput_({
+        success: Boolean(article),
+        article,
+        error: article ? "" : "找不到已發布文章。",
+      });
     }
 
     if (action === "profile") {
