@@ -18,5 +18,5 @@ const EVAN_COMMENTS_API_URL = String.fromCharCode(
 
 window.EVAN_CLOUD_CONFIG = Object.freeze({
   commentsApiUrl: EVAN_COMMENTS_API_URL,
-  googleClientId: "PASTE_GOOGLE_OAUTH_WEB_CLIENT_ID_HERE",
+  googleClientId: "932432791893-tuj2pi0gv8v1v5oiscahueludlrpmsnv.apps.googleusercontent.com",
 });
