@@ -103,6 +103,8 @@
 
     document.body.dataset.articleId = article.id;
     renderArticle(container, article);
+
+    await window.EvanGoogleAuth?.init?.();
     await window.EvanArticleComments?.init?.(article);
   });
 })();
