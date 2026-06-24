@@ -38,9 +38,9 @@ function handleLostItemRequest_(rawPayload) {
   }
 
   const payload = normalizeLostItemPayload_(rawPayload);
-  const model = loadLostItemModel_();
-  const cards = drawLostItemCards_(model.cards, payload.cardCount);
-  const scoredAreas = scoreLostItemAreas_(model, cards, payload);
+  const modelData = loadLostItemModel_();
+  const cards = drawLostItemCards_(modelData.cards, payload.cardCount);
+  const scoredAreas = scoreLostItemAreas_(modelData, cards, payload);
   const topAreas = scoredAreas.slice(0, 5).map((entry, index) => ({
     rank: index + 1,
     area: entry.area,
@@ -51,13 +51,18 @@ function handleLostItemRequest_(rawPayload) {
     description: entry.description,
   }));
   const summary = buildLostItemSummary_(cards, scoredAreas);
-  const events = buildLostItemEvents_(model, cards, topAreas);
+  const events = buildLostItemEvents_(modelData, cards, topAreas);
 
   return {
     success: true,
     version: LOST_ITEM_CONFIG.version,
     itemName: payload.itemName,
     createdAt: formatTaipeiDate_(new Date()),
+    model: summary.model,
+    focusLevel: summary.focus,
+    readingMode: summary.mode,
+    searchOrder: summary.searchOrder,
+    zeroStep: summary.zeroStep,
     cards: cards.map((entry) => ({
       code: entry.card.code,
       name: entry.card.name,
@@ -254,9 +259,3 @@ function randomInt_(maxExclusive) {
     ((bytes[3] + 256) % 256);
   return value % safeMax;
 }
-
-/**
- * 計算 18 個候選區域並排序。
- * 時間複雜度：O(c × a + a log a)
- * 空間複雜度：O(a)
- */
