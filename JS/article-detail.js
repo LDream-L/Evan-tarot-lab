@@ -7,14 +7,26 @@
 // - n = 文章數（依 ID 尋找）
 // - p = 文章段落數
 // 空間複雜度：O(p)
-//
-// 更快替代方案比較：
-// - 暴力法：每篇文章各維護一份 HTML。
-// - 本實作：等待共用文章資料載入後，以文章 ID 渲染內容；新增文章不需建立新頁面。
 // ==============================
 
 (function initArticleDetailPage() {
   "use strict";
+
+  function normalizeLabNavigation() {
+    const nav = document.querySelector(".nav");
+    if (!nav) return;
+
+    const labLink = nav.querySelector('a[href="articles.html"]');
+    const lostItemLink = nav.querySelector('a[href="lost-item.html"]');
+    if (labLink) {
+      labLink.textContent = "實驗室";
+      labLink.setAttribute("aria-current", "page");
+    }
+    lostItemLink?.remove();
+
+    const backLink = document.querySelector(".article-back-link");
+    if (backLink) backLink.textContent = "← 回塔羅實驗室";
+  }
 
   function createParagraph(text) {
     const paragraph = document.createElement("p");
@@ -34,7 +46,7 @@
     const link = document.createElement("a");
     link.className = "btn primary";
     link.href = "articles.html";
-    link.textContent = "回文章總覽";
+    link.textContent = "回塔羅實驗室";
 
     container.replaceChildren(title, text, link);
     document.getElementById("article-discussion")?.classList.add("hidden");
@@ -88,6 +100,8 @@
   }
 
   document.addEventListener("DOMContentLoaded", async () => {
+    normalizeLabNavigation();
+
     const container = document.getElementById("article-detail");
     if (!container) return;
 
