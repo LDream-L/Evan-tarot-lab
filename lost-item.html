@@ -8,6 +8,7 @@
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-dialog-v6" />
   <link rel="stylesheet" href="lost-item-v47.css?v=20260624-v47-private-backend" />
+  <link rel="stylesheet" href="lab.css?v=20260624-lab-v2" />
 </head>
 <body>
   <header class="site-header">
@@ -20,7 +21,7 @@
         <a href="index.html#intro">介紹</a>
         <a href="services.html">占卜項目</a>
         <a href="articles.html">文章</a>
-        <a href="lost-item.html" aria-current="page">尋物工具</a>
+        <a href="lab.html" aria-current="page">實驗室</a>
         <a href="timeflow.html">時間流</a>
         <a href="services.html#booking">預約</a>
       </nav>
@@ -32,29 +33,28 @@
       <div class="hero-bg-orbit" aria-hidden="true"></div>
       <div class="container hero-inner">
         <div class="hero-text">
+          <a class="lab-breadcrumb" href="lab.html#projects">← 塔羅實驗室 / 實驗物件</a>
           <h1>塔羅尋物 v4.7。</h1>
-          <p>
-            依抽牌、正逆位與情境條件，整理最可能的搜尋區域與 Top 5 優先順序。
-          </p>
+          <p>依抽牌、正逆位與情境條件，整理最可能的搜尋區域與 Top 5 優先順序。</p>
           <div class="hero-cta">
             <a href="#lost-item-tool" class="btn primary">開始尋物占卜</a>
-            <a href="index.html" class="btn ghost">回首頁</a>
+            <a href="lab.html#projects" class="btn ghost">回實驗室</a>
           </div>
           <div class="hero-meta">
-            <span class="pill pill-soft">v4.7</span>
-            <span class="pill pill-outline">Top 5 搜尋</span>
+            <span class="pill pill-soft">實驗物件</span>
+            <span class="pill pill-outline">塔羅尋物 v4.7</span>
           </div>
         </div>
 
-        <aside class="hero-card" aria-label="失物占卜提醒">
+        <aside class="hero-card" aria-label="塔羅尋物實驗重點">
           <div class="hero-card-inner">
-            <p class="hero-tag">使用提醒</p>
+            <p class="hero-tag">實驗重點</p>
             <ul>
-              <li>結果用來收斂搜尋順序，不是 GPS 座標</li>
-              <li>先找 Top 1～3，不要同時平均分散搜尋</li>
-              <li>逆位時優先翻夾層、底部、內袋與被移動處</li>
+              <li>以牌面與情境權重收斂搜尋區域</li>
+              <li>依 Top 1～3 的順序逐區搜尋</li>
+              <li>找到後回填結果，作為後續模型驗證</li>
             </ul>
-            <p class="hero-note">請依排名逐區搜尋，找到後可回填結果。</p>
+            <p class="hero-note">結果用來安排搜尋順序，不是 GPS 座標。</p>
           </div>
         </aside>
       </div>
@@ -63,9 +63,7 @@
     <section id="lost-item-tool" class="section alt">
       <div class="container">
         <h2>失物占卜</h2>
-        <p class="section-lead">
-          填入遺失情境並抽出 1～3 張牌，取得搜尋區域、原因與第一步。
-        </p>
+        <p class="section-lead">填入遺失情境並抽出 1～3 張牌，取得搜尋區域、原因與第一步。</p>
 
         <div class="tool-card lost-v47-shell">
           <form class="tool-form lost-v47-form" id="lost-item-form">
@@ -159,16 +157,12 @@
 
             <button id="lost-item-submit" class="btn primary full" type="submit">抽牌並產生 Top 5 搜尋順序</button>
             <p aria-live="polite" class="tool-feedback-message hidden" id="lost-item-message"></p>
-            <p class="tool-disclaimer">
-              結果僅供整理搜尋順序，不代表精確位置；請同步檢查實際動線、失物招領與監視器。
-            </p>
+            <p class="tool-disclaimer">結果僅供整理搜尋順序，不代表精確位置；請同步檢查實際動線、失物招領與監視器。</p>
           </form>
 
           <section aria-live="polite" class="tool-result hidden lost-v47-result" id="lost-item-result">
             <h3 id="lost-item-result-title">占卜結果</h3>
-
             <div id="lost-item-zero-step" class="lost-v47-zero-step hidden"></div>
-
             <div class="lost-v47-summary" id="lost-item-summary"></div>
 
             <h4>本次抽牌</h4>
@@ -225,7 +219,7 @@
 
   <footer class="site-footer">
     <div class="container footer-inner">
-      <p>Evan Tarot ｜塔羅占卜 & 小工具實驗室</p>
+      <p>Evan Tarot ｜塔羅實驗室 / 塔羅尋物</p>
       <p class="footer-sub">依牌面、正逆位與情境條件，整理失物搜尋優先順序。</p>
     </div>
   </footer>
@@ -234,6 +228,6 @@
   <script src="JS/cloud-config.js?v=20260624-v47-private-backend"></script>
   <script src="JS/lost-item.js?v=20260624-v47-private-backend"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
-  <script src="JS/main.js?v=20260624-v47-private-backend"></script>
+  <script src="JS/main.js?v=20260624-lab-v3"></script>
 </body>
 </html>
