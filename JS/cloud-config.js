@@ -6,7 +6,7 @@
 // 此檔案只放可公開的前端設定：
 // - Apps Script Web App URL
 // - Google OAuth Web Client ID
-// 不可放 Client Secret、管理員密碼或 service account 金鑰。
+// 不可放 Client Secret、管理員密碼、Spreadsheet ID 或 service account 金鑰。
 //
 // 時間複雜度：O(1)
 // 空間複雜度：O(1)
@@ -18,5 +18,6 @@ const EVAN_COMMENTS_API_URL = String.fromCharCode(
 
 window.EVAN_CLOUD_CONFIG = Object.freeze({
   commentsApiUrl: EVAN_COMMENTS_API_URL,
+  lostItemApiUrl: EVAN_COMMENTS_API_URL,
   googleClientId: "932432791893-tuj2pi0gv8v1v5oiscahueludlrpmsnv.apps.googleusercontent.com",
 });
