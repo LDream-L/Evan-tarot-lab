@@ -1,6 +1,6 @@
 // ==============================
 // article-comments.js
-// Google 登入限定：單篇文章留言＋單層無限回覆
+// Google 登入＋暱稱限定：單篇文章留言與單層回覆
 // ==============================
 //
 // 主要函式複雜度：
@@ -11,7 +11,7 @@
 // 空間複雜度：O(n)
 //
 // 更快替代方案比較：
-// - 暴力法：每個主留言再掃描全部資料找回覆，最差 O(n²)。
+// - 暴力法：每個主留言重複掃描全部資料找回覆，最差 O(n²)。
 // - 本實作：用 Map 建立 threadId 查表，再單次分配回覆，維持 O(n)。
 // ==============================
 
@@ -25,6 +25,7 @@
   let records = [];
   let openReplyThreadId = "";
   let initialized = false;
+  let lastNickname = "";
 
   function getApiUrl() {
     return String(window.EVAN_CLOUD_CONFIG?.commentsApiUrl || "").trim();
@@ -95,7 +96,6 @@
       method: "GET",
       cache: "no-store",
     });
-
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const payload = await response.json();
@@ -112,21 +112,19 @@
     const credential = window.EvanGoogleAuth?.getCredential?.() || "";
     if (!credential) throw new Error("GOOGLE_LOGIN_REQUIRED");
 
-    const payload = {
-      action: "create",
-      credential,
-      title: encodeMetadata(record),
-      text: record.text,
-      createdAt: record.createdAt,
-      website: "",
-    };
-
     await fetchWithTimeout(getApiUrl(), {
       method: "POST",
       mode: "no-cors",
       cache: "no-store",
       headers: { "Content-Type": "text/plain;charset=UTF-8" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        action: "create",
+        credential,
+        title: encodeMetadata(record),
+        text: record.text,
+        createdAt: record.createdAt,
+        website: "",
+      }),
       keepalive: true,
     });
   }
@@ -162,11 +160,21 @@
     element.classList.remove("is-error", "is-success");
   }
 
-  function requireGoogleLogin() {
-    if (window.EvanGoogleAuth?.isSignedIn?.()) return true;
-    document.getElementById("google-auth-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
-    showMessage("請先使用 Google 帳號登入。", "is-error");
-    return false;
+  function requireCommentIdentity() {
+    if (!window.EvanGoogleAuth?.isSignedIn?.()) {
+      document.getElementById("google-auth-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      showMessage("請先使用 Google 帳號登入。", "is-error");
+      return false;
+    }
+
+    if (!window.EvanGoogleAuth?.hasNickname?.()) {
+      document.getElementById("google-nickname-input")?.focus();
+      document.getElementById("google-auth-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
+      showMessage("請先設定公開暱稱。", "is-error");
+      return false;
+    }
+
+    return true;
   }
 
   function buildThreads(articleRecords) {
@@ -271,7 +279,7 @@
     replyButton.className = "comment-reply-button";
     replyButton.textContent = thread.replies.length ? `回覆（${thread.replies.length}）` : "回覆";
     replyButton.addEventListener("click", () => {
-      if (!requireGoogleLogin()) return;
+      if (!requireCommentIdentity()) return;
       openReplyThreadId = openReplyThreadId === thread.threadId ? "" : thread.threadId;
       renderThreads();
     });
@@ -287,7 +295,7 @@
       item.appendChild(replies);
     }
 
-    if (openReplyThreadId === thread.threadId && window.EvanGoogleAuth?.isSignedIn?.()) {
+    if (openReplyThreadId === thread.threadId && window.EvanGoogleAuth?.hasNickname?.()) {
       item.appendChild(createReplyForm(thread.threadId));
     }
 
@@ -328,13 +336,13 @@
     await reloadRecords();
 
     const saved = records.some((item) => item.threadId === record.threadId);
-    if (!saved) throw new Error("AUTH_OR_SAVE_FAILED");
+    if (!saved) throw new Error("AUTH_PROFILE_OR_SAVE_FAILED");
   }
 
   async function submitMainComment(event) {
     event.preventDefault();
     clearMessage();
-    if (!requireGoogleLogin()) return;
+    if (!requireCommentIdentity()) return;
 
     const form = event.currentTarget;
     const text = document.getElementById("comment-text")?.value.trim() || "";
@@ -359,15 +367,15 @@
       showMessage("留言已送出。", "is-success");
     } catch (error) {
       console.error("[article-comments] 留言送出失敗：", error);
-      showMessage("登入已失效或留言未成功保存，請重新登入後再試。", "is-error");
+      showMessage("登入、暱稱或雲端儲存狀態異常，請重新確認後再試。", "is-error");
     } finally {
-      submitButton.disabled = !window.EvanGoogleAuth?.isSignedIn?.();
+      submitButton.disabled = !window.EvanGoogleAuth?.hasNickname?.();
     }
   }
 
   async function submitReply(event) {
     event.preventDefault();
-    if (!requireGoogleLogin()) return;
+    if (!requireCommentIdentity()) return;
 
     const form = event.currentTarget;
     const text = form.elements.replyText.value.trim();
@@ -392,7 +400,7 @@
     } catch (error) {
       console.error("[article-comments] 回覆送出失敗：", error);
       submitButton.disabled = false;
-      window.EvanDialog?.alert?.("登入已失效或回覆未成功保存，請重新登入後再試。", "送出失敗");
+      window.EvanDialog?.alert?.("登入、暱稱或雲端儲存狀態異常，請重新確認後再試。", "送出失敗");
     }
   }
 
@@ -403,8 +411,18 @@
 
     document.getElementById("comment-form")?.addEventListener("submit", submitMainComment);
     window.EvanGoogleAuth?.onChange?.((state) => {
-      if (!state.isSignedIn) openReplyThreadId = "";
-      renderThreads();
+      if (!state.isSignedIn || !state.hasNickname) openReplyThreadId = "";
+
+      const nicknameChanged = state.nickname && state.nickname !== lastNickname;
+      lastNickname = state.nickname || "";
+
+      if (nicknameChanged) {
+        reloadRecords().catch((error) => {
+          console.error("[article-comments] 暱稱更新後重新載入留言失敗：", error);
+        });
+      } else {
+        renderThreads();
+      }
     });
 
     const container = document.getElementById("comment-list");
