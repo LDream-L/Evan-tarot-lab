@@ -56,9 +56,7 @@
   }
 
   function encodeMetadata(record) {
-    const marker = `[[v2;a=${record.articleId};k=${record.kind === "reply" ? "r" : "c"};i=${record.threadId};p=${record.parentThreadId || ""}]]`;
-    const availableTitleLength = Math.max(0, 80 - marker.length);
-    return `${marker}${String(record.title || "").slice(0, availableTitleLength)}`;
+    return `[[v2;a=${record.articleId};k=${record.kind === "reply" ? "r" : "c"};i=${record.threadId};p=${record.parentThreadId || ""}]]`;
   }
 
   function normalizeRecord(raw) {
@@ -72,7 +70,6 @@
         kind: v2Match[2] === "r" ? "reply" : "comment",
         threadId: v2Match[3],
         parentThreadId: v2Match[4],
-        title: String(v2Match[5] || "").trim(),
         name: String(raw?.name || "").trim(),
         text: String(raw?.text ?? raw?.comment ?? "").trim(),
         createdAt: raw?.createdAt || raw?.timestamp || new Date().toISOString(),
@@ -87,7 +84,6 @@
         kind: "comment",
         threadId: String(raw?.id || createThreadId()),
         parentThreadId: "",
-        title: String(legacyMatch[2] || "").trim(),
         name: String(raw?.name || "").trim(),
         text: String(raw?.text ?? raw?.comment ?? "").trim(),
         createdAt: raw?.createdAt || raw?.timestamp || new Date().toISOString(),
@@ -101,7 +97,6 @@
         kind: raw?.parentThreadId ? "reply" : "comment",
         threadId: String(raw?.threadId || raw?.id || createThreadId()),
         parentThreadId: String(raw?.parentThreadId || ""),
-        title: rawTitle.trim(),
         name: String(raw?.name || "").trim(),
         text: String(raw?.text ?? raw?.comment ?? "").trim(),
         createdAt: raw?.createdAt || raw?.timestamp || new Date().toISOString(),
@@ -314,17 +309,9 @@
     const main = document.createElement("div");
     main.className = "comment-thread-main";
 
-    const header = document.createElement("div");
-    header.className = "comment-thread-header";
-
-    const title = document.createElement("h3");
-    title.textContent = thread.title || "（無標題）";
-
     const meta = document.createElement("p");
     meta.className = "comment-meta";
     meta.textContent = `${thread.name || "匿名"} ／ ${formatTaipeiDate(thread.createdAt)}`;
-
-    header.append(title, meta);
 
     const text = document.createElement("p");
     text.className = "comment-text";
@@ -345,7 +332,7 @@
     });
 
     actions.appendChild(replyButton);
-    main.append(header, text, actions);
+    main.append(meta, text, actions);
     item.appendChild(main);
 
     if (thread.replies.length) {
@@ -428,7 +415,6 @@
 
     const form = event.currentTarget;
     const name = document.getElementById("comment-name")?.value.trim() || "";
-    const title = document.getElementById("comment-title")?.value.trim() || "";
     const text = document.getElementById("comment-text")?.value.trim() || "";
 
     if (!text) {
@@ -447,7 +433,6 @@
       threadId: createThreadId(),
       parentThreadId: "",
       name: name.slice(0, 40),
-      title: title.slice(0, 30),
       text: text.slice(0, 1000),
       createdAt: window.nowTaipeiISO?.() || new Date().toISOString(),
     };
@@ -485,7 +470,6 @@
       threadId: createThreadId(),
       parentThreadId,
       name: name.slice(0, 40),
-      title: "",
       text: text.slice(0, 1000),
       createdAt: window.nowTaipeiISO?.() || new Date().toISOString(),
     };
