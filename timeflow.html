@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-
 <html lang="zh-Hant">
 <head>
 <meta charset="utf-8"/>
@@ -22,7 +21,7 @@
 <a href="articles.html">文章</a>
 <a href="lost-item.html">尋物工具</a>
 <a href="timeflow.html">時間流</a>
-<a href="index.html#booking">預約</a>
+<a href="services.html#booking">預約</a>
 </nav>
 </div>
 </header>
@@ -33,9 +32,7 @@
 <div class="hero-text">
 <h1>把占卜，接成可驗證的主題流。</h1>
 <p>
-            這一頁專門拿來記錄問題、後續事件與驗證結果。
-            你可以先建立一個主題，再把占卜案例與事件掛到同一條流上，
-            也可以切換成平行時間流，一次比較多個主題。
+            將問題、占卜案例、後續事件與驗證結果連成主題流；也可用平行時間流比較多個主題。
           </p>
 <div class="hero-cta">
 <a class="btn primary" href="#divination-map-app">開始建立時間流</a>
@@ -46,7 +43,7 @@
 <span class="pill pill-outline">單一 / 平行檢視</span>
 </div>
 </div>
-<aside aria-label="這一頁能做什麼" class="hero-card">
+<aside aria-label="時間流功能" class="hero-card">
 <div class="hero-card-inner">
 <p class="hero-tag">時間流檢視方式</p>
 <ul>
@@ -54,7 +51,7 @@
 <li>單一時間流：聚焦某一條主線</li>
 <li>平行時間流：多主題同時比較</li>
 </ul>
-<p class="hero-note">提示：事件若連回某個占卜案例，系統會自動跟隨該主題流。</p>
+<p class="hero-note">事件連結占卜案例後，會歸入同一主題流。</p>
 </div>
 </aside>
 </div>
@@ -65,8 +62,7 @@
 <div class="tool-header">
 <h2>占卜時間流</h2>
 <p>
-              先建立主題流，再把占卜案例與後續事件接上去。
-              單一時間流適合深挖一條主線；平行時間流適合比對多個主題。
+              建立主題流後，加入占卜案例與後續事件；可切換單一或平行檢視。
             </p>
 </div>
 <div class="map-tool-layout" id="divination-map-app">
@@ -138,10 +134,7 @@
 <aside aria-label="節點詳細資料" class="map-sidebar">
 <div class="map-empty-state" id="map-empty-state">
 <h4>先建立一條主題流</h4>
-<p>
-                    先按「新增主題流」，例如：A 關係驗證、工作轉換驗證。
-                    接著把占卜案例與後續事件放到同一條流上，會比單純一條總時間線清楚很多。
-                  </p>
+<p>按「新增主題流」建立主題，再加入占卜案例與後續事件。</p>
 </div>
 <form class="map-detail-form hidden" id="map-detail-form">
 <div class="map-form-header">
@@ -236,7 +229,7 @@
 <section aria-label="下方驗證時間軸" class="map-timeline-block">
 <div class="map-timeline-header">
 <h4>下方驗證時間軸</h4>
-<p>主畫布看時間流，下方列表看逐條事件；切換單一 / 平行檢視時，列表會同步更新。</p>
+<p>依日期列出目前篩選後的占卜案例與事件。</p>
 </div>
 <div class="map-timeline" id="map-timeline"></div>
 </section>
@@ -248,10 +241,7 @@
 <footer class="site-footer">
 <div class="container footer-inner">
 <p>Evan Tarot ｜占卜時間流</p>
-<p class="footer-sub">
-        這一頁專門處理「問題 → 事件 → 驗證」的時間結構。<br/>
-        首頁只保留介紹與預約，時間流則留在這裡專心操作。
-      </p>
+<p class="footer-sub">以主題流整理「問題 → 事件 → 驗證」，保留可回顧的占卜紀錄。</p>
 </div>
 </footer>
 <script src="JS/utils.js?v=20260505-fixed-axis-free-card-v5"></script>
