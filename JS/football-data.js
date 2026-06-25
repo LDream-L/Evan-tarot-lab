@@ -1,21 +1,28 @@
-// 世足賽事驗證 v1.1.0｜固定資料
+// 世足賽事驗證 v1.2.0｜固定資料
 // 讀取時間 O(1)，牌組空間 O(78)。
 (function defineFootballLabData() {
   "use strict";
 
+  const positions = [
+    { key: "directResult", title: "單張｜90 分鐘結果", note: "只判斷正規時間加傷停的主勝、和局或客勝" },
+    { key: "homeAttack", title: "攻防組｜主隊進攻", note: "主隊創造機會與把握進球的狀態" },
+    { key: "awayDefense", title: "攻防組｜客隊防守", note: "客隊限制主隊與承受壓力的狀態" },
+    { key: "awayAttack", title: "攻防組｜客隊進攻", note: "客隊創造機會與把握進球的狀態" },
+    { key: "homeDefense", title: "攻防組｜主隊防守", note: "主隊限制客隊與承受壓力的狀態" },
+  ];
+
   window.FOOTBALL_LAB_DATA = Object.freeze({
-    modelVersion: "1.1.0",
+    modelVersion: "1.2.0",
     storageKey: "evanFootballTarotRecordsV1",
     resultLabels: Object.freeze({ H: "主隊勝", D: "和局", A: "客隊勝" }),
-    bandLabels: Object.freeze({ "0": "0 球", "1": "1 球", "2": "2 球", "3+": "3 球以上" }),
+    modeLabels: Object.freeze({ direct: "單張結果模式", structure: "四張攻防模式", dual: "雙模型比較模式", legacy5: "舊版五牌位" }),
     cardSourceLabels: Object.freeze({ manual: "手動記錄實體抽牌", random: "網站隨機抽牌" }),
-    positions: Object.freeze([
-      { key: "homeAttack", title: "主隊得分", note: "主隊創造機會與把握進球的狀態" },
-      { key: "homeDefense", title: "主隊防守", note: "主隊限制對手與承受壓力的狀態" },
-      { key: "awayAttack", title: "客隊得分", note: "客隊創造機會與把握進球的狀態" },
-      { key: "awayDefense", title: "客隊防守", note: "客隊限制對手與承受壓力的狀態" },
-      { key: "finalResult", title: "90 分鐘結果", note: "正規時間加傷停的整體賽果傾向" },
-    ]),
+    positionSets: Object.freeze({
+      direct: Object.freeze(["directResult"]),
+      structure: Object.freeze(["homeAttack", "awayDefense", "awayAttack", "homeDefense"]),
+    }),
+    positions: Object.freeze(positions),
+    positionMap: Object.freeze(Object.fromEntries(positions.map((position) => [position.key, Object.freeze(position)]))),
     deck: Object.freeze([
       "愚者", "魔術師", "女祭司", "皇后", "皇帝", "教皇", "戀人", "戰車", "力量", "隱者", "命運之輪",
       "正義", "吊人", "死神", "節制", "惡魔", "高塔", "星星", "月亮", "太陽", "審判", "世界",
