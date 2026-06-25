@@ -1,10 +1,11 @@
-// 世足賽事驗證 v1.0.0｜畫面渲染
-// renderRecords：O(r) 時間／O(r) DOM 空間；使用 DocumentFragment 避免逐列重排。
+// 世足賽事驗證 v1.1.0｜牌位輸入與畫面渲染
+// renderDraft：O(p*d) 時間、O(p*d) DOM 空間，p=5、d=78；renderRecords：O(r) 時間、O(r) DOM 空間。
+// 牌名選項先以固定牌組建立；五個牌位一次渲染，避免重複查詢 DOM。
 (function defineFootballLabRender() {
   "use strict";
 
   const core = window.FootballLabCore;
-  const { resultLabels, bandLabels } = core.data;
+  const { resultLabels, bandLabels, cardSourceLabels, deck } = core.data;
 
   function byId(id) { return document.getElementById(id); }
 
@@ -35,36 +36,86 @@
     container.appendChild(item);
   }
 
+  function createCardSelect(card) {
+    const select = document.createElement("select");
+    select.id = `football-card-${card.position}`;
+    select.required = true;
+    const empty = document.createElement("option");
+    empty.value = "";
+    empty.textContent = "選擇抽到的牌";
+    select.appendChild(empty);
+    deck.forEach((name) => {
+      const option = document.createElement("option");
+      option.value = name;
+      option.textContent = name;
+      option.selected = name === card.name;
+      select.appendChild(option);
+    });
+    return select;
+  }
+
+  function createOrientationSelect(card) {
+    const select = document.createElement("select");
+    select.id = `football-orientation-${card.position}`;
+    ["正位", "逆位"].forEach((orientation) => {
+      const option = document.createElement("option");
+      option.value = orientation;
+      option.textContent = orientation;
+      option.selected = orientation === card.orientation;
+      select.appendChild(option);
+    });
+    return select;
+  }
+
+  function renderCardEntries(draft) {
+    const fragment = document.createDocumentFragment();
+    draft.cards.forEach((card, index) => {
+      const article = document.createElement("article");
+      article.className = "football-card";
+      const order = document.createElement("span");
+      order.className = "football-card-order";
+      order.textContent = `位置 ${index + 1}`;
+      const title = document.createElement("h4");
+      title.className = "football-card-name";
+      title.textContent = card.positionTitle;
+      const note = document.createElement("p");
+      note.className = "football-card-role";
+      note.textContent = card.positionNote;
+
+      if (draft.match.cardSource === "manual") {
+        const cardLabel = document.createElement("label");
+        cardLabel.textContent = "抽到的牌";
+        cardLabel.appendChild(createCardSelect(card));
+        const orientationLabel = document.createElement("label");
+        orientationLabel.textContent = "正逆位";
+        orientationLabel.appendChild(createOrientationSelect(card));
+        article.append(order, title, note, cardLabel, orientationLabel);
+      } else {
+        const name = document.createElement("strong");
+        name.className = "football-random-card-name";
+        name.textContent = card.name;
+        const orientation = document.createElement("span");
+        orientation.className = `football-orientation${card.orientation === "逆位" ? " is-reversed" : ""}`;
+        orientation.textContent = card.orientation;
+        article.append(order, title, note, name, orientation);
+      }
+      fragment.appendChild(article);
+    });
+    byId("football-card-grid").replaceChildren(fragment);
+  }
+
   function renderDraft(draft) {
-    const summary = byId("football-match-summary");
-    const cardGrid = byId("football-card-grid");
     const summaryFragment = document.createDocumentFragment();
     addSummaryItem(summaryFragment, "賽事", draft.match.competition);
     addSummaryItem(summaryFragment, "對戰", `${draft.match.homeTeam} vs ${draft.match.awayTeam}`);
     addSummaryItem(summaryFragment, "開賽", core.formatDateTime(draft.match.kickoff));
-    addSummaryItem(summaryFragment, "抽牌資訊狀態", draft.match.infoState);
-    summary.replaceChildren(summaryFragment);
+    addSummaryItem(summaryFragment, "牌面來源", cardSourceLabels[draft.match.cardSource]);
+    byId("football-match-summary").replaceChildren(summaryFragment);
 
-    const cardFragment = document.createDocumentFragment();
-    draft.cards.forEach((card) => {
-      const article = document.createElement("article");
-      article.className = "football-card";
-      const role = document.createElement("p");
-      role.className = "football-card-role";
-      role.textContent = card.positionTitle;
-      const name = document.createElement("h4");
-      name.className = "football-card-name";
-      name.textContent = card.name;
-      const orientation = document.createElement("span");
-      orientation.className = `football-orientation${card.orientation === "逆位" ? " is-reversed" : ""}`;
-      orientation.textContent = card.orientation;
-      const note = document.createElement("p");
-      note.className = "football-card-role";
-      note.textContent = card.positionNote;
-      article.append(role, name, orientation, note);
-      cardFragment.appendChild(article);
-    });
-    cardGrid.replaceChildren(cardFragment);
+    byId("football-card-entry-note").textContent = draft.match.cardSource === "manual"
+      ? "請依你實際抽牌的順序，將牌名與正逆位填入下列固定位置；同一張牌不能重複。"
+      : "以下五張由網站一次隨機抽出並固定，不能局部重抽或交換牌位。";
+    renderCardEntries(draft);
 
     byId("football-home-reading-title").textContent = `${draft.match.homeTeam}｜得分與防守`;
     byId("football-away-reading-title").textContent = `${draft.match.awayTeam}｜得分與防守`;
@@ -132,8 +183,9 @@
     records.forEach((record) => {
       const evaluation = core.calculateEvaluation(record);
       const row = document.createElement("tr");
+      const source = cardSourceLabels[record.match.cardSource] || "舊版未標記";
       row.appendChild(createTextCell(core.formatDateTime(record.match.kickoff), `${record.match.competition}｜${record.match.stage}`));
-      row.appendChild(createTextCell(`${record.match.homeTeam} vs ${record.match.awayTeam}`, describeCards(record.cards)));
+      row.appendChild(createTextCell(`${record.match.homeTeam} vs ${record.match.awayTeam}`, `${source}｜${describeCards(record.cards)}`));
       row.appendChild(createTextCell(describePrediction(record), `信心 ${record.prediction.confidence}／5`));
       row.appendChild(createTextCell(record.actual ? `${record.actual.homeGoals}：${record.actual.awayGoals}` : "尚未輸入", record.actual ? resultLabels[evaluation.actualResult] : "等待賽後核對"));
       row.appendChild(createTextCell(evaluation ? `${evaluation.hitCount}／5` : "—", evaluation?.exactEligible ? `確切比分：${evaluation.exactHit ? "命中" : "未中"}` : ""));
