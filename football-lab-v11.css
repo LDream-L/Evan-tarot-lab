@@ -1,0 +1,56 @@
+/* 世足賽事驗證 v1.1.0｜手動牌位輸入補充樣式 */
+.football-card-entry-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+.football-card-entry-heading h4 {
+  margin: 0 0 0.35rem;
+}
+
+.football-card-order {
+  display: inline-flex;
+  width: fit-content;
+  padding: 0.2rem 0.55rem;
+  border: 1px solid rgba(170, 148, 255, 0.42);
+  border-radius: 999px;
+  color: var(--text-soft, #bcb7d9);
+  font-size: 0.78rem;
+}
+
+.football-card label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.86rem;
+}
+
+.football-card select {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.7rem 0.75rem;
+  border: 1px solid rgba(171, 151, 255, 0.36);
+  border-radius: 12px;
+  color: inherit;
+  background: rgba(5, 5, 24, 0.72);
+  font: inherit;
+}
+
+.football-card select:focus {
+  outline: 2px solid rgba(180, 158, 255, 0.62);
+  outline-offset: 2px;
+}
+
+.football-random-card-name {
+  font-size: 1.08rem;
+  line-height: 1.45;
+}
+
+@media (max-width: 760px) {
+  .football-card {
+    min-height: 0;
+  }
+}
