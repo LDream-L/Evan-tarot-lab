@@ -1,0 +1,76 @@
+/* 世足賽事驗證 v1.2.0｜模型分離補充樣式 */
+.football-card-grid-v12 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.football-card-group-heading {
+  grid-column: 1 / -1;
+  padding: 0.85rem 1rem;
+  border: 1px solid rgba(171, 151, 255, 0.28);
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.football-card-group-heading h4,
+.football-card-group-heading p {
+  margin: 0;
+}
+
+.football-card-group-heading p {
+  margin-top: 0.35rem;
+  color: var(--text-soft, #bcb7d9);
+  font-size: 0.86rem;
+  line-height: 1.65;
+}
+
+.football-model-fieldset {
+  display: grid;
+  gap: 1rem;
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid rgba(171, 151, 255, 0.32);
+  border-radius: 18px;
+}
+
+.football-model-fieldset legend {
+  padding: 0 0.45rem;
+  font-weight: 700;
+}
+
+.football-derived-result {
+  display: grid;
+  align-content: center;
+  gap: 0.35rem;
+  min-height: 76px;
+  padding: 0.75rem 0.85rem;
+  border: 1px solid rgba(127, 232, 190, 0.36);
+  border-radius: 14px;
+  background: rgba(25, 74, 62, 0.15);
+}
+
+.football-derived-result small {
+  color: var(--text-soft, #bcb7d9);
+}
+
+.football-kpi-grid-v12 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+@media (max-width: 1200px) {
+  .football-kpi-grid-v12 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 1100px) {
+  .football-card-grid-v12 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 760px) {
+  .football-card-grid-v12,
+  .football-kpi-grid-v12 {
+    grid-template-columns: 1fr;
+  }
+}
