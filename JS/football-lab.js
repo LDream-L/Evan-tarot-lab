@@ -1,9 +1,9 @@
-// 世足賽事驗證 v1.1.0｜相容載入器
+// 世足賽事驗證 v1.2.0｜相容載入器
 // 依序載入固定資料、核心、渲染與事件模組。時間 O(m)，空間 O(1)，m=4。
 (function loadFootballLabModules() {
   "use strict";
 
-  const version = "20260625-football-v11";
+  const version = "20260625-football-v12";
   const modules = [
     "JS/football-data.js",
     "JS/football-core.js",
