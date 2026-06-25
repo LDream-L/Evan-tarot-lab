@@ -14,6 +14,34 @@
     return document.getElementById(id);
   }
 
+  /** 建立雲端控制區：O(1) 時間／O(1) 空間。 */
+  function ensurePanel() {
+    if (byId("football-cloud-panel")) return;
+    const kpis = byId("football-kpis");
+    if (!kpis || !kpis.parentElement) return;
+
+    const panel = document.createElement("section");
+    panel.id = "football-cloud-panel";
+    panel.className = "football-panel";
+    panel.innerHTML = `
+      <div class="football-section-heading">
+        <div>
+          <p class="football-eyebrow">Cloud</p>
+          <h3>Google Sheets 雲端同步</h3>
+        </div>
+        <span class="football-version">獨立資料庫</span>
+      </div>
+      <p id="football-cloud-status" class="football-message is-warning" aria-live="polite">正在檢查雲端連線……</p>
+      <div class="football-record-actions">
+        <div id="football-google-signin"></div>
+        <button id="football-sync-all" class="btn primary" type="button" disabled>同步全部本機紀錄</button>
+        <button id="football-cloud-signout" class="btn ghost football-hidden" type="button">本次工作階段登出</button>
+      </div>
+      <p class="football-storage-note">新紀錄會先安全保存在此瀏覽器，再同步到獨立 Google 試算表；雲端失敗不會刪除本機資料。</p>
+    `;
+    kpis.parentElement.insertBefore(panel, kpis);
+  }
+
   function setStatus(message, type = "") {
     const element = byId("football-cloud-status");
     if (!element) return;
@@ -86,6 +114,18 @@
       width: 260,
     });
     googleButtonRendered = true;
+  }
+
+  function loadGoogleIdentityScript() {
+    if (window.google?.accounts?.id || document.querySelector('script[data-football-google-identity="1"]')) return;
+    const script = document.createElement("script");
+    script.src = "https://accounts.google.com/gsi/client";
+    script.async = true;
+    script.defer = true;
+    script.dataset.footballGoogleIdentity = "1";
+    script.onload = renderGoogleButton;
+    script.onerror = () => setStatus("Google 登入元件載入失敗，請檢查網路後重新整理。", "is-error");
+    document.head.appendChild(script);
   }
 
   function waitForGoogleIdentity(attempt = 0) {
@@ -175,17 +215,42 @@
     return { synced, completed };
   }
 
+  function bindControls() {
+    byId("football-cloud-signout")?.addEventListener("click", () => {
+      clearToken();
+      setStatus("本次工作階段已登出；試算表中的資料不受影響。", "is-warning");
+    });
+
+    byId("football-sync-all")?.addEventListener("click", async (event) => {
+      const button = event.currentTarget;
+      const records = window.FootballLabCore?.getRecords?.() || [];
+      if (!records.length) {
+        setStatus("目前沒有本機紀錄需要同步。", "is-warning");
+        return;
+      }
+      button.disabled = true;
+      try {
+        const result = await syncAll(records, (done, total) => {
+          setStatus(`正在同步 ${done}／${total} 筆……`, "is-warning");
+        });
+        setStatus(`同步完成：${result.synced} 筆賽事，其中 ${result.completed} 筆已包含賽後結果。`, "is-success");
+      } catch (error) {
+        setStatus(`同步失敗：${error.message}`, "is-error");
+      } finally {
+        button.disabled = !hasToken();
+      }
+    });
+  }
+
   async function init() {
+    ensurePanel();
+    bindControls();
     updateControls();
+    loadGoogleIdentityScript();
     waitForGoogleIdentity();
     const healthy = await healthCheck();
     if (healthy && !hasToken()) setStatus("新試算表端點已連線；登入後即可寫入。", "is-warning");
   }
-
-  byId("football-cloud-signout")?.addEventListener("click", () => {
-    clearToken();
-    setStatus("本次工作階段已登出；試算表中的資料不受影響。", "is-warning");
-  });
 
   window.FootballLabCloud = Object.freeze({
     init,
