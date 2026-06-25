@@ -92,16 +92,16 @@
               <span class="lab-project-status">實驗中</span>
             </div>
             <h3>世足賽事驗證</h3>
-            <p>以固定五個牌位分開記錄兩隊得分、防守與 90 分鐘賽果，賽後逐項回測。</p>
+            <p>把單張結果與四張攻防拆成獨立模型，分別驗證直接賽果與攻防推導比分。</p>
             <div class="lab-project-meta">
-              <span>v1.1.0</span>
-              <span>手動牌位</span>
+              <span>v1.2.0</span>
+              <span>模型分離</span>
               <span>賽前鎖定</span>
             </div>
             <ul class="lab-project-points">
-              <li>可逐位輸入實體抽牌的牌名與正逆位</li>
-              <li>主客隊得分牌與防守牌各自核對</li>
-              <li>90 分鐘結果與延長賽、PK 晉級分開</li>
+              <li>單張牌直接判斷 90 分鐘主勝、和局或客勝</li>
+              <li>四張攻防先推導比分，再由比分自動產生賽果</li>
+              <li>雙模型分開抽牌、分開統計，不事後挑選答案</li>
             </ul>
             <div class="lab-project-actions">
               <a class="btn primary" href="football-lab.html">開啟世足驗證</a>
