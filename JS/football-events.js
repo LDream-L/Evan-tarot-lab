@@ -1,4 +1,4 @@
-// 世足賽事驗證 v1.2.0｜分離模型表單事件、匯出與匯入
+// 世足賽事驗證 v1.2.1｜分離模型表單事件、匯出、匯入與雲端同步
 // buildCards：O(p) 時間、O(p) 空間，p<=5；buildCsv：O(r) 時間、O(r) 空間。
 (function initFootballLabEvents() {
   "use strict";
@@ -86,6 +86,42 @@
     preview.textContent = `${home}：${away}｜${core.data.resultLabels[core.getResult(home, away)]}`;
   }
 
+  /** 單筆雲端建立：O(1) 前端運算／O(1) 空間。失敗不回滾本機資料。 */
+  async function syncCreatedRecord(record) {
+    const cloud = window.FootballLabCloud;
+    if (!cloud?.isConfigured?.()) return "local-only";
+    if (!cloud.hasToken()) {
+      cloud.setStatus("新紀錄已保存於本機；登入 Google 後按「同步全部本機紀錄」即可補傳。", "is-warning");
+      return "signin-required";
+    }
+    try {
+      await cloud.saveRecord(record);
+      cloud.setStatus(`「${record.match.homeTeam} vs ${record.match.awayTeam}」已同步到新試算表。`, "is-success");
+      return "synced";
+    } catch (error) {
+      cloud.setStatus(`本機已保存，但雲端同步失敗：${error.message}`, "is-error");
+      return "failed";
+    }
+  }
+
+  /** 單筆賽果雲端更新：O(1) 前端運算／O(1) 空間。 */
+  async function syncActual(record) {
+    const cloud = window.FootballLabCloud;
+    if (!cloud?.isConfigured?.()) return "local-only";
+    if (!cloud.hasToken()) {
+      cloud.setStatus("賽果已保存於本機；登入 Google 後按「同步全部本機紀錄」即可補傳。", "is-warning");
+      return "signin-required";
+    }
+    try {
+      await cloud.updateActual(record.id, record.actual);
+      cloud.setStatus(`「${record.match.homeTeam} vs ${record.match.awayTeam}」的賽果已更新到新試算表。`, "is-success");
+      return "synced";
+    } catch (error) {
+      cloud.setStatus(`賽果已保存於本機，但雲端更新失敗：${error.message}`, "is-error");
+      return "failed";
+    }
+  }
+
   function csvEscape(value) {
     return `"${String(value ?? "").replace(/"/g, '""')}"`;
   }
@@ -153,7 +189,7 @@
     }
   });
 
-  byId("football-reading-form")?.addEventListener("submit", (event) => {
+  byId("football-reading-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     ui.clearMessage("football-reading-message");
     const draft = core.getDraft();
@@ -165,7 +201,7 @@
     const predictionError = core.validatePrediction(prediction, draft.match.mode);
     if (predictionError) return ui.setMessage("football-reading-message", predictionError, "is-error");
     try {
-      core.lockDraft(prediction, cards);
+      const record = core.lockDraft(prediction, cards);
       byId("football-reading-form").reset();
       byId("football-reading-panel").classList.add("football-hidden");
       byId("football-match-form").reset();
@@ -174,8 +210,16 @@
       byId("football-card-source").value = "manual";
       updateStructurePreview();
       ui.renderRecords();
-      ui.setMessage("football-match-message", "兩個模型已分開鎖定並加入驗證紀錄。", "is-success");
+      ui.setMessage("football-match-message", "模型已鎖定並保存於本機，正在檢查雲端同步。", "is-success");
       byId("football-records").scrollIntoView({ behavior: "smooth", block: "start" });
+      const cloudState = await syncCreatedRecord(record);
+      if (cloudState === "synced") {
+        ui.setMessage("football-match-message", "模型已鎖定，並同步到新的 Google 試算表。", "is-success");
+      } else if (cloudState === "signin-required") {
+        ui.setMessage("football-match-message", "模型已鎖定並保存於本機；登入 Google 後可補同步。", "is-success");
+      } else if (cloudState === "failed") {
+        ui.setMessage("football-match-message", "模型已安全保存於本機，但本次雲端同步失敗。", "is-success");
+      }
     } catch (errorObject) {
       ui.setMessage("football-reading-message", errorObject.message, "is-error");
     }
@@ -207,7 +251,7 @@
     }
   });
 
-  byId("football-evaluation-form")?.addEventListener("submit", (event) => {
+  byId("football-evaluation-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
     const homeGoals = readOptionalNumber("football-actual-home");
     const awayGoals = readOptionalNumber("football-actual-away");
@@ -224,7 +268,15 @@
     });
     ui.renderRecords();
     ui.renderScorecard(record);
-    ui.setMessage("football-evaluation-message", "賽果已儲存，兩個模型已分別完成核對。", "is-success");
+    ui.setMessage("football-evaluation-message", "賽果已保存於本機，正在檢查雲端更新。", "is-success");
+    const cloudState = await syncActual(record);
+    if (cloudState === "synced") {
+      ui.setMessage("football-evaluation-message", "賽果已保存，並更新到新的 Google 試算表。", "is-success");
+    } else if (cloudState === "signin-required") {
+      ui.setMessage("football-evaluation-message", "賽果已保存於本機；登入 Google 後可補同步。", "is-success");
+    } else if (cloudState === "failed") {
+      ui.setMessage("football-evaluation-message", "賽果已安全保存於本機，但本次雲端更新失敗。", "is-success");
+    }
   });
 
   byId("football-close-evaluation")?.addEventListener("click", () => byId("football-evaluation-panel").classList.add("football-hidden"));
@@ -237,7 +289,7 @@
       const parsed = JSON.parse(await file.text());
       const count = core.importRecords(Array.isArray(parsed) ? parsed : parsed.records || []);
       ui.renderRecords();
-      window.alert(`已匯入 ${count} 筆有效紀錄。`);
+      window.alert(`已匯入 ${count} 筆有效紀錄。可登入 Google 後按「同步全部本機紀錄」補傳。`);
     } catch (error) {
       window.alert(`匯入失敗：${error.message || "檔案格式不正確"}`);
     } finally {
