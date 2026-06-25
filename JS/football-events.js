@@ -1,6 +1,5 @@
-// 世足賽事驗證 v1.1.0｜牌位輸入、表單事件、匯出與匯入
-// buildCards：O(p) 時間、O(p) 空間，p=5；buildCsv：O(r) 時間、O(r) 空間。
-// 五個牌位一次讀取與驗證，避免在鎖定流程中重複掃描表單。
+// 世足賽事驗證 v1.2.0｜分離模型表單事件、匯出與匯入
+// buildCards：O(p) 時間、O(p) 空間，p<=5；buildCsv：O(r) 時間、O(r) 空間。
 (function initFootballLabEvents() {
   "use strict";
 
@@ -25,6 +24,7 @@
       infoState: readText("football-info-state"),
       homeTeam: readText("football-home-team"),
       awayTeam: readText("football-away-team"),
+      mode: readText("football-mode"),
       cardSource: readText("football-card-source"),
       odds: {
         home: readOptionalNumber("football-home-odds"),
@@ -39,28 +39,51 @@
     const draft = core.getDraft();
     if (!draft) return [];
     if (draft.match.cardSource === "random") return draft.cards;
-    return core.data.positions.map((position) => ({
-      position: position.key,
-      positionTitle: position.title,
-      positionNote: position.note,
-      name: readText(`football-card-${position.key}`),
-      orientation: readText(`football-orientation-${position.key}`),
+    return draft.cards.map((card) => ({
+      group: card.group,
+      position: card.position,
+      positionTitle: card.positionTitle,
+      positionNote: card.positionNote,
+      name: readText(`football-card-${card.group}-${card.position}`),
+      orientation: readText(`football-orientation-${card.group}-${card.position}`),
     }));
   }
 
-  function buildPrediction() {
-    return {
-      homeAttackBand: readText("football-home-attack-band"),
-      homeDefenseBand: readText("football-home-defense-band"),
-      awayAttackBand: readText("football-away-attack-band"),
-      awayDefenseBand: readText("football-away-defense-band"),
-      result: readText("football-result-prediction"),
-      confidence: Number(readText("football-confidence") || 3),
-      homeExact: readOptionalNumber("football-home-exact"),
-      awayExact: readOptionalNumber("football-away-exact"),
+  function buildPrediction(mode) {
+    const prediction = {
+      directResult: "",
+      directConfidence: null,
+      directNotes: "",
+      structureHomeGoals: null,
+      structureAwayGoals: null,
+      structureConfidence: null,
+      structureNotes: "",
       advance: readText("football-advance-prediction"),
-      notes: readText("football-reading-notes"),
     };
+    if (core.modeIncludesDirect(mode)) {
+      prediction.directResult = readText("football-direct-result");
+      prediction.directConfidence = Number(readText("football-direct-confidence") || 3);
+      prediction.directNotes = readText("football-direct-notes");
+    }
+    if (core.modeIncludesStructure(mode)) {
+      prediction.structureHomeGoals = readOptionalNumber("football-structure-home-goals");
+      prediction.structureAwayGoals = readOptionalNumber("football-structure-away-goals");
+      prediction.structureConfidence = Number(readText("football-structure-confidence") || 3);
+      prediction.structureNotes = readText("football-structure-notes");
+    }
+    return prediction;
+  }
+
+  function updateStructurePreview() {
+    const home = readOptionalNumber("football-structure-home-goals");
+    const away = readOptionalNumber("football-structure-away-goals");
+    const preview = byId("football-structure-result-preview");
+    if (!preview) return;
+    if (!Number.isInteger(home) || !Number.isInteger(away) || home < 0 || away < 0) {
+      preview.textContent = "填完兩隊進球後自動產生";
+      return;
+    }
+    preview.textContent = `${home}：${away}｜${core.data.resultLabels[core.getResult(home, away)]}`;
   }
 
   function csvEscape(value) {
@@ -69,27 +92,33 @@
 
   function buildCsv() {
     const headers = [
-      "id", "modelVersion", "competition", "stage", "kickoff", "infoState", "homeTeam", "awayTeam",
-      "cardSource", "homeOdds", "drawOdds", "awayOdds", "cards", "homeAttackBand", "homeDefenseBand", "awayAttackBand",
-      "awayDefenseBand", "resultPrediction", "confidence", "homeExactPrediction", "awayExactPrediction",
-      "advancePrediction", "readingNotes", "lockedAt", "actualHomeGoals", "actualAwayGoals", "extraHomeGoals",
-      "extraAwayGoals", "actualAdvance", "actualNotes", "homeAttackHit", "homeDefenseHit", "awayAttackHit",
-      "awayDefenseHit", "resultHit", "coreHitCount", "exactScoreHit", "advanceHit"
+      "id", "modelVersion", "mode", "competition", "stage", "kickoff", "infoState", "homeTeam", "awayTeam",
+      "cardSource", "homeOdds", "drawOdds", "awayOdds", "cardsJson", "directResult", "directConfidence",
+      "directNotes", "structureHomeGoals", "structureAwayGoals", "structureResult", "structureConfidence",
+      "structureNotes", "advancePrediction", "lockedAt", "actualHomeGoals", "actualAwayGoals", "extraHomeGoals",
+      "extraAwayGoals", "actualAdvance", "actualNotes", "directResultHit", "structureResultHit", "structureExactHit",
+      "structureAbsoluteError", "modelsAgree", "marketFavorite"
     ];
     const rows = core.getRecords().map((record) => {
       const e = core.calculateEvaluation(record);
-      const cards = record.cards.map((card) => `${card.positionTitle}：${card.name}${card.orientation}`).join("；");
+      const mode = core.getMode(record);
+      const structureResult = core.modeIncludesStructure(mode)
+        ? core.getResult(record.prediction.structureHomeGoals, record.prediction.structureAwayGoals)
+        : "";
+      const odds = record.match.odds || {};
+      const marketFavorite = [odds.home, odds.draw, odds.away].every(Number.isFinite)
+        ? [["H", odds.home], ["D", odds.draw], ["A", odds.away]].sort((a, b) => a[1] - b[1])[0][0]
+        : "";
       return [
-        record.id, record.modelVersion, record.match.competition, record.match.stage, record.match.kickoff,
+        record.id, record.modelVersion, mode, record.match.competition, record.match.stage, record.match.kickoff,
         record.match.infoState, record.match.homeTeam, record.match.awayTeam, record.match.cardSource || "legacy",
-        record.match.odds?.home, record.match.odds?.draw, record.match.odds?.away, cards, record.prediction.homeAttackBand,
-        record.prediction.homeDefenseBand, record.prediction.awayAttackBand, record.prediction.awayDefenseBand,
-        record.prediction.result, record.prediction.confidence, record.prediction.homeExact, record.prediction.awayExact,
-        record.prediction.advance, record.prediction.notes, record.lockedAt, record.actual?.homeGoals,
+        odds.home, odds.draw, odds.away, JSON.stringify(record.cards), record.prediction.directResult,
+        record.prediction.directConfidence, record.prediction.directNotes, record.prediction.structureHomeGoals,
+        record.prediction.structureAwayGoals, structureResult, record.prediction.structureConfidence,
+        record.prediction.structureNotes, record.prediction.advance, record.lockedAt, record.actual?.homeGoals,
         record.actual?.awayGoals, record.actual?.extraHomeGoals, record.actual?.extraAwayGoals, record.actual?.advance,
-        record.actual?.notes, e?.checks.homeAttack, e?.checks.homeDefense, e?.checks.awayAttack,
-        e?.checks.awayDefense, e?.checks.result, e?.hitCount, e?.exactEligible ? e.exactHit : "",
-        e?.advanceEligible ? e.advanceHit : ""
+        record.actual?.notes, e?.directResultHit, e?.structureResultHit, e?.structureExactHit,
+        e?.structureAbsoluteError, e?.modelsAgree, marketFavorite,
       ].map(csvEscape).join(",");
     });
     return `\uFEFF${[headers.map(csvEscape).join(","), ...rows].join("\n")}`;
@@ -114,23 +143,26 @@
     if (error) return ui.setMessage("football-match-message", error, "is-error");
     try {
       ui.renderDraft(core.createDraft(match));
+      const count = core.getDraft().cards.length;
       const message = match.cardSource === "manual"
-        ? "五個牌位已建立。請把你實際抽到的牌與正逆位逐一填入。"
-        : "五張牌已由網站隨機抽出並固定。請完成賽前判讀。";
+        ? `${count} 個牌位已建立。請依模型分組填入實際抽到的牌。`
+        : `${count} 張牌已按模型分開抽出並固定。請完成各自的賽前判讀。`;
       ui.setMessage("football-match-message", message, "is-success");
-    } catch (drawError) {
-      ui.setMessage("football-match-message", drawError.message || "建立牌位失敗。", "is-error");
+    } catch (errorObject) {
+      ui.setMessage("football-match-message", errorObject.message || "建立牌位失敗。", "is-error");
     }
   });
 
   byId("football-reading-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     ui.clearMessage("football-reading-message");
+    const draft = core.getDraft();
+    if (!draft) return ui.setMessage("football-reading-message", "目前沒有可鎖定的草稿。", "is-error");
     const cards = buildCards();
-    const cardError = core.validateCards(cards);
+    const cardError = core.validateCards(cards, draft.match.mode);
     if (cardError) return ui.setMessage("football-reading-message", cardError, "is-error");
-    const prediction = buildPrediction();
-    const predictionError = core.validatePrediction(prediction);
+    const prediction = buildPrediction(draft.match.mode);
+    const predictionError = core.validatePrediction(prediction, draft.match.mode);
     if (predictionError) return ui.setMessage("football-reading-message", predictionError, "is-error");
     try {
       core.lockDraft(prediction, cards);
@@ -138,21 +170,27 @@
       byId("football-reading-panel").classList.add("football-hidden");
       byId("football-match-form").reset();
       byId("football-competition").value = "2026 FIFA 世界盃";
+      byId("football-mode").value = "dual";
       byId("football-card-source").value = "manual";
+      updateStructurePreview();
       ui.renderRecords();
-      ui.setMessage("football-match-message", "牌位與賽前判讀已鎖定並加入驗證紀錄。", "is-success");
+      ui.setMessage("football-match-message", "兩個模型已分開鎖定並加入驗證紀錄。", "is-success");
       byId("football-records").scrollIntoView({ behavior: "smooth", block: "start" });
-    } catch (lockError) {
-      ui.setMessage("football-reading-message", lockError.message, "is-error");
+    } catch (errorObject) {
+      ui.setMessage("football-reading-message", errorObject.message, "is-error");
     }
   });
 
+  byId("football-structure-home-goals")?.addEventListener("input", updateStructurePreview);
+  byId("football-structure-away-goals")?.addEventListener("input", updateStructurePreview);
+
   byId("football-abandon-draft")?.addEventListener("click", () => {
-    if (!core.getDraft() || window.confirm("確定放棄本次五個牌位與尚未鎖定的判讀？")) {
+    if (!core.getDraft() || window.confirm("確定放棄本次分組抽牌與尚未鎖定的判讀？")) {
       core.clearDraft();
       byId("football-reading-form").reset();
       byId("football-reading-panel").classList.add("football-hidden");
       ui.clearMessage("football-reading-message");
+      updateStructurePreview();
     }
   });
 
@@ -186,12 +224,12 @@
     });
     ui.renderRecords();
     ui.renderScorecard(record);
-    ui.setMessage("football-evaluation-message", "賽果已儲存，並完成五項核心核對。", "is-success");
+    ui.setMessage("football-evaluation-message", "賽果已儲存，兩個模型已分別完成核對。", "is-success");
   });
 
   byId("football-close-evaluation")?.addEventListener("click", () => byId("football-evaluation-panel").classList.add("football-hidden"));
   byId("football-export-csv")?.addEventListener("click", () => downloadFile(`football_tarot_records_${new Date().toISOString().slice(0, 10)}.csv`, buildCsv(), "text/csv;charset=utf-8"));
-  byId("football-export-json")?.addEventListener("click", () => downloadFile(`football_tarot_backup_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ schema: "evan-football-tarot-v1", exportedAt: new Date().toISOString(), records: core.getRecords() }, null, 2), "application/json;charset=utf-8"));
+  byId("football-export-json")?.addEventListener("click", () => downloadFile(`football_tarot_backup_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ schema: "evan-football-tarot-v2", exportedAt: new Date().toISOString(), records: core.getRecords() }, null, 2), "application/json;charset=utf-8"));
   byId("football-import-json")?.addEventListener("change", async (event) => {
     try {
       const file = event.target.files?.[0];
@@ -207,5 +245,6 @@
     }
   });
 
+  updateStructurePreview();
   ui.renderRecords();
 })();
