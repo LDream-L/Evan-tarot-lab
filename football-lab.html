@@ -3,13 +3,14 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Evan Tarot｜世足賽事驗證 v1.1</title>
-  <meta name="description" content="以固定五個牌位記錄足球賽事的主客隊得分、防守與 90 分鐘賽果，支援手動輸入實體抽牌與網站隨機抽牌。" />
+  <title>Evan Tarot｜世足賽事驗證 v1.2</title>
+  <meta name="description" content="分開驗證單張賽果與四張攻防推導，並保存賽前鎖定與賽後結果。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-dialog-v6" />
   <link rel="stylesheet" href="lab.css?v=20260625-lab-v3" />
   <link rel="stylesheet" href="football-lab.css?v=20260625-football-v1" />
   <link rel="stylesheet" href="football-lab-v11.css?v=20260625-football-v11" />
+  <link rel="stylesheet" href="football-lab-v12.css?v=20260625-football-v12" />
 </head>
 <body>
   <header class="site-header">
@@ -35,14 +36,14 @@
       <div class="container hero-inner">
         <div class="hero-text">
           <a class="lab-breadcrumb" href="lab.html#projects">← 塔羅實驗室 / 實驗物件</a>
-          <h1>世足賽事驗證 v1.1。</h1>
-          <p>把你實際抽到的牌逐張放進固定牌位，或改用網站隨機抽牌；鎖定賽前判讀後，再用真實比分逐項核對。</p>
+          <h1>世足賽事驗證 v1.2。</h1>
+          <p>單張牌直接判斷賽果，四張牌則從雙方攻防推導比分；兩種模型不再互相覆蓋。</p>
           <div class="hero-cta">
             <a href="#football-tool" class="btn primary">建立賽前紀錄</a>
             <a href="#football-records" class="btn ghost">查看驗證紀錄</a>
           </div>
           <div class="hero-meta">
-            <span class="pill pill-soft">手動牌位紀錄</span>
+            <span class="pill pill-soft">模型分離</span>
             <span class="pill pill-outline">賽前鎖定</span>
           </div>
         </div>
@@ -51,9 +52,9 @@
           <div class="hero-card-inner">
             <p class="hero-tag">驗證原則</p>
             <ul>
-              <li>每張牌固定對應一個牌位，不事後互換</li>
-              <li>可手動輸入實體抽牌的牌名與正逆位</li>
-              <li>90 分鐘賽果與晉級結果分開紀錄</li>
+              <li>單張結果與四張攻防分開抽、分開解讀</li>
+              <li>攻防模型必須先給出預測比分，再自動推導勝負</li>
+              <li>雙模型衝突照實保留，不事後挑有中的說法</li>
             </ul>
             <p class="hero-note">本工具用於實驗紀錄，不構成投注建議。</p>
           </div>
@@ -63,17 +64,17 @@
 
     <section id="football-tool" class="section alt">
       <div class="container">
-        <h2>建立賽前抽牌</h2>
-        <p class="section-lead">先建立賽事與抽牌來源，再逐張確認五個牌位。完成牌面與判讀後鎖定，才會納入回測。</p>
+        <h2>建立賽前實驗</h2>
+        <p class="section-lead">可只做單張結果、只做四張攻防，或同場做兩組獨立抽牌比較準確率。</p>
 
         <div class="football-shell">
           <form id="football-match-form" class="football-panel football-form">
             <div class="football-section-heading">
               <div>
                 <p class="football-eyebrow">Step 1</p>
-                <h3>賽事資料</h3>
+                <h3>賽事與實驗模式</h3>
               </div>
-              <span class="football-version">模型 v1.1.0</span>
+              <span class="football-version">模型 v1.2.0</span>
             </div>
 
             <div class="football-form-grid">
@@ -114,10 +115,18 @@
                 <input id="football-away-team" type="text" maxlength="60" placeholder="例如：德國" required />
               </label>
               <label>
+                實驗模式
+                <select id="football-mode">
+                  <option value="dual" selected>雙模型比較：單張結果＋四張攻防</option>
+                  <option value="direct">只做單張結果</option>
+                  <option value="structure">只做四張攻防</option>
+                </select>
+              </label>
+              <label>
                 牌面來源
                 <select id="football-card-source">
                   <option value="manual" selected>手動記錄我實際抽到的牌</option>
-                  <option value="random">由網站隨機抽出五張牌</option>
+                  <option value="random">由網站隨機抽牌</option>
                 </select>
               </label>
               <label>
@@ -138,16 +147,16 @@
               </label>
             </div>
 
-            <button id="football-draw-button" class="btn primary full" type="submit">建立五個牌位</button>
+            <button id="football-draw-button" class="btn primary full" type="submit">建立分組牌位</button>
             <p id="football-match-message" class="football-message football-hidden" aria-live="polite"></p>
-            <p class="football-disclaimer">選擇手動記錄時，下一步會逐一顯示主隊得分、主隊防守、客隊得分、客隊防守與 90 分鐘結果五個位置。</p>
+            <p class="football-disclaimer">雙模型模式是兩次獨立抽牌：單張結果完成後，四張攻防需重新洗牌再抽。</p>
           </form>
 
           <section id="football-reading-panel" class="football-panel football-hidden" aria-live="polite">
             <div class="football-section-heading">
               <div>
                 <p class="football-eyebrow">Step 2</p>
-                <h3>牌位、牌面與賽前判讀</h3>
+                <h3>牌面與各模型判讀</h3>
               </div>
               <button id="football-abandon-draft" class="football-link-button" type="button">放棄本次草稿</button>
             </div>
@@ -157,105 +166,87 @@
             <form id="football-reading-form" class="football-form football-reading-form">
               <div class="football-card-entry-heading">
                 <div>
-                  <h4>五個牌位紀錄</h4>
+                  <h4>分組牌位紀錄</h4>
                   <p id="football-card-entry-note" class="football-disclaimer"></p>
                 </div>
               </div>
-              <div id="football-card-grid" class="football-card-grid"></div>
+              <div id="football-card-grid" class="football-card-grid football-card-grid-v12"></div>
 
-              <div class="football-interpretation-grid">
-                <fieldset>
-                  <legend id="football-home-reading-title">主隊判讀</legend>
+              <fieldset id="football-direct-reading" class="football-model-fieldset">
+                <legend>A｜單張結果模型</legend>
+                <p class="football-disclaimer">只根據單張結果牌判斷 90 分鐘主勝、和局或客勝，不引用四張攻防牌。</p>
+                <div class="football-form-grid">
                   <label>
-                    得分牌預測：主隊進球數
-                    <select id="football-home-attack-band" required>
+                    90 分鐘結果
+                    <select id="football-direct-result">
                       <option value="">請選擇</option>
-                      <option value="0">0 球</option>
-                      <option value="1">1 球</option>
-                      <option value="2">2 球</option>
-                      <option value="3+">3 球以上</option>
+                      <option id="football-direct-home-label" value="H">主隊勝</option>
+                      <option value="D">和局</option>
+                      <option id="football-direct-away-label" value="A">客隊勝</option>
                     </select>
                   </label>
                   <label>
-                    防守牌預測：主隊失球數
-                    <select id="football-home-defense-band" required>
-                      <option value="">請選擇</option>
-                      <option value="0">0 球</option>
-                      <option value="1">1 球</option>
-                      <option value="2">2 球</option>
-                      <option value="3+">3 球以上</option>
+                    單張模型信心
+                    <select id="football-direct-confidence">
+                      <option value="1">1／5 很低</option>
+                      <option value="2">2／5 偏低</option>
+                      <option value="3" selected>3／5 中等</option>
+                      <option value="4">4／5 偏高</option>
+                      <option value="5">5／5 很高</option>
                     </select>
                   </label>
-                </fieldset>
+                  <label class="football-span-2">
+                    單張模型原始解讀
+                    <textarea id="football-direct-notes" maxlength="800" rows="4" placeholder="只記錄這張結果牌為何對應主勝、和局或客勝。"></textarea>
+                  </label>
+                </div>
+              </fieldset>
 
-                <fieldset>
-                  <legend id="football-away-reading-title">客隊判讀</legend>
+              <fieldset id="football-structure-reading" class="football-model-fieldset">
+                <legend>B｜四張攻防模型</legend>
+                <p class="football-disclaimer">由主隊進攻＋客隊防守推估主隊進球；由客隊進攻＋主隊防守推估客隊進球。網站依比分自動產生勝負。</p>
+                <div class="football-form-grid">
                   <label>
-                    得分牌預測：客隊進球數
-                    <select id="football-away-attack-band" required>
-                      <option value="">請選擇</option>
-                      <option value="0">0 球</option>
-                      <option value="1">1 球</option>
-                      <option value="2">2 球</option>
-                      <option value="3+">3 球以上</option>
-                    </select>
+                    <span id="football-structure-home-label">主隊預測進球</span>
+                    <input id="football-structure-home-goals" type="number" min="0" max="20" step="1" inputmode="numeric" />
                   </label>
                   <label>
-                    防守牌預測：客隊失球數
-                    <select id="football-away-defense-band" required>
-                      <option value="">請選擇</option>
-                      <option value="0">0 球</option>
-                      <option value="1">1 球</option>
-                      <option value="2">2 球</option>
-                      <option value="3+">3 球以上</option>
+                    <span id="football-structure-away-label">客隊預測進球</span>
+                    <input id="football-structure-away-goals" type="number" min="0" max="20" step="1" inputmode="numeric" />
+                  </label>
+                  <div class="football-derived-result">
+                    <small>自動推導的 90 分鐘結果</small>
+                    <strong id="football-structure-result-preview">填完兩隊進球後自動產生</strong>
+                  </div>
+                  <label>
+                    攻防模型信心
+                    <select id="football-structure-confidence">
+                      <option value="1">1／5 很低</option>
+                      <option value="2">2／5 偏低</option>
+                      <option value="3" selected>3／5 中等</option>
+                      <option value="4">4／5 偏高</option>
+                      <option value="5">5／5 很高</option>
                     </select>
                   </label>
-                </fieldset>
-              </div>
+                  <label class="football-span-2">
+                    四張攻防模型原始解讀
+                    <textarea id="football-structure-notes" maxlength="1200" rows="5" placeholder="記錄兩組攻防配對如何推導出預測比分。"></textarea>
+                  </label>
+                </div>
+              </fieldset>
 
               <div class="football-form-grid">
                 <label>
-                  90 分鐘最終結果
-                  <select id="football-result-prediction" required>
-                    <option value="">請選擇</option>
-                    <option value="H">主隊勝</option>
-                    <option value="D">和局</option>
-                    <option value="A">客隊勝</option>
-                  </select>
-                </label>
-                <label>
-                  信心程度
-                  <select id="football-confidence" required>
-                    <option value="1">1／5 很低</option>
-                    <option value="2">2／5 偏低</option>
-                    <option value="3" selected>3／5 中等</option>
-                    <option value="4">4／5 偏高</option>
-                    <option value="5">5／5 很高</option>
-                  </select>
-                </label>
-                <label>
-                  預測主隊確切進球（選填）
-                  <input id="football-home-exact" type="number" min="0" max="20" step="1" inputmode="numeric" />
-                </label>
-                <label>
-                  預測客隊確切進球（選填）
-                  <input id="football-away-exact" type="number" min="0" max="20" step="1" inputmode="numeric" />
-                </label>
-                <label>
-                  預測晉級隊伍（淘汰賽選填）
+                  預測晉級隊伍（淘汰賽選填，獨立紀錄）
                   <select id="football-advance-prediction">
                     <option value="">不判讀／不適用</option>
                     <option id="football-advance-home" value="H">主隊晉級</option>
                     <option id="football-advance-away" value="A">客隊晉級</option>
                   </select>
                 </label>
-                <label class="football-span-2">
-                  賽前原始解讀
-                  <textarea id="football-reading-notes" maxlength="1200" rows="5" placeholder="逐張記錄你為何判斷這個得分、防守與結果。鎖定後不再修改。" required></textarea>
-                </label>
               </div>
 
-              <button id="football-lock-button" class="btn primary full" type="submit">鎖定牌位與賽前判讀</button>
+              <button id="football-lock-button" class="btn primary full" type="submit">分開鎖定模型與賽前判讀</button>
               <p id="football-reading-message" class="football-message football-hidden" aria-live="polite"></p>
             </form>
           </section>
@@ -268,10 +259,10 @@
         <div class="football-records-heading">
           <div>
             <h2>驗證紀錄</h2>
-            <p class="section-lead">攻擊與防守牌各自核對實際進球／失球；90 分鐘結果不與延長賽或 PK 混算。</p>
+            <p class="section-lead">單張賽果、攻防推導賽果與確切比分分開統計；舊版五牌位紀錄保留但不混入新版 KPI。</p>
           </div>
           <div class="football-record-actions">
-            <button id="football-export-csv" class="btn ghost" type="button">匯出 CSV</button>
+            <button id="football-export-csv" class="btn ghost" type="button">匯出 CSV／Excel</button>
             <button id="football-export-json" class="btn ghost" type="button">備份 JSON</button>
             <label class="btn ghost football-import-label">
               匯入 JSON
@@ -280,7 +271,7 @@
           </div>
         </div>
 
-        <div id="football-kpis" class="football-kpi-grid"></div>
+        <div id="football-kpis" class="football-kpi-grid football-kpi-grid-v12"></div>
 
         <div class="football-table-wrap">
           <table class="football-table">
@@ -298,8 +289,8 @@
             <tbody id="football-records-body"></tbody>
           </table>
         </div>
-        <p id="football-empty-state" class="football-empty-state">尚無紀錄。完成第一筆牌位與賽前判讀後，資料會出現在這裡。</p>
-        <p class="football-storage-note">目前紀錄保存在這個瀏覽器，可用 JSON 備份或 CSV 匯入 Google Sheets。後續接上 Apps Script 後，可改為雲端同步而不改變資料欄位。</p>
+        <p id="football-empty-state" class="football-empty-state">尚無紀錄。完成第一筆賽前鎖定後，資料會出現在這裡。</p>
+        <p class="football-storage-note">目前資料先保存在這個瀏覽器的 localStorage；CSV 可直接用 Excel 開啟，JSON 用於完整備份。正式雲端版預計由 Apps Script 寫入 Google Sheets。</p>
 
         <section id="football-evaluation-panel" class="football-panel football-hidden">
           <div class="football-section-heading">
@@ -342,7 +333,7 @@
                 <textarea id="football-actual-notes" maxlength="800" rows="4" placeholder="例如：紅牌、傷退、延長賽、PK，或牌面實際對應到的事件。"></textarea>
               </label>
             </div>
-            <button class="btn primary full" type="submit">儲存賽果並自動核對</button>
+            <button class="btn primary full" type="submit">儲存賽果並分開核對</button>
             <p id="football-evaluation-message" class="football-message football-hidden" aria-live="polite"></p>
           </form>
           <div id="football-scorecard" class="football-scorecard football-hidden"></div>
@@ -354,12 +345,12 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <p>Evan Tarot ｜塔羅實驗室 / 世足賽事驗證</p>
-      <p class="footer-sub">每張牌先固定位置，再鎖定判讀；讓牌位與真實賽果留在同一份紀錄中。</p>
+      <p class="footer-sub">單張問結果，四張看攻防；模型分開，結果才有辦法比較。</p>
     </div>
   </footer>
 
   <script src="JS/utils.js?v=20260505-dialog-v6"></script>
-  <script src="JS/football-lab.js?v=20260625-football-v11"></script>
+  <script src="JS/football-lab.js?v=20260625-football-v12"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
   <script src="JS/main.js?v=20260625-v500"></script>
 </body>
