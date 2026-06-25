@@ -1,5 +1,9 @@
 // 世足賽事驗證 v1.0.0｜表單事件、匯出與匯入
-// 所有主要操作為 O(1)；CSV 匯出與紀錄渲染為 O(r)。
+// 主要函式複雜度：
+// - buildMatch／buildPrediction：O(1) 時間、O(1) 空間
+// - buildCsv：O(r) 時間、O(r) 空間，r 為紀錄數
+// - 匯入與刪除後重繪：O(r) 時間、O(r) 畫面／資料空間
+// 暴力法：每個欄位與統計各自重掃紀錄；優化法：核心先單次計算，再共用結果。
 (function initFootballLabEvents() {
   "use strict";
 
