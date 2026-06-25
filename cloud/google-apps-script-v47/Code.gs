@@ -1,5 +1,5 @@
 // ==============================
-// Evan Tarot Cloud API v4.8
+// Evan Tarot Cloud API v5.0.0
 // Google 帳號驗證＋暱稱同步＋文章管理／留言＋塔羅尋物
 // ==============================
 //
@@ -7,7 +7,7 @@
 // - doPost / createComment：O(p)，p = Profiles 列數
 // - doGet / listComments：O(n + p)，n = Comments 列數
 // - listPublishedArticles_：O(a log a)，a = Articles 列數
-// - handleLostItemRequest_：O(c × z + z log z)，c <= 3、z = 18
+// - handleLostItemRequest_：O(c × z + z log z)，c <= 3、z = 11 個大型區域
 // 空間複雜度：O(n + p + a + r × z)
 // ==============================
 
@@ -28,39 +28,14 @@ const COMMENTS_CONFIG = Object.freeze({
 });
 
 const LOST_ITEM_CONFIG = Object.freeze({
-  version: "4.7",
+  version: "5.0.0",
   cardSheetName: "CardDB",
-  paramsSheetName: "Params",
-  zoneGuideSheetName: "Zone Guide",
+  areaMatrixSheetName: "Area Matrix",
   eventGuideSheetName: "Event Guide",
   maxItemNameLength: 80,
   maxNotesLength: 300,
   maxCardCount: 3,
   publicRateLimitPerMinute: 20,
-  hiddenAreas: [
-    "低處縫隙/家具後",
-    "儲藏箱/舊物",
-    "軟物下方/床下沙發下陰影區",
-  ],
-  easyFirstAreas: [
-    "出入口動線",
-    "包袋口袋",
-    "書桌工作區",
-    "手邊平台/桌面側邊",
-    "水源廚浴",
-    "交通工具/通勤/移動路徑",
-    "垃圾桶/回收區/清理誤丟",
-  ],
-  nearBodyCards: [
-    "The High Priestess",
-    "The Moon",
-    "The Hermit",
-    "The Hanged Man",
-    "Four of Cups",
-    "Two of Swords",
-    "Page of Swords",
-    "The Fool",
-  ],
 });
 
 function setupCommentsSheet() {
@@ -107,6 +82,7 @@ function doGet(e) {
         authConfigured: Boolean(getOAuthClientId_()),
         lostItemConfigured: lostItemHealth.ready,
         missingLostItemSheets: lostItemHealth.missingSheets,
+        lostItemVersion: LOST_ITEM_CONFIG.version,
         articlesConfigured: articlesHealth.ready,
         articlesError: articlesHealth.error || "",
         time: formatTaipeiDate_(new Date()),
@@ -117,7 +93,7 @@ function doGet(e) {
       const health = getLostItemHealth_();
       return jsonOutput_({
         success: health.ready,
-        service: "Evan Tarot Lost Item v4.7",
+        service: "Evan Tarot Lost Item v5.0.0",
         version: LOST_ITEM_CONFIG.version,
         missingSheets: health.missingSheets,
         time: formatTaipeiDate_(new Date()),
