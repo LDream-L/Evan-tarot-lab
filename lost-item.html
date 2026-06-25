@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Evan Tarot｜塔羅尋物 v4.7</title>
-  <meta name="description" content="Evan Tarot 塔羅尋物 v4.7：依牌面、正逆位與情境條件，整理失物搜尋優先順序。" />
+  <title>Evan Tarot｜塔羅尋物 v5.0.0</title>
+  <meta name="description" content="Evan Tarot 塔羅尋物 v5.0.0：先由大型區域反查三張牌，再以牌面空間特徵細化搜尋位置。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-dialog-v6" />
-  <link rel="stylesheet" href="lost-item-v47.css?v=20260624-v47-private-backend" />
+  <link rel="stylesheet" href="lost-item-v50.css?v=20260625-v500" />
   <link rel="stylesheet" href="lab.css?v=20260624-lab-v2" />
 </head>
 <body>
@@ -34,25 +34,25 @@
       <div class="container hero-inner">
         <div class="hero-text">
           <a class="lab-breadcrumb" href="lab.html#projects">← 塔羅實驗室 / 實驗物件</a>
-          <h1>塔羅尋物 v4.7。</h1>
-          <p>依抽牌、正逆位與情境條件，整理最可能的搜尋區域與 Top 5 優先順序。</p>
+          <h1>塔羅尋物 v5.0.0。</h1>
+          <p>先由大型區域反查三張牌的支持度，再用高低、內外、明暗與動態等牌面空間特徵細化位置。</p>
           <div class="hero-cta">
             <a href="#lost-item-tool" class="btn primary">開始尋物占卜</a>
             <a href="lab.html#projects" class="btn ghost">回實驗室</a>
           </div>
           <div class="hero-meta">
-            <span class="pill pill-soft">實驗物件</span>
-            <span class="pill pill-outline">塔羅尋物 v4.7</span>
+            <span class="pill pill-soft">大型區域反查</span>
+            <span class="pill pill-outline">零回測加權</span>
           </div>
         </div>
 
         <aside class="hero-card" aria-label="塔羅尋物實驗重點">
           <div class="hero-card-inner">
-            <p class="hero-tag">實驗重點</p>
+            <p class="hero-tag">判讀原則</p>
             <ul>
-              <li>以牌面與情境權重收斂搜尋區域</li>
-              <li>依 Top 1～3 的順序逐區搜尋</li>
-              <li>找到後回填結果，作為後續模型驗證</li>
+              <li>三張牌等權反查大型搜尋區域</li>
+              <li>空間特徵只細化已入選區域</li>
+              <li>找到與否只作紀錄，不回寫權重</li>
             </ul>
             <p class="hero-note">結果用來安排搜尋順序，不是 GPS 座標。</p>
           </div>
@@ -63,18 +63,18 @@
     <section id="lost-item-tool" class="section alt">
       <div class="container">
         <h2>失物占卜</h2>
-        <p class="section-lead">填入遺失情境並抽出 1～3 張牌，取得搜尋區域、原因與第一步。</p>
+        <p class="section-lead">填入紀錄資料並抽出 1～3 張牌。大型區域排序只讀牌面；其他情境不參與計分。</p>
 
         <div class="tool-card lost-v47-shell">
           <form class="tool-form lost-v47-form" id="lost-item-form">
             <div class="lost-v47-grid">
               <label class="lost-v47-span-2">
                 你在找什麼東西？
-                <input id="item-name" maxlength="80" placeholder="例如：鑰匙、耳機、卡片" required type="text" />
+                <input id="item-name" maxlength="80" placeholder="例如：鑰匙、耳機、卡片、行李箱" required type="text" />
               </label>
 
               <label class="lost-v47-span-2">
-                簡單描述目前狀況（可選）
+                簡單描述目前狀況（只作紀錄，不計分）
                 <textarea id="item-notes" maxlength="300" placeholder="例如：最後印象是在客廳滑手機，之後有整理桌面。" rows="3"></textarea>
               </label>
 
@@ -88,20 +88,22 @@
               </label>
 
               <label>
-                失物類型（只作紀錄）
+                失物類型（只作紀錄，不計分）
                 <select id="item-type">
-                  <option value="其他小物">其他小物</option>
+                  <option value="其他物品">其他物品</option>
                   <option value="鑰匙/門禁/小金屬">鑰匙／門禁／小金屬</option>
                   <option value="錢包/證件/卡片">錢包／證件／卡片</option>
                   <option value="手機/耳機/3C">手機／耳機／3C</option>
                   <option value="文件/書本/紙張">文件／書本／紙張</option>
                   <option value="飾品/首飾">飾品／首飾</option>
-                  <option value="衣物/配件">衣物／配件</option>
+                  <option value="衣物/布類/配件">衣物／布類／配件</option>
+                  <option value="清潔用品/瓶罐">清潔用品／瓶罐</option>
+                  <option value="大型物品/容器">大型物品／容器</option>
                 </select>
               </label>
 
               <label>
-                最後一次明確行為
+                最後一次明確行為（只作紀錄，不計分）
                 <select id="last-action">
                   <option value="">不確定</option>
                   <option value="剛出門/剛回家">剛出門／剛回家</option>
@@ -116,7 +118,7 @@
               </label>
 
               <label>
-                場景
+                場景（只作紀錄，不計分）
                 <select id="scene">
                   <option value="">不確定</option>
                   <option value="家裡（單人房/套房）">家裡（單人房／套房）</option>
@@ -129,7 +131,7 @@
               </label>
 
               <label>
-                是否已粗找過一次
+                是否已粗找過一次（只作紀錄，不計分）
                 <select id="rough-searched">
                   <option value="否" selected>否</option>
                   <option value="是">是</option>
@@ -137,7 +139,7 @@
               </label>
 
               <label>
-                遺失多久
+                遺失多久（只作紀錄，不計分）
                 <select id="lost-duration">
                   <option value="剛剛">剛剛</option>
                   <option value="今天" selected>今天</option>
@@ -147,7 +149,7 @@
               </label>
 
               <label>
-                可能被別人碰過
+                可能被別人碰過（只作紀錄，不計分）
                 <select id="touched-by-other">
                   <option value="否" selected>否</option>
                   <option value="是">是</option>
@@ -155,48 +157,60 @@
               </label>
             </div>
 
-            <button id="lost-item-submit" class="btn primary full" type="submit">抽牌並產生 Top 5 搜尋順序</button>
+            <button id="lost-item-submit" class="btn primary full" type="submit">抽牌並產生大型區域搜尋順序</button>
             <p aria-live="polite" class="tool-feedback-message hidden" id="lost-item-message"></p>
-            <p class="tool-disclaimer">結果僅供整理搜尋順序，不代表精確位置；請同步檢查實際動線、失物招領與監視器。</p>
+            <p class="tool-disclaimer">只有牌面區域分數參與排名；正逆位、物品類型、情境與回饋都不改區域分數。</p>
           </form>
 
           <section aria-live="polite" class="tool-result hidden lost-v47-result" id="lost-item-result">
             <h3 id="lost-item-result-title">占卜結果</h3>
             <div id="lost-item-zero-step" class="lost-v47-zero-step hidden"></div>
             <div class="lost-v47-summary" id="lost-item-summary"></div>
+            <p id="lost-item-area-notice" class="lost-v50-layer-note"></p>
 
             <h4>本次抽牌</h4>
             <div class="lost-v47-card-grid" id="lost-item-cards"></div>
 
-            <h4>Top 5 搜尋順序</h4>
+            <h4>Top 5 大型區域搜尋順序</h4>
             <div class="lost-v47-table-wrap">
               <table class="lost-v47-table">
                 <thead>
                   <tr>
                     <th>排名</th>
-                    <th>區域</th>
+                    <th>大型區域</th>
                     <th>分數</th>
-                    <th>命中感</th>
-                    <th>為什麼先找</th>
-                    <th>第一步</th>
+                    <th>指向強度</th>
+                    <th>對應牌面</th>
+                    <th>區域內子區域</th>
+                    <th>第一搜尋動作</th>
                   </tr>
                 </thead>
                 <tbody id="lost-item-ranking-body"></tbody>
               </table>
             </div>
 
+            <h4>牌面空間特徵（第二層）</h4>
+            <p class="lost-v50-layer-note">先決定大型區域，再用以下高低、內外、明暗與動態線索細化。空間特徵不能自行增加未入選的房間或場域。</p>
+            <div class="lost-v50-spatial-grid" id="lost-item-spatial-cards"></div>
+
             <section id="lost-item-events-section" class="lost-v47-events hidden">
               <h4>事件核對</h4>
+              <p class="lost-v50-feedback-note">事件只回答可能發生的動作，不新增或改變大型區域。</p>
               <div id="lost-item-events"></div>
             </section>
 
             <div class="tool-feedback">
               <h4>這次結果有幫上忙嗎？</h4>
+              <p class="lost-v50-feedback-note">回饋只作實驗紀錄，用來檢查欄位、文案與操作問題；不會回寫牌面分數或區域權重。</p>
               <form class="tool-form" id="lost-item-feedback-form">
                 <div class="tool-feedback-options">
                   <label class="feedback-pill">
                     <input name="found-status" type="radio" value="找到" required />
                     <span>最後有找到</span>
+                  </label>
+                  <label class="feedback-pill">
+                    <input name="found-status" type="radio" value="部分命中" required />
+                    <span>部分命中</span>
                   </label>
                   <label class="feedback-pill">
                     <input name="found-status" type="radio" value="尚未找到" required />
@@ -205,7 +219,7 @@
                 </div>
                 <label>
                   補充說明（可選）
-                  <textarea id="found-notes" maxlength="300" placeholder="例如：最後在沙發縫找到，與第二順位一致。" rows="2"></textarea>
+                  <textarea id="found-notes" maxlength="300" placeholder="例如：第二大型區域正確，但高度或指定物件不同。" rows="2"></textarea>
                 </label>
                 <button class="btn ghost full" type="submit">送出回饋</button>
                 <p aria-live="polite" class="tool-feedback-message hidden" id="lost-item-feedback-message"></p>
@@ -220,14 +234,14 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <p>Evan Tarot ｜塔羅實驗室 / 塔羅尋物</p>
-      <p class="footer-sub">依牌面、正逆位與情境條件，整理失物搜尋優先順序。</p>
+      <p class="footer-sub">大型區域先行，空間特徵後置；牌面是唯一計分來源。</p>
     </div>
   </footer>
 
   <script src="JS/utils.js?v=20260505-dialog-v6"></script>
   <script src="JS/cloud-config.js?v=20260624-v47-private-backend"></script>
-  <script src="JS/lost-item.js?v=20260624-v47-private-backend"></script>
+  <script src="JS/lost-item-v50.js?v=20260625-v500"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
-  <script src="JS/main.js?v=20260624-lab-v3"></script>
+  <script src="JS/main.js?v=20260625-v500"></script>
 </body>
 </html>
