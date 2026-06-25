@@ -1,6 +1,6 @@
 // ==============================
 // lost-item-form-ux.js
-// 塔羅尋物：降低非計分欄位的填寫負擔
+// 塔羅尋物：降低補充欄位的填寫負擔
 // ==============================
 // 主要函式複雜度：
 // - init：O(f + o)，f = 固定欄位數、o = 選項總數
@@ -8,8 +8,8 @@
 // 空間複雜度：O(o)
 //
 // 更快替代方案比較：
-// - 原做法：所有紀錄欄位直接展開，且只能選固定下拉選項。
-// - 本實作：本次占卜只保留必要欄位；研究資料收進選填區，文字類欄位可選建議或直接輸入。
+// - 原做法：所有補充欄位直接展開，且只能選固定下拉選項。
+// - 本實作：主流程只保留必要欄位；補充資料收進選填區，文字類欄位可選建議或直接輸入。
 // ==============================
 
 (function initLostItemFormUxModule() {
@@ -49,11 +49,6 @@
         display: grid;
         gap: 1rem;
         padding: 1rem;
-      }
-      .lost-record-note {
-        margin: 0;
-        line-height: 1.65;
-        opacity: 0.78;
       }
       .lost-record-grid {
         margin: 0;
@@ -147,11 +142,37 @@
     select.value = "";
   }
 
+  function simplifyPageCopy() {
+    const lead = document.querySelector("#lost-item-tool .section-lead");
+    if (lead) lead.textContent = "輸入物品名稱、選擇抽牌張數後即可開始。";
+
+    document.querySelector("#lost-item-form .tool-disclaimer")?.remove();
+
+    const heroItems = document.querySelectorAll(".hero-card-inner li");
+    if (heroItems[2]) heroItems[2].textContent = "依序查看搜尋區域與具體動作";
+
+    const feedbackNote = document.querySelector("#lost-item-feedback-form")?.previousElementSibling;
+    if (feedbackNote?.classList.contains("lost-v50-feedback-note")) {
+      feedbackNote.textContent = "找到後請回報實際位置，協助核對結果。";
+    }
+
+    const feedbackForm = document.getElementById("lost-item-feedback-form");
+    const feedbackMessage = document.getElementById("lost-item-feedback-message");
+    feedbackForm?.addEventListener("submit", () => {
+      window.setTimeout(() => {
+        if (feedbackMessage && feedbackMessage.textContent.includes("不會改變牌面權重")) {
+          feedbackMessage.textContent = "感謝你的回饋。";
+        }
+      }, 0);
+    });
+  }
+
   /** 時間複雜度 O(f + o)，空間複雜度 O(o)。 */
   function init() {
     if (initialized || !document.getElementById("lost-item-form")) return;
     initialized = true;
     injectStyles();
+    simplifyPageCopy();
 
     const grid = document.querySelector("#lost-item-form .lost-v47-grid");
     const cardCountLabel = document.getElementById("card-count")?.closest("label");
@@ -177,39 +198,30 @@
     resetBooleanSelect("rough-searched");
     resetBooleanSelect("touched-by-other");
 
-    renameLabel(document.getElementById("item-notes")?.closest("label"), "目前狀況", "自由描述即可，也可以留白。");
-    renameLabel(document.getElementById("item-type")?.closest("label"), "失物類型", "可從建議中選擇，也能直接輸入其他類型。");
-    renameLabel(document.getElementById("last-action")?.closest("label"), "最後一次明確行為", "可從建議中選擇，也能直接描述當時在做什麼。");
-    renameLabel(document.getElementById("scene")?.closest("label"), "當時場景", "可從建議中選擇，也能直接輸入實際場所。");
+    renameLabel(document.getElementById("item-notes")?.closest("label"), "目前狀況", "自由描述，也可以留白。");
+    renameLabel(document.getElementById("item-type")?.closest("label"), "失物類型", "可選建議或直接輸入。");
+    renameLabel(document.getElementById("last-action")?.closest("label"), "最後一次明確行為", "可選建議或直接描述。");
+    renameLabel(document.getElementById("scene")?.closest("label"), "當時場景", "可選建議或直接輸入。");
     renameLabel(document.getElementById("rough-searched")?.closest("label"), "是否已粗找過一次");
-    renameLabel(document.getElementById("lost-duration")?.closest("label"), "大約遺失多久", "可從建議中選擇，也能直接輸入時間。");
+    renameLabel(document.getElementById("lost-duration")?.closest("label"), "大約遺失多久", "可選建議或直接輸入。");
     renameLabel(document.getElementById("touched-by-other")?.closest("label"), "是否可能被別人碰過");
 
     const details = document.createElement("details");
     details.className = "lost-record-details";
 
     const summary = document.createElement("summary");
-    summary.textContent = "補充實驗紀錄（選填，不影響本次結果）";
+    summary.textContent = "補充資料（選填）";
 
     const body = document.createElement("div");
     body.className = "lost-record-body";
-
-    const note = document.createElement("p");
-    note.className = "lost-record-note";
-    note.textContent = "這些資料只用來核對不同情境下的結果偏差，不參與抽牌或區域計分；不想填可以全部留白。";
 
     const optionalGrid = document.createElement("div");
     optionalGrid.className = "lost-v47-grid lost-record-grid";
     optionalLabels.forEach((label) => optionalGrid.appendChild(label));
 
-    body.append(note, optionalGrid);
+    body.appendChild(optionalGrid);
     details.append(summary, body);
     cardCountLabel.insertAdjacentElement("afterend", details);
-
-    const disclaimer = document.querySelector("#lost-item-form .tool-disclaimer");
-    if (disclaimer) {
-      disclaimer.textContent = "本次結果只由牌面資料產生；補充紀錄不參與計分。";
-    }
   }
 
   window.EvanLostItemFormUx = Object.freeze({ init });
