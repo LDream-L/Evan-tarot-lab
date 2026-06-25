@@ -1,9 +1,6 @@
-// 世足賽事驗證 v1.0.0｜表單事件、匯出與匯入
-// 主要函式複雜度：
-// - buildMatch／buildPrediction：O(1) 時間、O(1) 空間
-// - buildCsv：O(r) 時間、O(r) 空間，r 為紀錄數
-// - 匯入與刪除後重繪：O(r) 時間、O(r) 畫面／資料空間
-// 暴力法：每個欄位與統計各自重掃紀錄；優化法：核心先單次計算，再共用結果。
+// 世足賽事驗證 v1.1.0｜牌位輸入、表單事件、匯出與匯入
+// buildCards：O(p) 時間、O(p) 空間，p=5；buildCsv：O(r) 時間、O(r) 空間。
+// 五個牌位一次讀取與驗證，避免在鎖定流程中重複掃描表單。
 (function initFootballLabEvents() {
   "use strict";
 
@@ -28,6 +25,7 @@
       infoState: readText("football-info-state"),
       homeTeam: readText("football-home-team"),
       awayTeam: readText("football-away-team"),
+      cardSource: readText("football-card-source"),
       odds: {
         home: readOptionalNumber("football-home-odds"),
         draw: readOptionalNumber("football-draw-odds"),
@@ -35,6 +33,19 @@
       },
       knownInfo: readText("football-known-info"),
     };
+  }
+
+  function buildCards() {
+    const draft = core.getDraft();
+    if (!draft) return [];
+    if (draft.match.cardSource === "random") return draft.cards;
+    return core.data.positions.map((position) => ({
+      position: position.key,
+      positionTitle: position.title,
+      positionNote: position.note,
+      name: readText(`football-card-${position.key}`),
+      orientation: readText(`football-orientation-${position.key}`),
+    }));
   }
 
   function buildPrediction() {
@@ -59,7 +70,7 @@
   function buildCsv() {
     const headers = [
       "id", "modelVersion", "competition", "stage", "kickoff", "infoState", "homeTeam", "awayTeam",
-      "homeOdds", "drawOdds", "awayOdds", "cards", "homeAttackBand", "homeDefenseBand", "awayAttackBand",
+      "cardSource", "homeOdds", "drawOdds", "awayOdds", "cards", "homeAttackBand", "homeDefenseBand", "awayAttackBand",
       "awayDefenseBand", "resultPrediction", "confidence", "homeExactPrediction", "awayExactPrediction",
       "advancePrediction", "readingNotes", "lockedAt", "actualHomeGoals", "actualAwayGoals", "extraHomeGoals",
       "extraAwayGoals", "actualAdvance", "actualNotes", "homeAttackHit", "homeDefenseHit", "awayAttackHit",
@@ -70,8 +81,8 @@
       const cards = record.cards.map((card) => `${card.positionTitle}：${card.name}${card.orientation}`).join("；");
       return [
         record.id, record.modelVersion, record.match.competition, record.match.stage, record.match.kickoff,
-        record.match.infoState, record.match.homeTeam, record.match.awayTeam, record.match.odds?.home,
-        record.match.odds?.draw, record.match.odds?.away, cards, record.prediction.homeAttackBand,
+        record.match.infoState, record.match.homeTeam, record.match.awayTeam, record.match.cardSource || "legacy",
+        record.match.odds?.home, record.match.odds?.draw, record.match.odds?.away, cards, record.prediction.homeAttackBand,
         record.prediction.homeDefenseBand, record.prediction.awayAttackBand, record.prediction.awayDefenseBand,
         record.prediction.result, record.prediction.confidence, record.prediction.homeExact, record.prediction.awayExact,
         record.prediction.advance, record.prediction.notes, record.lockedAt, record.actual?.homeGoals,
@@ -103,26 +114,33 @@
     if (error) return ui.setMessage("football-match-message", error, "is-error");
     try {
       ui.renderDraft(core.createDraft(match));
-      ui.setMessage("football-match-message", "五張牌已固定抽出。請完成賽前判讀並鎖定。", "is-success");
+      const message = match.cardSource === "manual"
+        ? "五個牌位已建立。請把你實際抽到的牌與正逆位逐一填入。"
+        : "五張牌已由網站隨機抽出並固定。請完成賽前判讀。";
+      ui.setMessage("football-match-message", message, "is-success");
     } catch (drawError) {
-      ui.setMessage("football-match-message", drawError.message || "抽牌失敗。", "is-error");
+      ui.setMessage("football-match-message", drawError.message || "建立牌位失敗。", "is-error");
     }
   });
 
   byId("football-reading-form")?.addEventListener("submit", (event) => {
     event.preventDefault();
     ui.clearMessage("football-reading-message");
+    const cards = buildCards();
+    const cardError = core.validateCards(cards);
+    if (cardError) return ui.setMessage("football-reading-message", cardError, "is-error");
     const prediction = buildPrediction();
-    const error = core.validatePrediction(prediction);
-    if (error) return ui.setMessage("football-reading-message", error, "is-error");
+    const predictionError = core.validatePrediction(prediction);
+    if (predictionError) return ui.setMessage("football-reading-message", predictionError, "is-error");
     try {
-      core.lockDraft(prediction);
+      core.lockDraft(prediction, cards);
       byId("football-reading-form").reset();
       byId("football-reading-panel").classList.add("football-hidden");
       byId("football-match-form").reset();
       byId("football-competition").value = "2026 FIFA 世界盃";
+      byId("football-card-source").value = "manual";
       ui.renderRecords();
-      ui.setMessage("football-match-message", "賽前判讀已鎖定並加入驗證紀錄。", "is-success");
+      ui.setMessage("football-match-message", "牌位與賽前判讀已鎖定並加入驗證紀錄。", "is-success");
       byId("football-records").scrollIntoView({ behavior: "smooth", block: "start" });
     } catch (lockError) {
       ui.setMessage("football-reading-message", lockError.message, "is-error");
@@ -130,7 +148,7 @@
   });
 
   byId("football-abandon-draft")?.addEventListener("click", () => {
-    if (!core.getDraft() || window.confirm("確定放棄本次五張牌與尚未鎖定的判讀？")) {
+    if (!core.getDraft() || window.confirm("確定放棄本次五個牌位與尚未鎖定的判讀？")) {
       core.clearDraft();
       byId("football-reading-form").reset();
       byId("football-reading-panel").classList.add("football-hidden");
