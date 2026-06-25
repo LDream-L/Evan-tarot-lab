@@ -1,13 +1,14 @@
-// 世足賽事驗證 v1.0.0｜固定資料
+// 世足賽事驗證 v1.1.0｜固定資料
 // 讀取時間 O(1)，牌組空間 O(78)。
 (function defineFootballLabData() {
   "use strict";
 
   window.FOOTBALL_LAB_DATA = Object.freeze({
-    modelVersion: "1.0.0",
+    modelVersion: "1.1.0",
     storageKey: "evanFootballTarotRecordsV1",
     resultLabels: Object.freeze({ H: "主隊勝", D: "和局", A: "客隊勝" }),
     bandLabels: Object.freeze({ "0": "0 球", "1": "1 球", "2": "2 球", "3+": "3 球以上" }),
+    cardSourceLabels: Object.freeze({ manual: "手動記錄實體抽牌", random: "網站隨機抽牌" }),
     positions: Object.freeze([
       { key: "homeAttack", title: "主隊得分", note: "主隊創造機會與把握進球的狀態" },
       { key: "homeDefense", title: "主隊防守", note: "主隊限制對手與承受壓力的狀態" },
