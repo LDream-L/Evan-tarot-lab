@@ -1,6 +1,6 @@
-// 世足賽事驗證 v1.1.0｜資料、牌位、亂數與回測核心
-// drawCards／validateCards：O(n) 時間、O(n) 空間，n=78 或固定 5；calculateStats：O(r) 時間、O(1) 空間。
-// 暴力法會在鎖定後再猜牌位；優化法於賽前固定五個牌位並一次驗證完整牌組。
+// 世足賽事驗證 v1.2.0｜資料、抽牌模式與回測核心
+// drawCardGroup：O(n) 時間／O(n) 空間，n=78；calculateStats：O(r) 時間／O(1) 額外空間。
+// 暴力法會把單張結果與攻防牌混成同一判讀；本版分開建模，再以雙模型模式做對照。
 (function defineFootballLabCore() {
   "use strict";
 
@@ -43,46 +43,85 @@
     return value % maxExclusive;
   }
 
-  function createEmptyCards() {
-    return data.positions.map((position) => ({
-      position: position.key,
-      positionTitle: position.title,
-      positionNote: position.note,
+  function getMode(recordOrMatch) {
+    return recordOrMatch?.match?.mode || recordOrMatch?.mode || "legacy5";
+  }
+
+  function modeIncludesDirect(mode) {
+    return mode === "direct" || mode === "dual";
+  }
+
+  function modeIncludesStructure(mode) {
+    return mode === "structure" || mode === "dual";
+  }
+
+  function getExpectedPositions(mode) {
+    const expected = [];
+    if (modeIncludesDirect(mode)) {
+      data.positionSets.direct.forEach((key) => expected.push({ group: "direct", ...data.positionMap[key] }));
+    }
+    if (modeIncludesStructure(mode)) {
+      data.positionSets.structure.forEach((key) => expected.push({ group: "structure", ...data.positionMap[key] }));
+    }
+    return expected;
+  }
+
+  function createEmptyCards(mode) {
+    return getExpectedPositions(mode).map((spec) => ({
+      group: spec.group,
+      position: spec.key,
+      positionTitle: spec.title,
+      positionNote: spec.note,
       name: "",
       orientation: "正位",
     }));
   }
 
-  /** 部分 Fisher-Yates：O(n) 時間、O(n) 空間，n=78。 */
-  function drawCards() {
+  /** 每個模型獨立洗牌；部分 Fisher-Yates：O(n) 時間、O(n) 空間，n=78。 */
+  function drawCardGroup(specs) {
     const pool = data.deck.slice();
-    const cards = [];
-    for (let index = 0; index < data.positions.length; index += 1) {
+    return specs.map((spec, index) => {
       const swapIndex = index + secureRandomInt(pool.length - index);
       [pool[index], pool[swapIndex]] = [pool[swapIndex], pool[index]];
-      const position = data.positions[index];
-      cards.push({
-        position: position.key,
-        positionTitle: position.title,
-        positionNote: position.note,
+      return {
+        group: spec.group,
+        position: spec.key,
+        positionTitle: spec.title,
+        positionNote: spec.note,
         name: pool[index],
         orientation: secureRandomInt(2) === 0 ? "正位" : "逆位",
-      });
+      };
+    });
+  }
+
+  function drawCards(mode) {
+    const cards = [];
+    if (modeIncludesDirect(mode)) {
+      const specs = data.positionSets.direct.map((key) => ({ group: "direct", ...data.positionMap[key] }));
+      cards.push(...drawCardGroup(specs));
+    }
+    if (modeIncludesStructure(mode)) {
+      const specs = data.positionSets.structure.map((key) => ({ group: "structure", ...data.positionMap[key] }));
+      cards.push(...drawCardGroup(specs));
     }
     return cards;
   }
 
-  function validateCards(cards) {
-    if (!Array.isArray(cards) || cards.length !== data.positions.length) return "請完整記錄五個牌位。";
-    const usedNames = new Set();
-    for (let index = 0; index < data.positions.length; index += 1) {
-      const expected = data.positions[index];
+  /** 固定最多 5 張：O(p) 時間、O(p) 空間。雙模型分組檢查，允許兩次獨立抽牌出現同名牌。 */
+  function validateCards(cards, mode) {
+    const expected = getExpectedPositions(mode);
+    if (!Array.isArray(cards) || cards.length !== expected.length) return `請完整記錄 ${expected.length} 個牌位。`;
+    const usedByGroup = new Map();
+    for (let index = 0; index < expected.length; index += 1) {
+      const spec = expected[index];
       const card = cards[index];
-      if (!card || card.position !== expected.key) return `第 ${index + 1} 個位置與固定牌位不一致。`;
-      if (!data.deck.includes(card.name)) return `請選擇「${expected.title}」抽到的牌。`;
-      if (card.orientation !== "正位" && card.orientation !== "逆位") return `請選擇「${expected.title}」的正逆位。`;
-      if (usedNames.has(card.name)) return `「${card.name}」重複出現；同一副 78 張牌不能重複抽到。`;
-      usedNames.add(card.name);
+      if (!card || card.group !== spec.group || card.position !== spec.key) return `第 ${index + 1} 個位置與固定牌位不一致。`;
+      if (!data.deck.includes(card.name)) return `請選擇「${spec.title}」抽到的牌。`;
+      if (card.orientation !== "正位" && card.orientation !== "逆位") return `請選擇「${spec.title}」的正逆位。`;
+      if (!usedByGroup.has(spec.group)) usedByGroup.set(spec.group, new Set());
+      const used = usedByGroup.get(spec.group);
+      if (used.has(card.name)) return `「${card.name}」在同一組抽牌中重複出現。`;
+      used.add(card.name);
     }
     return "";
   }
@@ -118,12 +157,9 @@
   }
 
   function validateMatch(match) {
-    if (!match.competition || !match.kickoff || !match.homeTeam || !match.awayTeam) {
-      return "請完整填寫賽事名稱、開賽時間與兩隊名稱。";
-    }
-    if (match.homeTeam.localeCompare(match.awayTeam, "zh-Hant", { sensitivity: "base" }) === 0) {
-      return "主隊與客隊不能是同一支隊伍。";
-    }
+    if (!match.competition || !match.kickoff || !match.homeTeam || !match.awayTeam) return "請完整填寫賽事名稱、開賽時間與兩隊名稱。";
+    if (match.homeTeam.localeCompare(match.awayTeam, "zh-Hant", { sensitivity: "base" }) === 0) return "主隊與客隊不能是同一支隊伍。";
+    if (!data.modeLabels[match.mode]) return "請選擇實驗模式。";
     if (match.cardSource !== "manual" && match.cardSource !== "random") return "請選擇牌面來源。";
     const odds = [match.odds.home, match.odds.draw, match.odds.away];
     const count = odds.filter((value) => value != null).length;
@@ -131,23 +167,23 @@
     return "";
   }
 
-  function validatePrediction(prediction) {
-    const required = [prediction.homeAttackBand, prediction.homeDefenseBand, prediction.awayAttackBand, prediction.awayDefenseBand, prediction.result, prediction.notes];
-    if (required.some((value) => !value)) return "請完成四項攻防判讀、90 分鐘結果與原始解讀。";
-    const exact = [prediction.homeExact, prediction.awayExact];
-    const exactCount = exact.filter((value) => value != null).length;
-    if (exactCount === 1) return "確切比分需要主客隊兩個數字都填，或兩個都留白。";
-    if (exactCount === 2) {
-      if (exact.some((value) => !Number.isInteger(value) || value < 0)) return "確切比分必須是 0 以上的整數。";
-      if (getBand(prediction.homeExact) !== prediction.homeAttackBand || getBand(prediction.awayExact) !== prediction.awayAttackBand) return "確切比分必須與兩隊得分牌的進球區間一致。";
-      if (getResult(prediction.homeExact, prediction.awayExact) !== prediction.result) return "確切比分必須與 90 分鐘最終結果一致。";
+  function validatePrediction(prediction, mode) {
+    if (modeIncludesDirect(mode)) {
+      if (!prediction.directResult || !prediction.directNotes) return "請完成單張結果模型的賽果與原始解讀。";
+      if (!Number.isInteger(prediction.directConfidence) || prediction.directConfidence < 1 || prediction.directConfidence > 5) return "單張結果模型的信心程度不正確。";
+    }
+    if (modeIncludesStructure(mode)) {
+      const scores = [prediction.structureHomeGoals, prediction.structureAwayGoals];
+      if (scores.some((value) => !Number.isInteger(value) || value < 0 || value > 20)) return "四張攻防模型必須填寫兩隊 0–20 的整數預測進球。";
+      if (!prediction.structureNotes) return "請完成四張攻防模型的原始解讀。";
+      if (!Number.isInteger(prediction.structureConfidence) || prediction.structureConfidence < 1 || prediction.structureConfidence > 5) return "四張攻防模型的信心程度不正確。";
     }
     return "";
   }
 
   function createDraft(match) {
     if (draft) throw new Error("目前已有尚未鎖定的草稿，不能直接覆蓋。請先放棄原草稿。");
-    const cards = match.cardSource === "random" ? drawCards() : createEmptyCards();
+    const cards = match.cardSource === "random" ? drawCards(match.mode) : createEmptyCards(match.mode);
     draft = { match, cards, drawnAt: new Date().toISOString() };
     return draft;
   }
@@ -155,8 +191,10 @@
   function lockDraft(prediction, submittedCards) {
     if (!draft) throw new Error("目前沒有可鎖定的抽牌草稿。");
     const cards = draft.match.cardSource === "manual" ? submittedCards : draft.cards;
-    const cardError = validateCards(cards);
+    const cardError = validateCards(cards, draft.match.mode);
     if (cardError) throw new Error(cardError);
+    const predictionError = validatePrediction(prediction, draft.match.mode);
+    if (predictionError) throw new Error(predictionError);
     const record = {
       id: createId(),
       modelVersion: data.modelVersion,
@@ -173,8 +211,7 @@
     return record;
   }
 
-  function calculateEvaluation(record) {
-    if (!record?.actual) return null;
+  function calculateLegacyEvaluation(record) {
     const p = record.prediction;
     const a = record.actual;
     const homeBand = getBand(a.homeGoals);
@@ -187,18 +224,37 @@
       awayDefense: p.awayDefenseBand === homeBand,
       result: p.result === actualResult,
     };
-    const hitCount = Object.values(checks).filter(Boolean).length;
-    const exactEligible = p.homeExact != null && p.awayExact != null;
-    const advanceEligible = Boolean(p.advance && a.advance);
-    return {
-      actualResult,
-      checks,
-      hitCount,
-      exactEligible,
-      exactHit: exactEligible && p.homeExact === a.homeGoals && p.awayExact === a.awayGoals,
-      advanceEligible,
-      advanceHit: advanceEligible && p.advance === a.advance,
-    };
+    return { type: "legacy5", actualResult, checks, hitCount: Object.values(checks).filter(Boolean).length };
+  }
+
+  function calculateEvaluation(record) {
+    if (!record?.actual) return null;
+    const mode = getMode(record);
+    if (mode === "legacy5") return calculateLegacyEvaluation(record);
+    const p = record.prediction;
+    const a = record.actual;
+    const actualResult = getResult(a.homeGoals, a.awayGoals);
+    const evaluation = { type: mode, actualResult };
+
+    if (modeIncludesDirect(mode)) {
+      evaluation.directResultHit = p.directResult === actualResult;
+    }
+    if (modeIncludesStructure(mode)) {
+      const structureResult = getResult(p.structureHomeGoals, p.structureAwayGoals);
+      evaluation.structureResult = structureResult;
+      evaluation.structureResultHit = structureResult === actualResult;
+      evaluation.structureHomeGoalHit = p.structureHomeGoals === a.homeGoals;
+      evaluation.structureAwayGoalHit = p.structureAwayGoals === a.awayGoals;
+      evaluation.structureExactHit = evaluation.structureHomeGoalHit && evaluation.structureAwayGoalHit;
+      evaluation.structureAbsoluteError = Math.abs(p.structureHomeGoals - a.homeGoals) + Math.abs(p.structureAwayGoals - a.awayGoals);
+    }
+    if (mode === "dual") {
+      evaluation.modelsAgree = p.directResult === evaluation.structureResult;
+      evaluation.bothResultHit = evaluation.directResultHit && evaluation.structureResultHit;
+    }
+    evaluation.advanceEligible = Boolean(p.advance && a.advance);
+    evaluation.advanceHit = evaluation.advanceEligible && p.advance === a.advance;
+    return evaluation;
   }
 
   function getMarketFavorite(record) {
@@ -207,24 +263,49 @@
     return [["H", odds.home], ["D", odds.draw], ["A", odds.away]].sort((a, b) => a[1] - b[1])[0][0];
   }
 
-  /** 單次掃描所有紀錄：O(r) 時間、O(1) 額外空間。 */
+  /** 單次掃描所有紀錄：O(r) 時間、O(1) 額外空間。舊版五牌位不混入新版 KPI。 */
   function calculateStats() {
-    const stats = { total: records.length, completed: 0, resultHits: 0, dimensionHits: 0, dimensionTotal: 0, exactEligible: 0, exactHits: 0, marketEligible: 0, marketHits: 0 };
+    const stats = {
+      total: records.length,
+      completed: 0,
+      directEligible: 0,
+      directHits: 0,
+      structureEligible: 0,
+      structureResultHits: 0,
+      structureExactHits: 0,
+      structureErrorTotal: 0,
+      dualEligible: 0,
+      dualAgreements: 0,
+      marketEligible: 0,
+      marketHits: 0,
+      legacyCompleted: 0,
+    };
     records.forEach((record) => {
-      const evaluation = calculateEvaluation(record);
-      if (!evaluation) return;
+      const e = calculateEvaluation(record);
+      if (!e) return;
       stats.completed += 1;
-      stats.resultHits += evaluation.checks.result ? 1 : 0;
-      stats.dimensionHits += evaluation.hitCount - (evaluation.checks.result ? 1 : 0);
-      stats.dimensionTotal += 4;
-      if (evaluation.exactEligible) {
-        stats.exactEligible += 1;
-        stats.exactHits += evaluation.exactHit ? 1 : 0;
+      if (e.type === "legacy5") {
+        stats.legacyCompleted += 1;
+        return;
+      }
+      if (modeIncludesDirect(e.type)) {
+        stats.directEligible += 1;
+        stats.directHits += e.directResultHit ? 1 : 0;
+      }
+      if (modeIncludesStructure(e.type)) {
+        stats.structureEligible += 1;
+        stats.structureResultHits += e.structureResultHit ? 1 : 0;
+        stats.structureExactHits += e.structureExactHit ? 1 : 0;
+        stats.structureErrorTotal += e.structureAbsoluteError;
+      }
+      if (e.type === "dual") {
+        stats.dualEligible += 1;
+        stats.dualAgreements += e.modelsAgree ? 1 : 0;
       }
       const favorite = getMarketFavorite(record);
       if (favorite) {
         stats.marketEligible += 1;
-        stats.marketHits += favorite === evaluation.actualResult ? 1 : 0;
+        stats.marketHits += favorite === e.actualResult ? 1 : 0;
       }
     });
     return stats;
@@ -258,6 +339,10 @@
     getRecord: (id) => records.find((item) => item.id === id) || null,
     getDraft: () => draft,
     clearDraft: () => { draft = null; },
+    getMode,
+    modeIncludesDirect,
+    modeIncludesStructure,
+    getExpectedPositions,
     createDraft,
     lockDraft,
     validateCards,
@@ -268,6 +353,7 @@
     updateActual,
     deleteRecord,
     importRecords,
+    getResult,
     formatDateTime,
     toIsoFromLocal,
   });
