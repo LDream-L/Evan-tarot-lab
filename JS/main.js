@@ -111,18 +111,18 @@ function normalizeLostItemLabContext() {
     heroButtons[1].textContent = "回實驗室";
   }
 
-  if (heroPills?.[0]) heroPills[0].textContent = "實驗物件";
-  if (heroPills?.[1]) heroPills[1].textContent = "塔羅尋物 v4.7";
+  if (heroPills?.[0]) heroPills[0].textContent = "大型區域反查";
+  if (heroPills?.[1]) heroPills[1].textContent = "零回測加權";
 
   if (heroCard) {
     const tag = heroCard.querySelector(".hero-tag");
     const items = heroCard.querySelectorAll("li");
     const note = heroCard.querySelector(".hero-note");
 
-    if (tag) tag.textContent = "實驗重點";
-    if (items[0]) items[0].textContent = "以牌面與情境權重收斂搜尋區域";
-    if (items[1]) items[1].textContent = "依 Top 1～3 的順序逐區搜尋";
-    if (items[2]) items[2].textContent = "找到後回填結果，作為後續模型驗證";
+    if (tag) tag.textContent = "判讀原則";
+    if (items[0]) items[0].textContent = "三張牌等權反查大型搜尋區域";
+    if (items[1]) items[1].textContent = "空間特徵只細化已入選區域";
+    if (items[2]) items[2].textContent = "找到與否只作紀錄，不回寫權重";
     if (note) note.textContent = "結果用來安排搜尋順序，不是 GPS 座標。";
   }
 }
