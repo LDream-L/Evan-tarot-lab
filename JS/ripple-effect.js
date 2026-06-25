@@ -7,6 +7,7 @@
 // - initPointerRippleEffect：O(1) / O(1)
 // - updatePointerGlow：O(1) / O(1)
 // - spawnRipple：O(1) / O(1)
+// - loadLostItemUx：O(1) / O(1)
 //
 // 更快的替代方案比較：
 // - 暴力法：每次 pointermove 都直接建立 DOM 動畫，事件頻率高時容易造成掉幀。
@@ -97,4 +98,15 @@
   window.addEventListener('pointermove', handlePointerMove, { passive: true });
   window.addEventListener('pointerleave', handlePointerLeave, { passive: true });
   window.addEventListener('blur', handlePointerLeave);
+})();
+
+(function loadLostItemUx() {
+  if (!document.getElementById('lost-item-tool')) return;
+
+  const script = document.createElement('script');
+  script.src = `JS/lost-item-ux.js?v=20260625-action-guide-v1`;
+  script.async = false;
+  script.onload = () => window.EvanLostItemUx?.init();
+  script.onerror = () => console.warn('[lost-item-ux] 搜尋指令介面載入失敗。');
+  document.head.appendChild(script);
 })();
