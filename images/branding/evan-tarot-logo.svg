@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-labelledby="title desc">
+  <title id="title">Evan Tarot 品牌圖示</title>
+  <desc id="desc">深色桌面、右上燭光與右下塔羅牌的暖棕色圖示</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#050403"/>
+      <stop offset="0.58" stop-color="#0b0806"/>
+      <stop offset="1" stop-color="#24170e"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="88%" cy="25%" r="68%">
+      <stop offset="0" stop-color="#ffdf9a" stop-opacity="0.92"/>
+      <stop offset="0.22" stop-color="#d99a4f" stop-opacity="0.4"/>
+      <stop offset="0.58" stop-color="#6b3f20" stop-opacity="0.14"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="glass" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#6a3d20"/>
+      <stop offset="0.22" stop-color="#f6c778"/>
+      <stop offset="0.5" stop-color="#fff0bb"/>
+      <stop offset="0.78" stop-color="#d28a43"/>
+      <stop offset="1" stop-color="#4a2b19"/>
+    </linearGradient>
+    <linearGradient id="card" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c59a65"/>
+      <stop offset="1" stop-color="#6f4527"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="18"/>
+    </filter>
+    <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
+      <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#000" flood-opacity="0.72"/>
+    </filter>
+    <pattern id="grain" width="12" height="12" patternUnits="userSpaceOnUse">
+      <circle cx="2" cy="3" r="0.7" fill="#c99255" opacity="0.07"/>
+      <circle cx="9" cy="8" r="0.6" fill="#f1c98a" opacity="0.05"/>
+      <path d="M0 10L12 2" stroke="#a16c3f" stroke-width="0.45" opacity="0.045"/>
+    </pattern>
+  </defs>
+
+  <rect width="512" height="512" rx="46" fill="url(#bg)"/>
+  <rect width="512" height="512" rx="46" fill="url(#glow)"/>
+  <rect width="512" height="512" rx="46" fill="url(#grain)"/>
+
+  <ellipse cx="445" cy="172" rx="92" ry="64" fill="#000" opacity="0.58" filter="url(#soft)"/>
+  <ellipse cx="448" cy="191" rx="82" ry="46" fill="#0a0705" opacity="0.9"/>
+
+  <g transform="translate(391 0)" filter="url(#shadow)">
+    <rect x="0" y="-18" width="126" height="198" rx="32" fill="#130d09" stroke="#9e6336" stroke-width="4"/>
+    <rect x="10" y="-12" width="106" height="178" rx="25" fill="url(#glass)" opacity="0.74"/>
+    <ellipse cx="63" cy="42" rx="42" ry="58" fill="#ffd88c" opacity="0.22" filter="url(#soft)"/>
+    <ellipse cx="63" cy="71" rx="23" ry="44" fill="#fff4c5" opacity="0.7" filter="url(#soft)"/>
+    <path d="M63 112C48 92 54 72 63 55C72 72 78 92 63 112Z" fill="#fff2bb"/>
+    <g stroke="#f5d19a" stroke-width="3" opacity="0.48">
+      <path d="M22 2V151"/><path d="M36 -4V157"/><path d="M50 -7V160"/><path d="M64 -8V161"/><path d="M78 -7V160"/><path d="M92 -4V157"/><path d="M106 2V151"/>
+    </g>
+    <ellipse cx="63" cy="158" rx="48" ry="14" fill="#1c110a" opacity="0.88"/>
+  </g>
+
+  <g transform="translate(280 300) rotate(-18 116 112)" filter="url(#shadow)">
+    <rect x="0" y="0" width="232" height="220" rx="16" fill="#c7a06d" stroke="#3c2417" stroke-width="8"/>
+    <rect x="16" y="16" width="200" height="188" rx="10" fill="url(#card)" stroke="#3d2618" stroke-width="4"/>
+    <g fill="#e7c68e" stroke="#472a19" stroke-width="2">
+      <path d="M102 38l9 19 21 3-15 15 4 21-19-10-19 10 4-21-15-15 21-3z"/>
+      <path d="M48 58l5 11 12 2-9 8 3 12-11-6-11 6 3-12-9-8 12-2z"/>
+      <path d="M168 60l5 11 12 2-9 8 3 12-11-6-11 6 3-12-9-8 12-2z"/>
+    </g>
+    <g fill="none" stroke="#2f1d13" stroke-width="5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M56 164c20-24 44-37 72-37 26 0 47 11 62 31"/>
+      <path d="M117 91c-17 8-26 25-22 43 3 16 17 29 34 34"/>
+      <path d="M120 93c18 5 31 21 32 39 1 17-8 31-22 39"/>
+      <path d="M90 173c21-8 45-8 67 0"/>
+      <path d="M76 186c34-13 73-13 108 0"/>
+    </g>
+    <g fill="#e7c68e">
+      <circle cx="84" cy="115" r="4"/><circle cx="152" cy="112" r="4"/><circle cx="120" cy="181" r="3"/>
+    </g>
+  </g>
+
+  <path d="M0 420C110 386 205 387 310 409" fill="none" stroke="#3d2416" stroke-width="5" opacity="0.4"/>
+  <rect width="512" height="512" rx="46" fill="none" stroke="#d69a55" stroke-opacity="0.16" stroke-width="4"/>
+</svg>
