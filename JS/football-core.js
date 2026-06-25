@@ -1,6 +1,6 @@
-// 世足賽事驗證 v1.0.0｜資料、亂數與回測核心
-// drawCards：O(n) 時間／O(n) 空間，n=78；calculateStats：O(r) 時間／O(1) 空間。
-// 暴力法會對每個畫面區塊重掃全部紀錄；本版集中單次線性統計並重用結果。
+// 世足賽事驗證 v1.1.0｜資料、牌位、亂數與回測核心
+// drawCards／validateCards：O(n) 時間、O(n) 空間，n=78 或固定 5；calculateStats：O(r) 時間、O(1) 空間。
+// 暴力法會在鎖定後再猜牌位；優化法於賽前固定五個牌位並一次驗證完整牌組。
 (function defineFootballLabCore() {
   "use strict";
 
@@ -43,6 +43,16 @@
     return value % maxExclusive;
   }
 
+  function createEmptyCards() {
+    return data.positions.map((position) => ({
+      position: position.key,
+      positionTitle: position.title,
+      positionNote: position.note,
+      name: "",
+      orientation: "正位",
+    }));
+  }
+
   /** 部分 Fisher-Yates：O(n) 時間、O(n) 空間，n=78。 */
   function drawCards() {
     const pool = data.deck.slice();
@@ -60,6 +70,21 @@
       });
     }
     return cards;
+  }
+
+  function validateCards(cards) {
+    if (!Array.isArray(cards) || cards.length !== data.positions.length) return "請完整記錄五個牌位。";
+    const usedNames = new Set();
+    for (let index = 0; index < data.positions.length; index += 1) {
+      const expected = data.positions[index];
+      const card = cards[index];
+      if (!card || card.position !== expected.key) return `第 ${index + 1} 個位置與固定牌位不一致。`;
+      if (!data.deck.includes(card.name)) return `請選擇「${expected.title}」抽到的牌。`;
+      if (card.orientation !== "正位" && card.orientation !== "逆位") return `請選擇「${expected.title}」的正逆位。`;
+      if (usedNames.has(card.name)) return `「${card.name}」重複出現；同一副 78 張牌不能重複抽到。`;
+      usedNames.add(card.name);
+    }
+    return "";
   }
 
   function formatDateTime(value) {
@@ -99,6 +124,7 @@
     if (match.homeTeam.localeCompare(match.awayTeam, "zh-Hant", { sensitivity: "base" }) === 0) {
       return "主隊與客隊不能是同一支隊伍。";
     }
+    if (match.cardSource !== "manual" && match.cardSource !== "random") return "請選擇牌面來源。";
     const odds = [match.odds.home, match.odds.draw, match.odds.away];
     const count = odds.filter((value) => value != null).length;
     if (count !== 0 && count !== 3) return "市場賠率要嘛三項都填，要嘛全部留白。";
@@ -106,43 +132,36 @@
   }
 
   function validatePrediction(prediction) {
-    const required = [
-      prediction.homeAttackBand,
-      prediction.homeDefenseBand,
-      prediction.awayAttackBand,
-      prediction.awayDefenseBand,
-      prediction.result,
-      prediction.notes,
-    ];
+    const required = [prediction.homeAttackBand, prediction.homeDefenseBand, prediction.awayAttackBand, prediction.awayDefenseBand, prediction.result, prediction.notes];
     if (required.some((value) => !value)) return "請完成四項攻防判讀、90 分鐘結果與原始解讀。";
     const exact = [prediction.homeExact, prediction.awayExact];
     const exactCount = exact.filter((value) => value != null).length;
     if (exactCount === 1) return "確切比分需要主客隊兩個數字都填，或兩個都留白。";
     if (exactCount === 2) {
       if (exact.some((value) => !Number.isInteger(value) || value < 0)) return "確切比分必須是 0 以上的整數。";
-      if (getBand(prediction.homeExact) !== prediction.homeAttackBand || getBand(prediction.awayExact) !== prediction.awayAttackBand) {
-        return "確切比分必須與兩隊得分牌的進球區間一致。";
-      }
-      if (getResult(prediction.homeExact, prediction.awayExact) !== prediction.result) {
-        return "確切比分必須與 90 分鐘最終結果一致。";
-      }
+      if (getBand(prediction.homeExact) !== prediction.homeAttackBand || getBand(prediction.awayExact) !== prediction.awayAttackBand) return "確切比分必須與兩隊得分牌的進球區間一致。";
+      if (getResult(prediction.homeExact, prediction.awayExact) !== prediction.result) return "確切比分必須與 90 分鐘最終結果一致。";
     }
     return "";
   }
 
   function createDraft(match) {
-    if (draft) throw new Error("目前已有固定牌面的草稿，不能直接覆蓋重抽。");
-    draft = { match, cards: drawCards(), drawnAt: new Date().toISOString() };
+    if (draft) throw new Error("目前已有尚未鎖定的草稿，不能直接覆蓋。請先放棄原草稿。");
+    const cards = match.cardSource === "random" ? drawCards() : createEmptyCards();
+    draft = { match, cards, drawnAt: new Date().toISOString() };
     return draft;
   }
 
-  function lockDraft(prediction) {
+  function lockDraft(prediction, submittedCards) {
     if (!draft) throw new Error("目前沒有可鎖定的抽牌草稿。");
+    const cards = draft.match.cardSource === "manual" ? submittedCards : draft.cards;
+    const cardError = validateCards(cards);
+    if (cardError) throw new Error(cardError);
     const record = {
       id: createId(),
       modelVersion: data.modelVersion,
       match: draft.match,
-      cards: draft.cards,
+      cards,
       prediction,
       drawnAt: draft.drawnAt,
       lockedAt: new Date().toISOString(),
@@ -190,17 +209,7 @@
 
   /** 單次掃描所有紀錄：O(r) 時間、O(1) 額外空間。 */
   function calculateStats() {
-    const stats = {
-      total: records.length,
-      completed: 0,
-      resultHits: 0,
-      dimensionHits: 0,
-      dimensionTotal: 0,
-      exactEligible: 0,
-      exactHits: 0,
-      marketEligible: 0,
-      marketHits: 0,
-    };
+    const stats = { total: records.length, completed: 0, resultHits: 0, dimensionHits: 0, dimensionTotal: 0, exactEligible: 0, exactHits: 0, marketEligible: 0, marketHits: 0 };
     records.forEach((record) => {
       const evaluation = calculateEvaluation(record);
       if (!evaluation) return;
@@ -251,6 +260,7 @@
     clearDraft: () => { draft = null; },
     createDraft,
     lockDraft,
+    validateCards,
     validateMatch,
     validatePrediction,
     calculateEvaluation,
