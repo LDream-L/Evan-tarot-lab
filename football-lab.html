@@ -3,12 +3,13 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Evan Tarot｜世足賽事驗證 v1.0</title>
-  <meta name="description" content="以固定五個牌位記錄足球賽事的主客隊得分、防守與 90 分鐘賽果，並於賽後進行結構化驗證。" />
+  <title>Evan Tarot｜世足賽事驗證 v1.1</title>
+  <meta name="description" content="以固定五個牌位記錄足球賽事的主客隊得分、防守與 90 分鐘賽果，支援手動輸入實體抽牌與網站隨機抽牌。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-dialog-v6" />
-  <link rel="stylesheet" href="lab.css?v=20260624-lab-v2" />
+  <link rel="stylesheet" href="lab.css?v=20260625-lab-v3" />
   <link rel="stylesheet" href="football-lab.css?v=20260625-football-v1" />
+  <link rel="stylesheet" href="football-lab-v11.css?v=20260625-football-v11" />
 </head>
 <body>
   <header class="site-header">
@@ -34,14 +35,14 @@
       <div class="container hero-inner">
         <div class="hero-text">
           <a class="lab-breadcrumb" href="lab.html#projects">← 塔羅實驗室 / 實驗物件</a>
-          <h1>世足賽事驗證 v1.0。</h1>
-          <p>固定抽出主客隊得分、防守與最終賽果五張牌，先鎖定賽前判讀，再用實際比分逐項核對。</p>
+          <h1>世足賽事驗證 v1.1。</h1>
+          <p>把你實際抽到的牌逐張放進固定牌位，或改用網站隨機抽牌；鎖定賽前判讀後，再用真實比分逐項核對。</p>
           <div class="hero-cta">
             <a href="#football-tool" class="btn primary">建立賽前紀錄</a>
             <a href="#football-records" class="btn ghost">查看驗證紀錄</a>
           </div>
           <div class="hero-meta">
-            <span class="pill pill-soft">五牌位固定</span>
+            <span class="pill pill-soft">手動牌位紀錄</span>
             <span class="pill pill-outline">賽前鎖定</span>
           </div>
         </div>
@@ -50,9 +51,9 @@
           <div class="hero-card-inner">
             <p class="hero-tag">驗證原則</p>
             <ul>
+              <li>每張牌固定對應一個牌位，不事後互換</li>
+              <li>可手動輸入實體抽牌的牌名與正逆位</li>
               <li>90 分鐘賽果與晉級結果分開紀錄</li>
-              <li>每場只保留一次正式抽牌，不覆蓋原判讀</li>
-              <li>攻擊牌與防守牌各自核對，不事後互換牌位</li>
             </ul>
             <p class="hero-note">本工具用於實驗紀錄，不構成投注建議。</p>
           </div>
@@ -63,7 +64,7 @@
     <section id="football-tool" class="section alt">
       <div class="container">
         <h2>建立賽前抽牌</h2>
-        <p class="section-lead">先輸入賽事，再抽固定五張牌。抽牌完成後須填寫結構化判讀並鎖定，才能納入回測。</p>
+        <p class="section-lead">先建立賽事與抽牌來源，再逐張確認五個牌位。完成牌面與判讀後鎖定，才會納入回測。</p>
 
         <div class="football-shell">
           <form id="football-match-form" class="football-panel football-form">
@@ -72,7 +73,7 @@
                 <p class="football-eyebrow">Step 1</p>
                 <h3>賽事資料</h3>
               </div>
-              <span class="football-version">模型 v1.0.0</span>
+              <span class="football-version">模型 v1.1.0</span>
             </div>
 
             <div class="football-form-grid">
@@ -113,6 +114,13 @@
                 <input id="football-away-team" type="text" maxlength="60" placeholder="例如：德國" required />
               </label>
               <label>
+                牌面來源
+                <select id="football-card-source">
+                  <option value="manual" selected>手動記錄我實際抽到的牌</option>
+                  <option value="random">由網站隨機抽出五張牌</option>
+                </select>
+              </label>
+              <label>
                 主勝十進位賠率（選填）
                 <input id="football-home-odds" type="number" min="1.01" max="999" step="0.01" inputmode="decimal" placeholder="例如：2.35" />
               </label>
@@ -130,24 +138,31 @@
               </label>
             </div>
 
-            <button id="football-draw-button" class="btn primary full" type="submit">固定抽出五張牌</button>
+            <button id="football-draw-button" class="btn primary full" type="submit">建立五個牌位</button>
             <p id="football-match-message" class="football-message football-hidden" aria-live="polite"></p>
-            <p class="football-disclaimer">抽牌使用瀏覽器加密亂數；同一份草稿不能局部重抽。要重新抽牌，必須放棄整份草稿並建立新紀錄。</p>
+            <p class="football-disclaimer">選擇手動記錄時，下一步會逐一顯示主隊得分、主隊防守、客隊得分、客隊防守與 90 分鐘結果五個位置。</p>
           </form>
 
           <section id="football-reading-panel" class="football-panel football-hidden" aria-live="polite">
             <div class="football-section-heading">
               <div>
                 <p class="football-eyebrow">Step 2</p>
-                <h3>牌面與賽前判讀</h3>
+                <h3>牌位、牌面與賽前判讀</h3>
               </div>
               <button id="football-abandon-draft" class="football-link-button" type="button">放棄本次草稿</button>
             </div>
 
             <div id="football-match-summary" class="football-match-summary"></div>
-            <div id="football-card-grid" class="football-card-grid"></div>
 
             <form id="football-reading-form" class="football-form football-reading-form">
+              <div class="football-card-entry-heading">
+                <div>
+                  <h4>五個牌位紀錄</h4>
+                  <p id="football-card-entry-note" class="football-disclaimer"></p>
+                </div>
+              </div>
+              <div id="football-card-grid" class="football-card-grid"></div>
+
               <div class="football-interpretation-grid">
                 <fieldset>
                   <legend id="football-home-reading-title">主隊判讀</legend>
@@ -240,7 +255,7 @@
                 </label>
               </div>
 
-              <button id="football-lock-button" class="btn primary full" type="submit">鎖定賽前判讀並加入驗證紀錄</button>
+              <button id="football-lock-button" class="btn primary full" type="submit">鎖定牌位與賽前判讀</button>
               <p id="football-reading-message" class="football-message football-hidden" aria-live="polite"></p>
             </form>
           </section>
@@ -272,7 +287,7 @@
             <thead>
               <tr>
                 <th>開賽時間</th>
-                <th>賽事</th>
+                <th>賽事與牌位</th>
                 <th>鎖定預測</th>
                 <th>實際結果</th>
                 <th>命中</th>
@@ -283,7 +298,7 @@
             <tbody id="football-records-body"></tbody>
           </table>
         </div>
-        <p id="football-empty-state" class="football-empty-state">尚無紀錄。完成第一筆賽前抽牌後，資料會出現在這裡。</p>
+        <p id="football-empty-state" class="football-empty-state">尚無紀錄。完成第一筆牌位與賽前判讀後，資料會出現在這裡。</p>
         <p class="football-storage-note">目前紀錄保存在這個瀏覽器，可用 JSON 備份或 CSV 匯入 Google Sheets。後續接上 Apps Script 後，可改為雲端同步而不改變資料欄位。</p>
 
         <section id="football-evaluation-panel" class="football-panel football-hidden">
@@ -339,12 +354,12 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <p>Evan Tarot ｜塔羅實驗室 / 世足賽事驗證</p>
-      <p class="footer-sub">先鎖定，再核對；讓牌位、判讀與真實賽果留在同一份紀錄中。</p>
+      <p class="footer-sub">每張牌先固定位置，再鎖定判讀；讓牌位與真實賽果留在同一份紀錄中。</p>
     </div>
   </footer>
 
   <script src="JS/utils.js?v=20260505-dialog-v6"></script>
-  <script src="JS/football-lab.js?v=20260625-football-v1"></script>
+  <script src="JS/football-lab.js?v=20260625-football-v11"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
   <script src="JS/main.js?v=20260625-v500"></script>
 </body>
