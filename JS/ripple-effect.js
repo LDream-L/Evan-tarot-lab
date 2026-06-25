@@ -105,7 +105,7 @@
   if (!document.getElementById('lost-item-tool')) return;
 
   const script = document.createElement('script');
-  script.src = `JS/lost-item-form-ux.js?v=20260625-optional-fields-v1`;
+  script.src = `JS/lost-item-form-ux.js?v=20260625-optional-fields-v2`;
   script.async = false;
   script.onload = () => window.EvanLostItemFormUx?.init();
   script.onerror = () => console.warn('[lost-item-form-ux] 選填欄位介面載入失敗。');
