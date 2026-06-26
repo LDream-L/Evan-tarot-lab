@@ -1,43 +1,84 @@
-// 世足賽事驗證 v1.2.4｜Google Sheets 雲端同步
+// 世足賽事驗證 v1.2.5｜Google Sheets 雲端同步
 // request：O(1) 前端運算／O(1) 空間；syncAll：O(r) 網路請求／O(1) 額外空間。
-// 更快替代方案：後端提供批次同步可把 O(r) 次網路往返降成 O(1) 次；目前採循序同步，避免 Apps Script 同時寫入衝突。
+// 更快替代方案：全站共用同一登入憑證，避免每個功能頁重複初始化 Google Identity。
 (function defineFootballLabCloud() {
   "use strict";
 
-  const TOKEN_KEY = "evanFootballGoogleIdToken";
   const config = window.EVAN_CLOUD_CONFIG || {};
   const apiUrl = String(config.footballApiUrl || "").trim();
   const clientId = String(config.googleClientId || "").trim();
-  let googleButtonRendered = false;
+  let authUnsubscribe = null;
 
   function byId(id) {
     return document.getElementById(id);
   }
 
-  /** 建立雲端控制區：O(1) 時間／O(1) 空間。 */
+  function injectCompactStyles() {
+    if (byId("football-cloud-compact-style")) return;
+    const style = document.createElement("style");
+    style.id = "football-cloud-compact-style";
+    style.textContent = `
+      #football-cloud-panel.football-cloud-compact {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) auto;
+        align-items: center;
+        gap: 14px;
+        padding: 16px 18px;
+      }
+      .football-cloud-compact-copy {
+        min-width: 0;
+      }
+      .football-cloud-compact-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+        margin-bottom: 5px;
+      }
+      .football-cloud-compact-title h3,
+      .football-cloud-compact-copy p {
+        margin: 0;
+      }
+      .football-cloud-compact-copy p {
+        font-size: 0.84rem;
+        line-height: 1.55;
+      }
+      #football-cloud-status {
+        padding: 0;
+        border: 0;
+        background: transparent;
+      }
+      @media (max-width: 680px) {
+        #football-cloud-panel.football-cloud-compact {
+          grid-template-columns: 1fr;
+        }
+        #football-sync-all {
+          width: 100%;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  /** 建立精簡同步工具列：O(1) 時間／O(1) 空間。 */
   function ensurePanel() {
     if (byId("football-cloud-panel")) return;
     const kpis = byId("football-kpis");
     if (!kpis || !kpis.parentElement) return;
 
+    injectCompactStyles();
     const panel = document.createElement("section");
     panel.id = "football-cloud-panel";
-    panel.className = "football-panel";
+    panel.className = "football-panel football-cloud-compact";
     panel.innerHTML = `
-      <div class="football-section-heading">
-        <div>
-          <p class="football-eyebrow">Cloud</p>
-          <h3>Google Sheets 雲端同步</h3>
+      <div class="football-cloud-compact-copy">
+        <div class="football-cloud-compact-title">
+          <h3>Google Sheets 同步</h3>
+          <span class="football-version">獨立資料庫</span>
         </div>
-        <span class="football-version">獨立資料庫</span>
+        <p id="football-cloud-status" class="football-message is-warning" aria-live="polite">正在檢查雲端連線……</p>
       </div>
-      <p id="football-cloud-status" class="football-message is-warning" aria-live="polite">正在檢查雲端連線……</p>
-      <div class="football-record-actions">
-        <div id="football-google-signin"></div>
-        <button id="football-sync-all" class="btn primary" type="button" disabled>同步全部本機紀錄</button>
-        <button id="football-cloud-signout" class="btn ghost football-hidden" type="button">本次工作階段登出</button>
-      </div>
-      <p class="football-storage-note">新紀錄會先安全保存在此瀏覽器，再同步到獨立 Google 試算表；雲端失敗不會刪除本機資料。</p>
+      <button id="football-sync-all" class="btn ghost" type="button" disabled>同步全部本機紀錄</button>
     `;
     kpis.parentElement.insertBefore(panel, kpis);
   }
@@ -55,7 +96,7 @@
   }
 
   function getToken() {
-    return sessionStorage.getItem(TOKEN_KEY) || "";
+    return String(window.EvanGoogleAuth?.getCredential?.() || "");
   }
 
   function hasToken() {
@@ -63,77 +104,27 @@
   }
 
   function clearToken() {
-    sessionStorage.removeItem(TOKEN_KEY);
+    window.EvanGoogleAuth?.signOut?.();
     updateControls();
   }
 
   function updateControls() {
     const signedIn = hasToken();
     const syncButton = byId("football-sync-all");
-    const signOutButton = byId("football-cloud-signout");
-    const loginWrap = byId("football-google-signin");
     if (syncButton) syncButton.disabled = !signedIn || !isConfigured();
-    if (signOutButton) signOutButton.classList.toggle("football-hidden", !signedIn);
-    if (loginWrap) loginWrap.classList.toggle("football-hidden", signedIn);
 
     if (!isConfigured()) {
       setStatus("尚未設定世足雲端 API。", "is-error");
     } else if (signedIn) {
-      setStatus("已取得本次工作階段的 Google 登入憑證，可同步到試算表。", "is-success");
+      setStatus("已使用右上角帳戶登入，可同步到試算表。", "is-success");
     } else {
-      setStatus("請先用資料庫擁有者的 Google 帳號登入，再同步紀錄。", "is-warning");
+      setStatus("需要同步時，請從右上角登入資料庫擁有者帳號。", "is-warning");
     }
   }
 
-  function handleCredential(response) {
-    const credential = String(response && response.credential || "");
-    if (!credential) {
-      setStatus("Google 登入沒有回傳有效憑證。", "is-error");
-      return;
-    }
-    sessionStorage.setItem(TOKEN_KEY, credential);
-    updateControls();
-    window.dispatchEvent(new CustomEvent("football-cloud-authenticated"));
-  }
-
-  function renderGoogleButton() {
-    if (googleButtonRendered || !isConfigured()) return;
-    const container = byId("football-google-signin");
-    if (!container || !window.google?.accounts?.id) return;
-
-    window.google.accounts.id.initialize({
-      client_id: clientId,
-      callback: handleCredential,
-      auto_select: false,
-      cancel_on_tap_outside: true,
-    });
-    window.google.accounts.id.renderButton(container, {
-      type: "standard",
-      theme: "outline",
-      size: "large",
-      text: "signin_with",
-      shape: "pill",
-      width: 260,
-    });
-    googleButtonRendered = true;
-  }
-
-  function loadGoogleIdentityScript() {
-    if (window.google?.accounts?.id || document.querySelector('script[data-football-google-identity="1"]')) return;
-    const script = document.createElement("script");
-    script.src = "https://accounts.google.com/gsi/client";
-    script.async = true;
-    script.defer = true;
-    script.dataset.footballGoogleIdentity = "1";
-    script.onload = renderGoogleButton;
-    script.onerror = () => setStatus("Google 登入元件載入失敗，請檢查網路後重新整理。", "is-error");
-    document.head.appendChild(script);
-  }
-
-  function waitForGoogleIdentity(attempt = 0) {
-    renderGoogleButton();
-    if (googleButtonRendered || attempt >= 40) return;
-    window.setTimeout(() => waitForGoogleIdentity(attempt + 1), 250);
+  function bindUnifiedAuth() {
+    if (authUnsubscribe || !window.EvanGoogleAuth?.onChange) return;
+    authUnsubscribe = window.EvanGoogleAuth.onChange(updateControls);
   }
 
   async function parseResponse(response) {
@@ -147,7 +138,6 @@
 
     if (!response.ok || !payload.ok) {
       const message = payload.error || `雲端請求失敗（HTTP ${response.status}）。`;
-      if (/憑證|登入|帳號|權限/.test(message)) clearToken();
       throw new Error(message);
     }
     return payload;
@@ -161,7 +151,10 @@
   async function request(action, payload = {}) {
     if (!isConfigured()) throw new Error("世足雲端 API 尚未設定。");
     const idToken = getToken();
-    if (!idToken) throw new Error("請先使用資料庫擁有者的 Google 帳號登入。");
+    if (!idToken) {
+      window.EvanSiteAccount?.open?.();
+      throw new Error("請先從右上角登入資料庫擁有者帳號。");
+    }
 
     const response = await fetch(apiUrl, {
       method: "POST",
@@ -191,20 +184,13 @@
     return payload.result;
   }
 
-  /**
-   * 將賽後分析整理成 Google Sheets 可直接閱讀的備註。
-   * 時間複雜度 O(n)，空間複雜度 O(n)。
-   */
+  /** 將賽後分析整理成試算表可讀文字。時間／空間複雜度 O(n)。 */
   function prepareActualForCloud(actual) {
     const source = actual || {};
     const sections = [];
     if (source.reviewAnalysis) sections.push(`【回顧與分析】\n${source.reviewAnalysis}`);
     if (source.notes) sections.push(`【賽事事件／特殊狀況】\n${source.notes}`);
-
-    return {
-      ...source,
-      notes: sections.join("\n\n"),
-    };
+    return { ...source, notes: sections.join("\n\n") };
   }
 
   async function updateActual(recordId, actual) {
@@ -216,11 +202,7 @@
     return payload.result;
   }
 
-  /**
-   * 循序補傳所有本機紀錄，後端以 recordId 去重。
-   * 時間複雜度：O(r)
-   * 空間複雜度：O(1)
-   */
+  /** 循序補傳所有本機紀錄。時間複雜度 O(r)，額外空間 O(1)。 */
   async function syncAll(records, onProgress) {
     if (!Array.isArray(records)) throw new Error("同步資料格式不正確。");
     let synced = 0;
@@ -240,16 +222,16 @@
   }
 
   function bindControls() {
-    byId("football-cloud-signout")?.addEventListener("click", () => {
-      clearToken();
-      setStatus("本次工作階段已登出；試算表中的資料不受影響。", "is-warning");
-    });
-
     byId("football-sync-all")?.addEventListener("click", async (event) => {
       const button = event.currentTarget;
       const records = window.FootballLabCore?.getRecords?.() || [];
       if (!records.length) {
         setStatus("目前沒有本機紀錄需要同步。", "is-warning");
+        return;
+      }
+      if (!hasToken()) {
+        window.EvanSiteAccount?.open?.();
+        setStatus("請先從右上角登入資料庫擁有者帳號。", "is-warning");
         return;
       }
 
@@ -270,11 +252,17 @@
   async function init() {
     ensurePanel();
     bindControls();
+    bindUnifiedAuth();
     updateControls();
-    loadGoogleIdentityScript();
-    waitForGoogleIdentity();
+
+    window.addEventListener("evan-site-account-ready", () => {
+      bindUnifiedAuth();
+      updateControls();
+    });
+    window.addEventListener("evan-google-auth-change", updateControls);
+
     const healthy = await healthCheck();
-    if (healthy && !hasToken()) setStatus("試算表端點已連線；登入後即可寫入。", "is-warning");
+    if (healthy) updateControls();
   }
 
   window.FootballLabCloud = Object.freeze({
