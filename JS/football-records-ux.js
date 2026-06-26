@@ -5,7 +5,7 @@
 // 主要函式複雜度：
 // - classifyRecords：O(r)
 // - applyRecordView：O(r)
-// - parseReview / encodeReview：O(n)，n = 備註字數
+// - readReview：O(n)，n = 舊版備註字數
 // 空間複雜度：O(r + n)
 //
 // 更快替代方案比較：
@@ -19,17 +19,18 @@
   const core = window.FootballLabCore;
   if (!core) return;
 
-  const REVIEW_OPEN = "[[EVAN_FOOTBALL_REVIEW_V1]]";
-  const REVIEW_CLOSE = "[[/EVAN_FOOTBALL_REVIEW_V1]]";
+  const MATCH_SETTLE_DELAY_MS = 150 * 60 * 1000;
+  const LEGACY_REVIEW_OPEN = "[[EVAN_FOOTBALL_REVIEW_V1]]";
+  const LEGACY_REVIEW_CLOSE = "[[/EVAN_FOOTBALL_REVIEW_V1]]";
   const STATUS_META = Object.freeze({
     forecast: {
       label: "預測中",
-      note: "尚未開賽或仍在等待比賽結束的鎖定預測。",
+      note: "尚未完成比賽的鎖定預測。",
       empty: "目前沒有預測中的賽事。",
     },
     pending: {
       label: "待驗證",
-      note: "已到開賽時間，但尚未填入實際賽果。",
+      note: "比賽預計已結束，但尚未填入實際賽果。",
       empty: "目前沒有等待驗證的賽事。",
     },
     verified: {
@@ -40,6 +41,7 @@
   });
 
   let activeStatus = "forecast";
+  let initializedView = false;
   let observer = null;
   let applying = false;
 
@@ -51,46 +53,49 @@
     return String(value == null ? "" : value).trim();
   }
 
-  /** 時間複雜度 O(n)，空間複雜度 O(n)。 */
-  function parseReview(rawNotes) {
-    const notes = String(rawNotes || "");
-    if (!notes.startsWith(REVIEW_OPEN)) {
+  /**
+   * 新版直接讀 actual.reviewVerdict / reviewAnalysis；
+   * 舊版若曾使用隱藏標記，僅在讀取時相容解析。
+   * 時間複雜度 O(n)，空間複雜度 O(n)。
+   */
+  function readReview(record) {
+    const actual = record?.actual || {};
+    const directVerdict = clean(actual.reviewVerdict);
+    const directAnalysis = clean(actual.reviewAnalysis);
+    if (directVerdict || directAnalysis) {
+      return {
+        verdict: directVerdict,
+        analysis: directAnalysis,
+        notes: String(actual.notes || ""),
+      };
+    }
+
+    const notes = String(actual.notes || "");
+    if (!notes.startsWith(LEGACY_REVIEW_OPEN)) {
       return { verdict: "", analysis: "", notes };
     }
 
-    const closeIndex = notes.indexOf(REVIEW_CLOSE, REVIEW_OPEN.length);
+    const closeIndex = notes.indexOf(LEGACY_REVIEW_CLOSE, LEGACY_REVIEW_OPEN.length);
     if (closeIndex < 0) return { verdict: "", analysis: "", notes };
 
-    const jsonText = notes.slice(REVIEW_OPEN.length, closeIndex);
-    const remaining = notes.slice(closeIndex + REVIEW_CLOSE.length).replace(/^\r?\n/, "");
     try {
-      const payload = JSON.parse(jsonText);
+      const payload = JSON.parse(notes.slice(LEGACY_REVIEW_OPEN.length, closeIndex));
       return {
         verdict: clean(payload?.verdict),
         analysis: clean(payload?.analysis),
-        notes: remaining,
+        notes: notes.slice(closeIndex + LEGACY_REVIEW_CLOSE.length).replace(/^\r?\n/, ""),
       };
     } catch (error) {
-      console.warn("[football-records-ux] 回顧資料解析失敗：", error);
+      console.warn("[football-records-ux] 舊版回顧資料解析失敗：", error);
       return { verdict: "", analysis: "", notes };
     }
-  }
-
-  /** 時間複雜度 O(n)，空間複雜度 O(n)。 */
-  function encodeReview(notes, verdict, analysis) {
-    const cleanNotes = String(notes || "").trim();
-    const payload = {
-      verdict: clean(verdict),
-      analysis: clean(analysis),
-    };
-    if (!payload.verdict && !payload.analysis) return cleanNotes;
-    return `${REVIEW_OPEN}${JSON.stringify(payload)}${REVIEW_CLOSE}${cleanNotes ? `\n${cleanNotes}` : ""}`;
   }
 
   function getWorkflowStatus(record, now = Date.now()) {
     if (record?.actual) return "verified";
     const kickoff = Date.parse(record?.match?.kickoff || "");
-    return Number.isFinite(kickoff) && kickoff <= now ? "pending" : "forecast";
+    if (!Number.isFinite(kickoff)) return "forecast";
+    return kickoff + MATCH_SETTLE_DELAY_MS <= now ? "pending" : "forecast";
   }
 
   /** 時間複雜度 O(r)，空間複雜度 O(r)。 */
@@ -105,6 +110,7 @@
 
   function injectStyles() {
     if (byId("football-records-ux-style")) return;
+
     const style = document.createElement("style");
     style.id = "football-records-ux-style";
     style.textContent = `
@@ -254,6 +260,7 @@
       button.innerHTML = `<span>${meta.label}</span><span class="football-workflow-count" data-count="${status}">0</span>`;
       button.addEventListener("click", () => {
         activeStatus = status;
+        initializedView = true;
         applyRecordView();
       });
       tabs.appendChild(button);
@@ -262,6 +269,7 @@
     const note = document.createElement("p");
     note.id = "football-workflow-note";
     note.className = "football-workflow-note";
+
     const empty = document.createElement("p");
     empty.id = "football-workflow-empty";
     empty.className = "football-workflow-empty football-hidden";
@@ -321,23 +329,13 @@
     const record = recordId ? core.getRecord(recordId) : null;
     if (!record) return;
 
-    const parsed = parseReview(record.actual?.notes || "");
+    const review = readReview(record);
     const notes = byId("football-actual-notes");
     const verdict = byId("football-review-verdict");
     const analysis = byId("football-review-analysis");
-    if (notes) notes.value = parsed.notes;
-    if (verdict) verdict.value = parsed.verdict;
-    if (analysis) analysis.value = parsed.analysis;
-  }
-
-  function prepareReviewBeforeSubmit() {
-    const notes = byId("football-actual-notes");
-    if (!notes) return;
-    notes.value = encodeReview(
-      notes.value,
-      byId("football-review-verdict")?.value,
-      byId("football-review-analysis")?.value
-    );
+    if (notes) notes.value = review.notes;
+    if (verdict) verdict.value = review.verdict;
+    if (analysis) analysis.value = review.analysis;
   }
 
   function makeBadge(className, text) {
@@ -353,11 +351,13 @@
 
     const statusCell = row.children[5];
     if (statusCell) {
-      statusCell.querySelectorAll(".football-row-workflow-badge, .football-review-badge, .football-review-excerpt").forEach((node) => node.remove());
+      statusCell
+        .querySelectorAll(".football-row-workflow-badge, .football-review-badge, .football-review-excerpt")
+        .forEach((node) => node.remove());
       statusCell.appendChild(makeBadge(`football-row-workflow-badge is-${status}`, STATUS_META[status].label));
 
       if (status === "verified") {
-        const review = parseReview(record.actual?.notes || "");
+        const review = readReview(record);
         const reviewLabels = { success: "預測成功", partial: "部分成功", fail: "預測失敗" };
         if (reviewLabels[review.verdict]) {
           statusCell.appendChild(makeBadge(`football-review-badge is-${review.verdict}`, reviewLabels[review.verdict]));
@@ -372,13 +372,12 @@
     }
 
     const actionButton = row.querySelector('button[data-action="evaluate"]');
-    if (actionButton) {
-      if (status === "forecast") actionButton.textContent = "賽後填寫";
-      if (status === "pending") actionButton.textContent = "填入賽果";
-      if (status === "verified") {
-        const review = parseReview(record.actual?.notes || "");
-        actionButton.textContent = review.verdict || review.analysis ? "更新回顧" : "填寫回顧";
-      }
+    if (!actionButton) return;
+    if (status === "forecast") actionButton.textContent = "賽後填寫";
+    if (status === "pending") actionButton.textContent = "填入賽果";
+    if (status === "verified") {
+      const review = readReview(record);
+      actionButton.textContent = review.verdict || review.analysis ? "更新回顧" : "填寫回顧";
     }
   }
 
@@ -394,8 +393,10 @@
     try {
       ensureWorkflowNav();
       const { records, groups } = classifyRecords();
-      if (!groups[activeStatus]?.length) {
+
+      if (!initializedView) {
         activeStatus = ["forecast", "pending", "verified"].find((status) => groups[status].length) || "forecast";
+        initializedView = true;
       }
 
       Object.keys(STATUS_META).forEach((status) => {
@@ -406,8 +407,7 @@
         button?.setAttribute("aria-pressed", status === activeStatus ? "true" : "false");
       });
 
-      const rows = Array.from(body.children);
-      rows.forEach((row, index) => {
+      Array.from(body.children).forEach((row, index) => {
         const record = records[index];
         if (!record) {
           row.hidden = true;
@@ -425,9 +425,7 @@
         empty.classList.toggle("football-hidden", visibleCount > 0);
       }
       tableWrap.classList.toggle("football-hidden", visibleCount === 0);
-
-      const oldEmpty = byId("football-empty-state");
-      oldEmpty?.classList.add("football-hidden");
+      byId("football-empty-state")?.classList.add("football-hidden");
     } finally {
       applying = false;
       observer?.observe(body, { childList: true });
@@ -441,9 +439,7 @@
       window.setTimeout(fillReviewFields, 0);
     });
 
-    const form = byId("football-evaluation-form");
-    form?.addEventListener("submit", prepareReviewBeforeSubmit, true);
-    form?.addEventListener("submit", () => {
+    byId("football-evaluation-form")?.addEventListener("submit", () => {
       window.setTimeout(() => {
         fillReviewFields();
         applyRecordView();
