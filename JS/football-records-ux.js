@@ -1,16 +1,16 @@
 // ==============================
 // football-records-ux.js
-// 世足賽事驗證：分流預測／待驗證／已驗證，並加入賽後回顧
+// 世足賽事驗證：分流預測／待驗證／已驗證，並保留賽後分析
 // ==============================
 // 主要函式複雜度：
 // - classifyRecords：O(r)
 // - applyRecordView：O(r)
-// - readReview：O(n)，n = 舊版備註字數
+// - readReviewAnalysis：O(n)，n = 舊版備註字數
 // 空間複雜度：O(r + n)
 //
 // 更快替代方案比較：
-// - 原版：所有紀錄放在同一張表，使用者逐列辨認狀態。
-// - 本版：單次掃描建立狀態索引，切換分頁只改現有列的顯示，不重建整張表。
+// - 原版：所有紀錄放在同一張表，並要求手動判定成功或失敗。
+// - 本版：狀態單次分類；命中由既有核對結果自動呈現，人工只填回顧原因。
 // ==============================
 
 (function initFootballRecordsUx() {
@@ -35,7 +35,7 @@
     },
     verified: {
       label: "已驗證",
-      note: "已完成賽果核對，可補寫成功、部分成功或失敗的回顧。",
+      note: "已完成客觀核對，可補寫牌面對應、錯誤原因與下次調整。",
       empty: "目前還沒有已驗證的賽事。",
     },
   });
@@ -54,41 +54,34 @@
   }
 
   /**
-   * 新版直接讀 actual.reviewVerdict / reviewAnalysis；
-   * 舊版若曾使用隱藏標記，僅在讀取時相容解析。
+   * 新版直接讀 actual.reviewAnalysis；舊版標記僅作相容解析。
    * 時間複雜度 O(n)，空間複雜度 O(n)。
    */
-  function readReview(record) {
+  function readReviewAnalysis(record) {
     const actual = record?.actual || {};
-    const directVerdict = clean(actual.reviewVerdict);
     const directAnalysis = clean(actual.reviewAnalysis);
-    if (directVerdict || directAnalysis) {
-      return {
-        verdict: directVerdict,
-        analysis: directAnalysis,
-        notes: String(actual.notes || ""),
-      };
-    }
+    if (directAnalysis) return directAnalysis;
 
     const notes = String(actual.notes || "");
-    if (!notes.startsWith(LEGACY_REVIEW_OPEN)) {
-      return { verdict: "", analysis: "", notes };
-    }
-
+    if (!notes.startsWith(LEGACY_REVIEW_OPEN)) return "";
     const closeIndex = notes.indexOf(LEGACY_REVIEW_CLOSE, LEGACY_REVIEW_OPEN.length);
-    if (closeIndex < 0) return { verdict: "", analysis: "", notes };
+    if (closeIndex < 0) return "";
 
     try {
       const payload = JSON.parse(notes.slice(LEGACY_REVIEW_OPEN.length, closeIndex));
-      return {
-        verdict: clean(payload?.verdict),
-        analysis: clean(payload?.analysis),
-        notes: notes.slice(closeIndex + LEGACY_REVIEW_CLOSE.length).replace(/^\r?\n/, ""),
-      };
+      return clean(payload?.analysis);
     } catch (error) {
       console.warn("[football-records-ux] 舊版回顧資料解析失敗：", error);
-      return { verdict: "", analysis: "", notes };
+      return "";
     }
+  }
+
+  function readEventNotes(record) {
+    const notes = String(record?.actual?.notes || "");
+    if (!notes.startsWith(LEGACY_REVIEW_OPEN)) return notes;
+    const closeIndex = notes.indexOf(LEGACY_REVIEW_CLOSE, LEGACY_REVIEW_OPEN.length);
+    if (closeIndex < 0) return notes;
+    return notes.slice(closeIndex + LEGACY_REVIEW_CLOSE.length).replace(/^\r?\n/, "");
   }
 
   function getWorkflowStatus(record, now = Date.now()) {
@@ -168,8 +161,7 @@
         text-align: center;
         opacity: 0.75;
       }
-      .football-row-workflow-badge,
-      .football-review-badge {
+      .football-row-workflow-badge {
         display: inline-flex;
         width: fit-content;
         margin-top: 0.45rem;
@@ -191,18 +183,6 @@
         background: rgba(114, 232, 164, 0.12);
         border: 1px solid rgba(114, 232, 164, 0.4);
       }
-      .football-review-badge.is-success {
-        background: rgba(114, 232, 164, 0.14);
-        border: 1px solid rgba(114, 232, 164, 0.42);
-      }
-      .football-review-badge.is-partial {
-        background: rgba(255, 205, 112, 0.13);
-        border: 1px solid rgba(255, 205, 112, 0.42);
-      }
-      .football-review-badge.is-fail {
-        background: rgba(255, 130, 145, 0.12);
-        border: 1px solid rgba(255, 130, 145, 0.4);
-      }
       .football-review-excerpt {
         display: -webkit-box;
         margin-top: 0.45rem;
@@ -216,24 +196,18 @@
       }
       .football-review-fields {
         grid-column: 1 / -1;
-        display: grid;
-        grid-template-columns: minmax(180px, 0.55fr) minmax(0, 1.45fr);
-        gap: 1rem;
         padding: 1rem;
         border: 1px solid rgba(175, 166, 255, 0.2);
         border-radius: 14px;
         background: rgba(255, 255, 255, 0.025);
       }
-      .football-review-fields label {
-        margin: 0;
-      }
-      .football-review-fields select,
+      .football-review-fields label,
       .football-review-fields textarea {
         width: 100%;
+        margin: 0;
       }
       @media (max-width: 760px) {
-        .football-workflow-tabs,
-        .football-review-fields {
+        .football-workflow-tabs {
           grid-template-columns: 1fr;
         }
       }
@@ -278,12 +252,11 @@
     tableWrap.insertAdjacentElement("beforebegin", nav);
   }
 
-  function ensureReviewFields() {
-    if (byId("football-review-verdict")) return;
-    const formGrid = document.querySelector("#football-evaluation-form .football-form-grid");
+  function ensureReviewField() {
+    if (byId("football-review-analysis")) return;
     const notes = byId("football-actual-notes");
     const notesLabel = notes?.closest("label");
-    if (!formGrid || !notesLabel) return;
+    if (!notesLabel) return;
 
     const labelText = Array.from(notesLabel.childNodes).find(
       (node) => node.nodeType === Node.TEXT_NODE && clean(node.textContent)
@@ -294,48 +267,28 @@
     const wrapper = document.createElement("div");
     wrapper.className = "football-review-fields";
 
-    const verdictLabel = document.createElement("label");
-    verdictLabel.textContent = "整體回顧";
-    const verdict = document.createElement("select");
-    verdict.id = "football-review-verdict";
-    [
-      ["", "尚未回顧"],
-      ["success", "預測成功"],
-      ["partial", "部分成功"],
-      ["fail", "預測失敗"],
-    ].forEach(([value, text]) => {
-      const option = document.createElement("option");
-      option.value = value;
-      option.textContent = text;
-      verdict.appendChild(option);
-    });
-    verdictLabel.appendChild(verdict);
-
     const analysisLabel = document.createElement("label");
-    analysisLabel.textContent = "回顧與分析";
+    analysisLabel.textContent = "回顧與分析（選填）";
     const analysis = document.createElement("textarea");
     analysis.id = "football-review-analysis";
-    analysis.rows = 4;
+    analysis.rows = 5;
     analysis.maxLength = 1600;
-    analysis.placeholder = "記錄成功或失敗的原因：哪張牌如何對應實際比賽、哪個推論錯誤、下次應如何調整。";
+    analysis.placeholder = "記錄牌面如何對應實際比賽、哪個推論錯誤，以及下次應如何調整。";
     analysisLabel.appendChild(analysis);
 
-    wrapper.append(verdictLabel, analysisLabel);
+    wrapper.appendChild(analysisLabel);
     notesLabel.insertAdjacentElement("afterend", wrapper);
   }
 
-  function fillReviewFields() {
+  function fillReviewField() {
     const recordId = clean(byId("football-evaluation-id")?.value);
     const record = recordId ? core.getRecord(recordId) : null;
     if (!record) return;
 
-    const review = readReview(record);
     const notes = byId("football-actual-notes");
-    const verdict = byId("football-review-verdict");
     const analysis = byId("football-review-analysis");
-    if (notes) notes.value = review.notes;
-    if (verdict) verdict.value = review.verdict;
-    if (analysis) analysis.value = review.analysis;
+    if (notes) notes.value = readEventNotes(record);
+    if (analysis) analysis.value = readReviewAnalysis(record);
   }
 
   function makeBadge(className, text) {
@@ -352,20 +305,16 @@
     const statusCell = row.children[5];
     if (statusCell) {
       statusCell
-        .querySelectorAll(".football-row-workflow-badge, .football-review-badge, .football-review-excerpt")
+        .querySelectorAll(".football-row-workflow-badge, .football-review-excerpt")
         .forEach((node) => node.remove());
       statusCell.appendChild(makeBadge(`football-row-workflow-badge is-${status}`, STATUS_META[status].label));
 
       if (status === "verified") {
-        const review = readReview(record);
-        const reviewLabels = { success: "預測成功", partial: "部分成功", fail: "預測失敗" };
-        if (reviewLabels[review.verdict]) {
-          statusCell.appendChild(makeBadge(`football-review-badge is-${review.verdict}`, reviewLabels[review.verdict]));
-        }
-        if (review.analysis) {
+        const analysis = readReviewAnalysis(record);
+        if (analysis) {
           const excerpt = document.createElement("span");
           excerpt.className = "football-review-excerpt";
-          excerpt.textContent = review.analysis;
+          excerpt.textContent = analysis;
           statusCell.appendChild(excerpt);
         }
       }
@@ -376,8 +325,7 @@
     if (status === "forecast") actionButton.textContent = "賽後填寫";
     if (status === "pending") actionButton.textContent = "填入賽果";
     if (status === "verified") {
-      const review = readReview(record);
-      actionButton.textContent = review.verdict || review.analysis ? "更新回顧" : "填寫回顧";
+      actionButton.textContent = readReviewAnalysis(record) ? "更新回顧" : "填寫回顧";
     }
   }
 
@@ -436,12 +384,12 @@
     const body = byId("football-records-body");
     body?.addEventListener("click", (event) => {
       if (!event.target.closest('button[data-action="evaluate"]')) return;
-      window.setTimeout(fillReviewFields, 0);
+      window.setTimeout(fillReviewField, 0);
     });
 
     byId("football-evaluation-form")?.addEventListener("submit", () => {
       window.setTimeout(() => {
-        fillReviewFields();
+        fillReviewField();
         applyRecordView();
       }, 0);
     });
@@ -450,7 +398,7 @@
   function init() {
     injectStyles();
     ensureWorkflowNav();
-    ensureReviewFields();
+    ensureReviewField();
     bindEvents();
 
     const body = byId("football-records-body");
