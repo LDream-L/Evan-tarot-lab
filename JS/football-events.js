@@ -1,4 +1,4 @@
-// 世足賽事驗證 v1.2.3｜表單事件、匯出、匯入、雲端同步與賽後回顧
+// 世足賽事驗證 v1.2.4｜表單事件、匯出、匯入、雲端同步與賽後分析
 // buildCards：O(p) 時間、O(p) 空間，p<=5；buildCsv：O(r) 時間、O(r) 空間。
 // 更快替代方案：CSV 單次掃描所有紀錄，不重複查詢或重新計算同一筆資料。
 (function initFootballLabEvents() {
@@ -90,7 +90,6 @@
       extraAwayGoals: readOptionalNumber("football-extra-away"),
       advance: readText("football-actual-advance"),
       notes: readText("football-actual-notes"),
-      reviewVerdict: readText("football-review-verdict"),
       reviewAnalysis: readText("football-review-analysis"),
     };
   }
@@ -158,8 +157,8 @@
       "cardSource", "homeOdds", "drawOdds", "awayOdds", "cardsJson", "directResult", "directConfidence",
       "directNotes", "structureHomeGoals", "structureAwayGoals", "structureResult", "structureConfidence",
       "structureNotes", "advancePrediction", "lockedAt", "actualHomeGoals", "actualAwayGoals", "extraHomeGoals",
-      "extraAwayGoals", "actualAdvance", "actualNotes", "reviewVerdict", "reviewAnalysis", "directResultHit",
-      "structureResultHit", "structureExactHit", "structureAbsoluteError", "modelsAgree", "marketFavorite"
+      "extraAwayGoals", "actualAdvance", "actualNotes", "reviewAnalysis", "directResultHit", "structureResultHit",
+      "structureExactHit", "structureAbsoluteError", "modelsAgree", "marketFavorite"
     ];
 
     const rows = core.getRecords().map((record) => {
@@ -204,7 +203,6 @@
         record.actual?.extraAwayGoals,
         record.actual?.advance,
         record.actual?.notes,
-        record.actual?.reviewVerdict,
         record.actual?.reviewAnalysis,
         evaluation?.directResultHit,
         evaluation?.structureResultHit,
@@ -320,9 +318,6 @@
     const actual = buildActual();
     if (!Number.isInteger(actual.homeGoals) || !Number.isInteger(actual.awayGoals) || actual.homeGoals < 0 || actual.awayGoals < 0) {
       return ui.setMessage("football-evaluation-message", "請輸入有效的 90 分鐘整數比分。", "is-error");
-    }
-    if (actual.reviewVerdict && !["success", "partial", "fail"].includes(actual.reviewVerdict)) {
-      return ui.setMessage("football-evaluation-message", "整體回顧選項不正確。", "is-error");
     }
 
     const record = core.updateActual(readText("football-evaluation-id"), actual);
