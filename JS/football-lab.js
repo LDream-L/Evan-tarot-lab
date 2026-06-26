@@ -1,9 +1,9 @@
-// 世足賽事驗證 v1.2.3｜相容載入器
+// 世足賽事驗證 v1.2.4｜相容載入器
 // 依序載入雲端設定、固定資料、核心、渲染、日期修正、事件、雲端同步與紀錄分流。時間 O(m)，空間 O(1)，m=8。
 (function loadFootballLabModules() {
   "use strict";
 
-  const version = "20260626-football-v123";
+  const version = "20260626-football-v124";
   const modules = [
     "JS/cloud-config.js",
     "JS/football-data.js",
