@@ -1,16 +1,21 @@
 // ==============================
 // booking.js
-// 預約表單 -> Google Form
+// 預約表單 -> Google Form（Apps Script 正式接管前保留既有寫入）
 // ==============================
 //
-// 時間複雜度：O(1)（欄位數固定）
+// 主要函式複雜度：
+// - syncBookingAvailabilityField：O(1)
+// - buildBookingFormData：O(1)（欄位數固定）
+// - handleBookingForm：O(1)（不含網路延遲）
 // 空間複雜度：O(1)
 //
-// 暴力法：<form> 直接 action 到 Google，整個畫面跳轉。
-// 優化法（本實作）：用 fetch + no-cors，把資料送出去，但人留在你的網站。
+// 暴力法：不分形式，一律顯示時間欄位，增加文字占卜使用者的填寫負擔。
+// 優化法（本實作）：只有選擇非文字形式時才顯示並要求填寫可配合時間。
 // ==============================
 
-// ★ 這裡換成你自己的「占卜預約」Google 表單資訊
+const BOOKING_TEXT_MODE = "text";
+
+// Apps Script 正式接管前，仍使用現有 Google Form，避免網站預約中斷。
 const BOOKING_GOOGLE_FORM = {
   url: "https://docs.google.com/forms/d/e/1FAIpQLScdne-yHwre5blIV7jk4UeejqUjPzuqaqCj9tpio_CuD-HSDA/formResponse",
   fields: {
@@ -23,32 +28,92 @@ const BOOKING_GOOGLE_FORM = {
 };
 
 /**
- * 將預約表單欄位打包成 FormData
- * 時間複雜度：O(1)
- * 空間複雜度：O(1)
- */
-function buildBookingFormData(form) {
-  const fd = new FormData();
-  const f = BOOKING_GOOGLE_FORM.fields;
-
-  fd.append(f.name, form.elements["name"].value.trim());
-  fd.append(f.contact, form.elements["contact"].value.trim());
-  fd.append(f.topic, form.elements["topic"].value);
-  fd.append(f.mode, form.elements["mode"].value);
-  fd.append(f.message, form.elements["message"].value.trim());
-  // 有些 Google Form 習慣多帶一個 submit 欄位，保險起見可以加
-  fd.append("submit", "Submit");
-
-  return fd;
-}
-
-/**
- * 對 Google Form 發送 POST
+ * 非文字形式才需要提供可配合時間。
  * 時間複雜度：O(1)
  * 空間複雜度：O(1)
  *
- * 暴力法：不用 JS，直接 <form> submit。
- * 本實作：fetch + no-cors，在體驗與靈活度上更好。
+ * @param {string} mode
+ * @return {boolean}
+ */
+function requiresBookingAvailability(mode) {
+  return Boolean(mode) && mode !== BOOKING_TEXT_MODE;
+}
+
+/**
+ * 依希望形式切換時間欄位與 required 狀態。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ *
+ * @param {HTMLFormElement} form
+ */
+function syncBookingAvailabilityField(form) {
+  const modeField = form.elements["mode"];
+  const availabilityField = form.elements["availability"];
+  const availabilityWrapper = document.getElementById("booking-availability-field");
+  if (!modeField || !availabilityField || !availabilityWrapper) return;
+
+  const isRequired = requiresBookingAvailability(modeField.value);
+  availabilityWrapper.hidden = !isRequired;
+  availabilityField.required = isRequired;
+
+  if (!isRequired) {
+    availabilityField.value = "";
+  }
+}
+
+/**
+ * 將時間資訊併入既有「想說的話」欄位，避免修改 Google Form 題目。
+ * Apps Script 接管後可改成獨立欄位寫入。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ *
+ * @param {HTMLFormElement} form
+ * @return {string}
+ */
+function buildBookingMessage(form) {
+  const message = form.elements["message"].value.trim();
+  const mode = form.elements["mode"].value;
+  if (!requiresBookingAvailability(mode)) return message;
+
+  const availability = form.elements["availability"].value.trim();
+  return message
+    ? `[可配合時間]\n${availability}\n\n[想說的話]\n${message}`
+    : `[可配合時間]\n${availability}`;
+}
+
+/**
+ * 將預約表單欄位打包成 FormData。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ *
+ * @param {HTMLFormElement} form
+ * @return {FormData}
+ */
+function buildBookingFormData(form) {
+  const formData = new FormData();
+  const fields = BOOKING_GOOGLE_FORM.fields;
+
+  formData.append(fields.name, form.elements["name"].value.trim());
+  formData.append(fields.contact, form.elements["contact"].value.trim());
+  formData.append(fields.topic, form.elements["topic"].value);
+  formData.append(fields.mode, form.elements["mode"].value);
+  formData.append(fields.message, buildBookingMessage(form));
+  formData.append("submit", "Submit");
+
+  return formData;
+}
+
+/**
+ * 對 Google Form 發送 POST。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ *
+ * 暴力法：不用 JS，直接讓整頁跳轉到 Google Form。
+ * 本實作：fetch + no-cors，送出後仍留在 Evan Tarot 網站。
+ *
+ * @param {string} url
+ * @param {FormData} formData
+ * @return {Promise<Response>}
  */
 function postToGoogleForm(url, formData) {
   return fetch(url, {
@@ -58,22 +123,59 @@ function postToGoogleForm(url, formData) {
   });
 }
 
-// 主要事件處理函式
-// 時間複雜度：O(1)
-// 空間複雜度：O(1)
+/**
+ * 初始化條件式時間欄位。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ */
+function initBookingAvailability() {
+  const form = document.getElementById("booking-form");
+  if (!form) return;
+
+  const modeField = form.elements["mode"];
+  if (!modeField) return;
+
+  modeField.addEventListener("change", () => syncBookingAvailabilityField(form));
+  syncBookingAvailabilityField(form);
+}
+
+document.addEventListener("DOMContentLoaded", initBookingAvailability);
+
+/**
+ * 預約送出事件。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ *
+ * @param {SubmitEvent} event
+ */
 window.handleBookingForm = function handleBookingForm(event) {
   event.preventDefault();
-  const form = event.target;
+  const form = event.currentTarget;
+  syncBookingAvailabilityField(form);
+
+  if (!form.reportValidity()) return;
+
+  const submitButton = form.querySelector('button[type="submit"]');
+  if (submitButton) submitButton.disabled = true;
 
   const formData = buildBookingFormData(form);
 
   postToGoogleForm(BOOKING_GOOGLE_FORM.url, formData)
     .then(() => {
-      window.EvanDialog?.alert("已送出預約意願，感謝你。<br>我會依照你留下的聯絡方式回覆時間與細節。", "預約已送出");
+      window.EvanDialog?.alert(
+        "已送出預約意願，感謝你。<br>我會依照你留下的聯絡方式回覆時間與細節。",
+        "預約已送出"
+      );
       form.reset();
+      syncBookingAvailabilityField(form);
     })
     .catch(() => {
-      // 只有在網路真的錯誤時才會進到這裡
-      window.EvanDialog?.alert("預約送出時遇到網路問題。<br>建議你暫時改用 IG / Email 聯絡一次，避免漏接。", "送出失敗");
+      window.EvanDialog?.alert(
+        "預約送出時遇到網路問題。<br>建議你暫時改用 IG / Email 聯絡一次，避免漏接。",
+        "送出失敗"
+      );
+    })
+    .finally(() => {
+      if (submitButton) submitButton.disabled = false;
     });
 };
