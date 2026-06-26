@@ -1,18 +1,43 @@
 // ==============================
 // main.js
-// 初始化：導覽、頁面脈絡、事件綁定與平滑滾動
+// 初始化：導覽、全站帳戶、頁面脈絡、事件綁定與平滑滾動
 // ==============================
 //
 // 主要函式複雜度：
 // - normalizeSiteNavigation：O(n)，n = 導覽連結數
 // - normalizeLostItemLabContext：O(1)
+// - loadSiteAccountScript：O(1)
 // - DOMContentLoaded 初始化：O(n)
 // 空間複雜度：O(n)
 //
 // 更快替代方案比較：
-// - 各頁分別維護導覽：容易出現文章／實驗室名稱不同步。
-// - 共用導覽修正：載入時一次補齊文章與實驗室入口，並移除舊尋物主選單。
+// - 各頁分別維護導覽與登入：容易出現名稱、狀態與介面不同步。
+// - 共用初始化：載入時一次補齊導覽與右上角帳戶入口。
 // ==============================
+
+function loadSiteAccountScript() {
+  return new Promise((resolve) => {
+    if (window.EvanSiteAccount) {
+      window.EvanSiteAccount.init().finally(() => resolve(true));
+      return;
+    }
+
+    const existing = document.querySelector('script[data-global-site-account="1"]');
+    if (existing) {
+      existing.addEventListener("load", () => resolve(Boolean(window.EvanSiteAccount)), { once: true });
+      existing.addEventListener("error", () => resolve(false), { once: true });
+      return;
+    }
+
+    const script = document.createElement("script");
+    script.src = "JS/site-account.js?v=20260626-site-account-v1";
+    script.async = false;
+    script.dataset.globalSiteAccount = "1";
+    script.onload = () => resolve(Boolean(window.EvanSiteAccount));
+    script.onerror = () => resolve(false);
+    document.head.appendChild(script);
+  });
+}
 
 function loadArticleCommentsScript() {
   return new Promise((resolve) => {
@@ -78,7 +103,7 @@ function normalizeSiteNavigation() {
   if (currentPage === "articles.html" || currentPage === "article.html") {
     articleLink.setAttribute("aria-current", "page");
   }
-  if (currentPage === "lab.html" || currentPage === "lost-item.html") {
+  if (currentPage === "lab.html" || currentPage === "lost-item.html" || currentPage === "football-lab.html") {
     labLink.setAttribute("aria-current", "page");
   }
 }
@@ -130,6 +155,7 @@ function normalizeLostItemLabContext() {
 document.addEventListener("DOMContentLoaded", async () => {
   normalizeSiteNavigation();
   normalizeLostItemLabContext();
+  await loadSiteAccountScript();
 
   const articlePage = Boolean(
     document.getElementById("article-list") &&
