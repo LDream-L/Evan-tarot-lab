@@ -1,5 +1,6 @@
-// 世足賽事驗證 v1.2.1｜分離模型表單事件、匯出、匯入與雲端同步
+// 世足賽事驗證 v1.2.3｜表單事件、匯出、匯入、雲端同步與賽後回顧
 // buildCards：O(p) 時間、O(p) 空間，p<=5；buildCsv：O(r) 時間、O(r) 空間。
+// 更快替代方案：CSV 單次掃描所有紀錄，不重複查詢或重新計算同一筆資料。
 (function initFootballLabEvents() {
   "use strict";
 
@@ -7,7 +8,9 @@
   const ui = window.FootballLabRender;
   const byId = ui.byId;
 
-  function readText(id) { return String(byId(id)?.value || "").trim(); }
+  function readText(id) {
+    return String(byId(id)?.value || "").trim();
+  }
 
   function readOptionalNumber(id) {
     const raw = readText(id);
@@ -35,10 +38,12 @@
     };
   }
 
+  /** 時間複雜度 O(p)，空間複雜度 O(p)。 */
   function buildCards() {
     const draft = core.getDraft();
     if (!draft) return [];
     if (draft.match.cardSource === "random") return draft.cards;
+
     return draft.cards.map((card) => ({
       group: card.group,
       position: card.position,
@@ -60,18 +65,34 @@
       structureNotes: "",
       advance: readText("football-advance-prediction"),
     };
+
     if (core.modeIncludesDirect(mode)) {
       prediction.directResult = readText("football-direct-result");
       prediction.directConfidence = Number(readText("football-direct-confidence") || 3);
       prediction.directNotes = readText("football-direct-notes");
     }
+
     if (core.modeIncludesStructure(mode)) {
       prediction.structureHomeGoals = readOptionalNumber("football-structure-home-goals");
       prediction.structureAwayGoals = readOptionalNumber("football-structure-away-goals");
       prediction.structureConfidence = Number(readText("football-structure-confidence") || 3);
       prediction.structureNotes = readText("football-structure-notes");
     }
+
     return prediction;
+  }
+
+  function buildActual() {
+    return {
+      homeGoals: readOptionalNumber("football-actual-home"),
+      awayGoals: readOptionalNumber("football-actual-away"),
+      extraHomeGoals: readOptionalNumber("football-extra-home"),
+      extraAwayGoals: readOptionalNumber("football-extra-away"),
+      advance: readText("football-actual-advance"),
+      notes: readText("football-actual-notes"),
+      reviewVerdict: readText("football-review-verdict"),
+      reviewAnalysis: readText("football-review-analysis"),
+    };
   }
 
   function updateStructurePreview() {
@@ -79,10 +100,12 @@
     const away = readOptionalNumber("football-structure-away-goals");
     const preview = byId("football-structure-result-preview");
     if (!preview) return;
+
     if (!Number.isInteger(home) || !Number.isInteger(away) || home < 0 || away < 0) {
       preview.textContent = "填完兩隊進球後自動產生";
       return;
     }
+
     preview.textContent = `${home}：${away}｜${core.data.resultLabels[core.getResult(home, away)]}`;
   }
 
@@ -94,6 +117,7 @@
       cloud.setStatus("新紀錄已保存於本機；登入 Google 後按「同步全部本機紀錄」即可補傳。", "is-warning");
       return "signin-required";
     }
+
     try {
       await cloud.saveRecord(record);
       cloud.setStatus(`「${record.match.homeTeam} vs ${record.match.awayTeam}」已同步到新試算表。`, "is-success");
@@ -109,15 +133,16 @@
     const cloud = window.FootballLabCloud;
     if (!cloud?.isConfigured?.()) return "local-only";
     if (!cloud.hasToken()) {
-      cloud.setStatus("賽果已保存於本機；登入 Google 後按「同步全部本機紀錄」即可補傳。", "is-warning");
+      cloud.setStatus("賽果與回顧已保存於本機；登入 Google 後按「同步全部本機紀錄」即可補傳。", "is-warning");
       return "signin-required";
     }
+
     try {
       await cloud.updateActual(record.id, record.actual);
-      cloud.setStatus(`「${record.match.homeTeam} vs ${record.match.awayTeam}」的賽果已更新到新試算表。`, "is-success");
+      cloud.setStatus(`「${record.match.homeTeam} vs ${record.match.awayTeam}」的賽果與回顧已更新到試算表。`, "is-success");
       return "synced";
     } catch (error) {
-      cloud.setStatus(`賽果已保存於本機，但雲端更新失敗：${error.message}`, "is-error");
+      cloud.setStatus(`本機已保存，但雲端更新失敗：${error.message}`, "is-error");
       return "failed";
     }
   }
@@ -126,17 +151,19 @@
     return `"${String(value ?? "").replace(/"/g, '""')}"`;
   }
 
+  /** 時間複雜度 O(r)，空間複雜度 O(r)。 */
   function buildCsv() {
     const headers = [
       "id", "modelVersion", "mode", "competition", "stage", "kickoff", "infoState", "homeTeam", "awayTeam",
       "cardSource", "homeOdds", "drawOdds", "awayOdds", "cardsJson", "directResult", "directConfidence",
       "directNotes", "structureHomeGoals", "structureAwayGoals", "structureResult", "structureConfidence",
       "structureNotes", "advancePrediction", "lockedAt", "actualHomeGoals", "actualAwayGoals", "extraHomeGoals",
-      "extraAwayGoals", "actualAdvance", "actualNotes", "directResultHit", "structureResultHit", "structureExactHit",
-      "structureAbsoluteError", "modelsAgree", "marketFavorite"
+      "extraAwayGoals", "actualAdvance", "actualNotes", "reviewVerdict", "reviewAnalysis", "directResultHit",
+      "structureResultHit", "structureExactHit", "structureAbsoluteError", "modelsAgree", "marketFavorite"
     ];
+
     const rows = core.getRecords().map((record) => {
-      const e = core.calculateEvaluation(record);
+      const evaluation = core.calculateEvaluation(record);
       const mode = core.getMode(record);
       const structureResult = core.modeIncludesStructure(mode)
         ? core.getResult(record.prediction.structureHomeGoals, record.prediction.structureAwayGoals)
@@ -145,18 +172,49 @@
       const marketFavorite = [odds.home, odds.draw, odds.away].every(Number.isFinite)
         ? [["H", odds.home], ["D", odds.draw], ["A", odds.away]].sort((a, b) => a[1] - b[1])[0][0]
         : "";
+
       return [
-        record.id, record.modelVersion, mode, record.match.competition, record.match.stage, record.match.kickoff,
-        record.match.infoState, record.match.homeTeam, record.match.awayTeam, record.match.cardSource || "legacy",
-        odds.home, odds.draw, odds.away, JSON.stringify(record.cards), record.prediction.directResult,
-        record.prediction.directConfidence, record.prediction.directNotes, record.prediction.structureHomeGoals,
-        record.prediction.structureAwayGoals, structureResult, record.prediction.structureConfidence,
-        record.prediction.structureNotes, record.prediction.advance, record.lockedAt, record.actual?.homeGoals,
-        record.actual?.awayGoals, record.actual?.extraHomeGoals, record.actual?.extraAwayGoals, record.actual?.advance,
-        record.actual?.notes, e?.directResultHit, e?.structureResultHit, e?.structureExactHit,
-        e?.structureAbsoluteError, e?.modelsAgree, marketFavorite,
+        record.id,
+        record.modelVersion,
+        mode,
+        record.match.competition,
+        record.match.stage,
+        record.match.kickoff,
+        record.match.infoState,
+        record.match.homeTeam,
+        record.match.awayTeam,
+        record.match.cardSource || "legacy",
+        odds.home,
+        odds.draw,
+        odds.away,
+        JSON.stringify(record.cards),
+        record.prediction.directResult,
+        record.prediction.directConfidence,
+        record.prediction.directNotes,
+        record.prediction.structureHomeGoals,
+        record.prediction.structureAwayGoals,
+        structureResult,
+        record.prediction.structureConfidence,
+        record.prediction.structureNotes,
+        record.prediction.advance,
+        record.lockedAt,
+        record.actual?.homeGoals,
+        record.actual?.awayGoals,
+        record.actual?.extraHomeGoals,
+        record.actual?.extraAwayGoals,
+        record.actual?.advance,
+        record.actual?.notes,
+        record.actual?.reviewVerdict,
+        record.actual?.reviewAnalysis,
+        evaluation?.directResultHit,
+        evaluation?.structureResultHit,
+        evaluation?.structureExactHit,
+        evaluation?.structureAbsoluteError,
+        evaluation?.modelsAgree,
+        marketFavorite,
       ].map(csvEscape).join(",");
     });
+
     return `\uFEFF${[headers.map(csvEscape).join(","), ...rows].join("\n")}`;
   }
 
@@ -177,6 +235,7 @@
     const match = buildMatch();
     const error = core.validateMatch(match);
     if (error) return ui.setMessage("football-match-message", error, "is-error");
+
     try {
       ui.renderDraft(core.createDraft(match));
       const count = core.getDraft().cards.length;
@@ -194,12 +253,15 @@
     ui.clearMessage("football-reading-message");
     const draft = core.getDraft();
     if (!draft) return ui.setMessage("football-reading-message", "目前沒有可鎖定的草稿。", "is-error");
+
     const cards = buildCards();
     const cardError = core.validateCards(cards, draft.match.mode);
     if (cardError) return ui.setMessage("football-reading-message", cardError, "is-error");
+
     const prediction = buildPrediction(draft.match.mode);
     const predictionError = core.validatePrediction(prediction, draft.match.mode);
     if (predictionError) return ui.setMessage("football-reading-message", predictionError, "is-error");
+
     try {
       const record = core.lockDraft(prediction, cards);
       byId("football-reading-form").reset();
@@ -212,6 +274,7 @@
       ui.renderRecords();
       ui.setMessage("football-match-message", "模型已鎖定並保存於本機，正在檢查雲端同步。", "is-success");
       byId("football-records").scrollIntoView({ behavior: "smooth", block: "start" });
+
       const cloudState = await syncCreatedRecord(record);
       if (cloudState === "synced") {
         ui.setMessage("football-match-message", "模型已鎖定，並同步到新的 Google 試算表。", "is-success");
@@ -243,6 +306,7 @@
     if (!button) return;
     const record = core.getRecord(button.dataset.id);
     if (!record) return;
+
     if (button.dataset.action === "evaluate") ui.openEvaluation(record);
     if (button.dataset.action === "delete" && window.confirm(`確定刪除「${record.match.homeTeam} vs ${record.match.awayTeam}」？`)) {
       core.deleteRecord(record.id);
@@ -253,35 +317,53 @@
 
   byId("football-evaluation-form")?.addEventListener("submit", async (event) => {
     event.preventDefault();
-    const homeGoals = readOptionalNumber("football-actual-home");
-    const awayGoals = readOptionalNumber("football-actual-away");
-    if (!Number.isInteger(homeGoals) || !Number.isInteger(awayGoals) || homeGoals < 0 || awayGoals < 0) {
+    const actual = buildActual();
+    if (!Number.isInteger(actual.homeGoals) || !Number.isInteger(actual.awayGoals) || actual.homeGoals < 0 || actual.awayGoals < 0) {
       return ui.setMessage("football-evaluation-message", "請輸入有效的 90 分鐘整數比分。", "is-error");
     }
-    const record = core.updateActual(readText("football-evaluation-id"), {
-      homeGoals,
-      awayGoals,
-      extraHomeGoals: readOptionalNumber("football-extra-home"),
-      extraAwayGoals: readOptionalNumber("football-extra-away"),
-      advance: readText("football-actual-advance"),
-      notes: readText("football-actual-notes"),
-    });
+    if (actual.reviewVerdict && !["success", "partial", "fail"].includes(actual.reviewVerdict)) {
+      return ui.setMessage("football-evaluation-message", "整體回顧選項不正確。", "is-error");
+    }
+
+    const record = core.updateActual(readText("football-evaluation-id"), actual);
     ui.renderRecords();
     ui.renderScorecard(record);
-    ui.setMessage("football-evaluation-message", "賽果已保存於本機，正在檢查雲端更新。", "is-success");
+    ui.setMessage("football-evaluation-message", "賽果與回顧已保存於本機，正在檢查雲端更新。", "is-success");
+
     const cloudState = await syncActual(record);
     if (cloudState === "synced") {
-      ui.setMessage("football-evaluation-message", "賽果已保存，並更新到新的 Google 試算表。", "is-success");
+      ui.setMessage("football-evaluation-message", "賽果與回顧已保存，並更新到 Google 試算表。", "is-success");
     } else if (cloudState === "signin-required") {
-      ui.setMessage("football-evaluation-message", "賽果已保存於本機；登入 Google 後可補同步。", "is-success");
+      ui.setMessage("football-evaluation-message", "賽果與回顧已保存於本機；登入 Google 後可補同步。", "is-success");
     } else if (cloudState === "failed") {
-      ui.setMessage("football-evaluation-message", "賽果已安全保存於本機，但本次雲端更新失敗。", "is-success");
+      ui.setMessage("football-evaluation-message", "資料已安全保存於本機，但本次雲端更新失敗。", "is-success");
     }
   });
 
-  byId("football-close-evaluation")?.addEventListener("click", () => byId("football-evaluation-panel").classList.add("football-hidden"));
-  byId("football-export-csv")?.addEventListener("click", () => downloadFile(`football_tarot_records_${new Date().toISOString().slice(0, 10)}.csv`, buildCsv(), "text/csv;charset=utf-8"));
-  byId("football-export-json")?.addEventListener("click", () => downloadFile(`football_tarot_backup_${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify({ schema: "evan-football-tarot-v2", exportedAt: new Date().toISOString(), records: core.getRecords() }, null, 2), "application/json;charset=utf-8"));
+  byId("football-close-evaluation")?.addEventListener("click", () => {
+    byId("football-evaluation-panel").classList.add("football-hidden");
+  });
+
+  byId("football-export-csv")?.addEventListener("click", () => {
+    downloadFile(
+      `football_tarot_records_${new Date().toISOString().slice(0, 10)}.csv`,
+      buildCsv(),
+      "text/csv;charset=utf-8"
+    );
+  });
+
+  byId("football-export-json")?.addEventListener("click", () => {
+    downloadFile(
+      `football_tarot_backup_${new Date().toISOString().slice(0, 10)}.json`,
+      JSON.stringify({
+        schema: "evan-football-tarot-v3",
+        exportedAt: new Date().toISOString(),
+        records: core.getRecords(),
+      }, null, 2),
+      "application/json;charset=utf-8"
+    );
+  });
+
   byId("football-import-json")?.addEventListener("change", async (event) => {
     try {
       const file = event.target.files?.[0];
