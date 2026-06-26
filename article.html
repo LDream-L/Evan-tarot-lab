@@ -9,7 +9,8 @@
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-polish-v2" />
   <link rel="stylesheet" href="article-detail.css?v=20260624-google-auth-v1" />
-  <link rel="stylesheet" href="google-auth.css?v=20260624-nickname-v1" />
+  <link rel="stylesheet" href="google-auth.css?v=20260626-unified-account-v1" />
+  <link rel="stylesheet" href="site-account.css?v=20260626-site-account-v1" />
 </head>
 <body>
   <header class="site-header">
@@ -47,27 +48,7 @@
             <span class="article-comment-count" id="comment-count">0 則留言</span>
           </div>
 
-          <div class="google-auth-card" id="google-auth-card">
-            <div class="google-auth-intro">
-              <strong>Google 帳號登入</strong>
-              <p id="google-auth-status">載入登入元件中…</p>
-            </div>
-            <div id="google-signin-button"></div>
-            <div class="google-user-panel hidden" id="google-user-panel">
-              <div class="google-nickname-editor">
-                <label for="google-nickname-input">公開暱稱</label>
-                <div class="google-nickname-row">
-                  <input id="google-nickname-input" type="text" minlength="2" maxlength="20" autocomplete="nickname" placeholder="2～20 個字" />
-                  <button class="btn primary" id="google-nickname-save" type="button">儲存暱稱</button>
-                </div>
-                <p class="google-nickname-help">Email 不會公開；留言僅顯示公開暱稱。</p>
-                <p class="google-nickname-status" id="google-nickname-status" aria-live="polite"></p>
-              </div>
-              <button class="btn ghost google-signout-button" id="google-signout-button" type="button">登出</button>
-            </div>
-          </div>
-
-          <p class="comment-login-required" id="comment-login-required">請先登入 Google 帳號，登入後才可設定暱稱並留言。</p>
+          <p class="comment-login-required" id="comment-login-required">請從右上角登入 Google 帳號，登入後才可設定暱稱並留言。</p>
           <form class="comment-form article-main-comment-form is-auth-locked" id="comment-form">
             <label>
               留言內容
@@ -92,8 +73,9 @@
   <script src="JS/utils.js?v=20260505-polish-v2"></script>
   <script src="JS/cloud-config.js?v=20260624-articles-cloud-v1"></script>
   <script src="JS/articles.js?v=20260624-articles-cloud-v1"></script>
-  <script src="JS/google-auth.js?v=20260624-copy-cleanup-v1"></script>
-  <script src="JS/article-comments.js?v=20260624-copy-cleanup-v1"></script>
+  <script src="JS/google-auth.js?v=20260626-unified-account-v1"></script>
+  <script src="JS/site-account.js?v=20260626-site-account-v1"></script>
+  <script src="JS/article-comments.js?v=20260626-unified-account-v1"></script>
   <script src="JS/copy-cleanup.js?v=20260624-copy-cleanup-v1"></script>
   <script src="JS/article-detail.js?v=20260624-lab-v3"></script>
   <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
