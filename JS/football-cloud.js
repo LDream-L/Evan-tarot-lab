@@ -1,4 +1,4 @@
-// 世足賽事驗證 v1.2.1｜Google Sheets 雲端同步
+// 世足賽事驗證 v1.2.3｜Google Sheets 雲端同步
 // request：O(1) 前端運算／O(1) 空間；syncAll：O(r) 網路請求／O(1) 額外空間。
 // 更快替代方案：後端提供批次同步可把 O(r) 次網路往返降成 O(1) 次；目前採循序同步，避免 Apps Script 同時寫入衝突。
 (function defineFootballLabCloud() {
@@ -75,10 +75,11 @@
     if (syncButton) syncButton.disabled = !signedIn || !isConfigured();
     if (signOutButton) signOutButton.classList.toggle("football-hidden", !signedIn);
     if (loginWrap) loginWrap.classList.toggle("football-hidden", signedIn);
+
     if (!isConfigured()) {
       setStatus("尚未設定世足雲端 API。", "is-error");
     } else if (signedIn) {
-      setStatus("已取得本次工作階段的 Google 登入憑證，可同步到新試算表。", "is-success");
+      setStatus("已取得本次工作階段的 Google 登入憑證，可同步到試算表。", "is-success");
     } else {
       setStatus("請先用資料庫擁有者的 Google 帳號登入，再同步紀錄。", "is-warning");
     }
@@ -99,6 +100,7 @@
     if (googleButtonRendered || !isConfigured()) return;
     const container = byId("football-google-signin");
     if (!container || !window.google?.accounts?.id) return;
+
     window.google.accounts.id.initialize({
       client_id: clientId,
       callback: handleCredential,
@@ -142,6 +144,7 @@
     } catch (error) {
       throw new Error(`雲端回應不是有效 JSON（HTTP ${response.status}）。`);
     }
+
     if (!response.ok || !payload.ok) {
       const message = payload.error || `雲端請求失敗（HTTP ${response.status}）。`;
       if (/憑證|登入|帳號|權限/.test(message)) clearToken();
@@ -159,6 +162,7 @@
     if (!isConfigured()) throw new Error("世足雲端 API 尚未設定。");
     const idToken = getToken();
     if (!idToken) throw new Error("請先使用資料庫擁有者的 Google 帳號登入。");
+
     const response = await fetch(apiUrl, {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=utf-8" },
@@ -187,9 +191,38 @@
     return payload.result;
   }
 
+  /**
+   * 將獨立回顧欄位整理成 Google Sheets 可直接閱讀的賽後備註。
+   * 後端尚未增加專用欄位時，仍可完整保留回顧內容。
+   * 時間複雜度 O(n)，空間複雜度 O(n)。
+   */
+  function prepareActualForCloud(actual) {
+    const source = actual || {};
+    const labels = {
+      success: "預測成功",
+      partial: "部分成功",
+      fail: "預測失敗",
+    };
+    const sections = [];
+
+    if (source.reviewVerdict || source.reviewAnalysis) {
+      sections.push(`【整體回顧】${labels[source.reviewVerdict] || "尚未分類"}`);
+      if (source.reviewAnalysis) sections.push(`【回顧與分析】\n${source.reviewAnalysis}`);
+    }
+    if (source.notes) sections.push(`【賽事事件／特殊狀況】\n${source.notes}`);
+
+    return {
+      ...source,
+      notes: sections.join("\n\n"),
+    };
+  }
+
   async function updateActual(recordId, actual) {
     if (!recordId || !actual) throw new Error("缺少賽後結果資料。");
-    const payload = await request("updateActual", { recordId, actual });
+    const payload = await request("updateActual", {
+      recordId,
+      actual: prepareActualForCloud(actual),
+    });
     return payload.result;
   }
 
@@ -202,6 +235,7 @@
     if (!Array.isArray(records)) throw new Error("同步資料格式不正確。");
     let synced = 0;
     let completed = 0;
+
     for (let index = 0; index < records.length; index += 1) {
       const record = records[index];
       await saveRecord(record);
@@ -228,12 +262,13 @@
         setStatus("目前沒有本機紀錄需要同步。", "is-warning");
         return;
       }
+
       button.disabled = true;
       try {
         const result = await syncAll(records, (done, total) => {
           setStatus(`正在同步 ${done}／${total} 筆……`, "is-warning");
         });
-        setStatus(`同步完成：${result.synced} 筆賽事，其中 ${result.completed} 筆已包含賽後結果。`, "is-success");
+        setStatus(`同步完成：${result.synced} 筆賽事，其中 ${result.completed} 筆包含賽果與回顧。`, "is-success");
       } catch (error) {
         setStatus(`同步失敗：${error.message}`, "is-error");
       } finally {
@@ -249,7 +284,7 @@
     loadGoogleIdentityScript();
     waitForGoogleIdentity();
     const healthy = await healthCheck();
-    if (healthy && !hasToken()) setStatus("新試算表端點已連線；登入後即可寫入。", "is-warning");
+    if (healthy && !hasToken()) setStatus("試算表端點已連線；登入後即可寫入。", "is-warning");
   }
 
   window.FootballLabCloud = Object.freeze({
