@@ -92,7 +92,7 @@
     <section class="section" id="booking">
       <div class="container">
         <h2>預約占卜</h2>
-        <p class="section-lead">留下主題與聯絡方式，我會回覆可預約的時間，並確認文字、語音或視訊形式。</p>
+        <p class="section-lead">留下主題與聯絡方式，我會回覆可預約的時間，並確認文字或語音形式。</p>
         <form class="booking-form" id="booking-form">
           <div class="form-row">
             <label>暱稱<input name="name" placeholder="例如：小鹿、H、匿名也可以" required type="text" /></label>
@@ -115,11 +115,18 @@
                 <option value="">請選擇</option>
                 <option value="text">文字占卜</option>
                 <option value="voice">語音 / 通話</option>
-                <option value="video">視訊</option>
                 <option value="flexible">都可以，看當天狀況</option>
               </select>
             </label>
           </div>
+          <label id="booking-availability-field" hidden>
+            可配合的時間（可填多個時間段）
+            <textarea
+              name="availability"
+              placeholder="例如：平日 19:00 後、6/28 下午、週末皆可。"
+              rows="3"
+            ></textarea>
+          </label>
           <label>
             想說的話（越具體越好，但一句話也可以）
             <textarea name="message" placeholder="可以寫：目前狀況、你最在意的是什麼、希望占卜幫你釐清什麼。" rows="4"></textarea>
@@ -139,7 +146,7 @@
   </footer>
 
   <script src="JS/utils.js?v=20260505-dialog-v6"></script>
-  <script src="JS/booking.js?v=20260507-booking-v3"></script>
+  <script src="JS/booking.js?v=20260626-booking-v4"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
   <script src="JS/main.js?v=20260624-lab-v3"></script>
 </body>
