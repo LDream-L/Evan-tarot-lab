@@ -1,0 +1,210 @@
+/* ===== 全站統一帳戶入口 ===== */
+.site-account {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.site-account-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 7px 12px;
+  border: 1px solid rgba(139, 123, 255, 0.42);
+  border-radius: 999px;
+  background: rgba(9, 9, 30, 0.88);
+  color: var(--text-main);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.84rem;
+  font-weight: 700;
+  transition: border-color 0.2s, background 0.2s, transform 0.1s;
+}
+
+.site-account-trigger:hover,
+.site-account-trigger[aria-expanded="true"] {
+  border-color: rgba(183, 148, 255, 0.9);
+  background: rgba(32, 27, 72, 0.96);
+  transform: translateY(-1px);
+}
+
+.site-account-avatar {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 30% 20%, #f9a8ff, #8b7bff 62%, #493ea3);
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 900;
+  line-height: 1;
+}
+
+.site-account-label {
+  max-width: 110px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.site-account-caret {
+  opacity: 0.68;
+  font-size: 0.68rem;
+}
+
+.site-account-menu {
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  z-index: 80;
+  width: min(360px, calc(100vw - 28px));
+  padding: 16px;
+  border: 1px solid rgba(139, 123, 255, 0.42);
+  border-radius: 18px;
+  background: rgba(8, 8, 28, 0.98);
+  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.62);
+  backdrop-filter: blur(20px);
+}
+
+.site-account-menu[hidden] {
+  display: none;
+}
+
+.site-account-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.site-account-heading strong {
+  display: block;
+  font-size: 0.96rem;
+}
+
+.site-account-heading p,
+.site-account-menu p {
+  margin: 3px 0 0;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  line-height: 1.5;
+}
+
+.site-account-close {
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid rgba(139, 123, 255, 0.24);
+  border-radius: 50%;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 1rem;
+}
+
+.site-account-close:hover {
+  color: var(--text-main);
+  border-color: rgba(139, 123, 255, 0.6);
+}
+
+#google-signin-button {
+  min-height: 40px;
+}
+
+.site-account-menu .google-user-panel {
+  display: grid;
+  gap: 12px;
+}
+
+.site-account-menu .google-nickname-editor label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.site-account-menu .google-nickname-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+}
+
+.site-account-menu .google-nickname-row input {
+  width: 100%;
+  min-width: 0;
+  padding: 9px 11px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  outline: none;
+  background: rgba(4, 5, 20, 0.98);
+  color: var(--text-main);
+}
+
+.site-account-menu .google-nickname-row input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent-soft);
+}
+
+.site-account-menu .google-nickname-help,
+.site-account-menu .google-nickname-status {
+  margin-top: 6px;
+}
+
+.site-account-menu .google-nickname-status {
+  min-height: 1.2em;
+  color: var(--accent-strong);
+}
+
+.site-account-menu .google-signout-button {
+  justify-self: start;
+}
+
+.site-account-loading {
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.header-inner.has-site-account {
+  justify-content: flex-start;
+}
+
+.header-inner.has-site-account .nav {
+  margin-left: auto;
+}
+
+@media (max-width: 760px) {
+  .header-inner.has-site-account {
+    flex-wrap: wrap;
+  }
+
+  .header-inner.has-site-account .nav {
+    order: 3;
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+  }
+
+  .site-account {
+    margin-left: auto;
+  }
+
+  .site-account-label {
+    max-width: 82px;
+  }
+
+  .site-account-menu .google-nickname-row {
+    grid-template-columns: 1fr;
+  }
+
+  .site-account-menu .google-nickname-row .btn,
+  .site-account-menu .google-signout-button {
+    width: 100%;
+  }
+}
