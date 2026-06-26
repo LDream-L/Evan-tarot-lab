@@ -1,4 +1,4 @@
-// 世足賽事驗證 v1.2.3｜Google Sheets 雲端同步
+// 世足賽事驗證 v1.2.4｜Google Sheets 雲端同步
 // request：O(1) 前端運算／O(1) 空間；syncAll：O(r) 網路請求／O(1) 額外空間。
 // 更快替代方案：後端提供批次同步可把 O(r) 次網路往返降成 O(1) 次；目前採循序同步，避免 Apps Script 同時寫入衝突。
 (function defineFootballLabCloud() {
@@ -192,23 +192,13 @@
   }
 
   /**
-   * 將獨立回顧欄位整理成 Google Sheets 可直接閱讀的賽後備註。
-   * 後端尚未增加專用欄位時，仍可完整保留回顧內容。
+   * 將賽後分析整理成 Google Sheets 可直接閱讀的備註。
    * 時間複雜度 O(n)，空間複雜度 O(n)。
    */
   function prepareActualForCloud(actual) {
     const source = actual || {};
-    const labels = {
-      success: "預測成功",
-      partial: "部分成功",
-      fail: "預測失敗",
-    };
     const sections = [];
-
-    if (source.reviewVerdict || source.reviewAnalysis) {
-      sections.push(`【整體回顧】${labels[source.reviewVerdict] || "尚未分類"}`);
-      if (source.reviewAnalysis) sections.push(`【回顧與分析】\n${source.reviewAnalysis}`);
-    }
+    if (source.reviewAnalysis) sections.push(`【回顧與分析】\n${source.reviewAnalysis}`);
     if (source.notes) sections.push(`【賽事事件／特殊狀況】\n${source.notes}`);
 
     return {
