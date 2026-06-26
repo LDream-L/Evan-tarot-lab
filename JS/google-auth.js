@@ -1,6 +1,6 @@
 // ==============================
 // google-auth.js
-// Google Identity Services＋雲端暱稱
+// Google Identity Services＋雲端暱稱＋全站工作階段
 // ==============================
 //
 // 主要函式複雜度：
@@ -10,13 +10,16 @@
 // 空間複雜度：O(m)
 //
 // 更快替代方案比較：
-// - 暴力法：把暱稱複製到每則留言，改名必須逐筆更新。
-// - 本實作：登入身分只對應一筆 Profiles 資料，所有歷史留言讀取時套用最新暱稱。
+// - 各頁獨立登入：切換頁面後必須重新操作，且功能模組各自保存憑證。
+// - 本實作：同一分頁工作階段共用一份 Google ID Token，各功能只讀同一登入狀態。
 // ==============================
 
 (function initGoogleAuthModule() {
+  "use strict";
+
   const listeners = new Set();
   const REQUEST_TIMEOUT_MS = 12000;
+  const CREDENTIAL_STORAGE_KEY = "evanGoogleIdToken";
 
   let initialized = false;
   let credential = "";
@@ -57,6 +60,12 @@
     }
   }
 
+  function isCredentialFresh(payload) {
+    if (!payload?.sub) return false;
+    const expiresAt = Number(payload.exp || 0) * 1000;
+    return !expiresAt || expiresAt > Date.now() + 30000;
+  }
+
   async function createUserKey(subject) {
     const bytes = new TextEncoder().encode(String(subject || ""));
     const digest = await crypto.subtle.digest("SHA-256", bytes);
@@ -64,6 +73,13 @@
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("")
       .slice(0, 16);
+  }
+
+  async function createUser(payload) {
+    return {
+      subject: String(payload.sub),
+      userKey: await createUserKey(payload.sub),
+    };
   }
 
   async function fetchWithTimeout(url, options = {}) {
@@ -125,8 +141,8 @@
     if (loginRequired) {
       loginRequired.classList.toggle("hidden", canComment);
       loginRequired.textContent = !isSignedIn
-        ? "請先登入 Google 帳號，登入後才可留言與回覆。"
-        : "請先設定公開暱稱，設定後才可留言與回覆。";
+        ? "請從右上角登入 Google 帳號，登入後才可留言與回覆。"
+        : "請從右上角帳戶選單設定公開暱稱，設定後才可留言與回覆。";
     }
 
     if (nicknameInput) {
@@ -140,12 +156,16 @@
     });
 
     const status = document.getElementById("google-auth-status");
-    if (status && isSignedIn) {
-      status.textContent = profileLoading
-        ? "正在讀取暱稱…"
-        : hasNickname
-          ? `目前公開暱稱：${nickname}`
-          : "已登入，請先設定公開暱稱。";
+    if (status) {
+      if (!isSignedIn) {
+        status.textContent = "使用 Google 帳號登入後，可在全站共用同一工作階段。";
+      } else {
+        status.textContent = profileLoading
+          ? "正在讀取暱稱…"
+          : hasNickname
+            ? `目前公開暱稱：${nickname}`
+            : "已登入，請先設定公開暱稱。";
+      }
     }
   }
 
@@ -258,24 +278,33 @@
     }
   }
 
-  async function handleCredentialResponse(response) {
-    const nextCredential = String(response?.credential || "");
+  async function setCredential(nextCredential, persist) {
     const payload = decodeJwtPayload(nextCredential);
-
-    if (!nextCredential || !payload?.sub) {
-      setText("google-auth-status", "Google 登入失敗，請重新操作。");
-      return;
-    }
+    if (!nextCredential || !isCredentialFresh(payload)) return false;
 
     credential = nextCredential;
-    user = {
-      subject: String(payload.sub),
-      userKey: await createUserKey(payload.sub),
-    };
+    user = await createUser(payload);
     nickname = "";
+    if (persist) sessionStorage.setItem(CREDENTIAL_STORAGE_KEY, nextCredential);
     updateUI();
     notify();
     await loadProfile();
+    return true;
+  }
+
+  async function handleCredentialResponse(response) {
+    const nextCredential = String(response?.credential || "");
+    const accepted = await setCredential(nextCredential, true);
+    if (!accepted) setText("google-auth-status", "Google 登入失敗，請重新操作。");
+  }
+
+  async function restoreCredential() {
+    const storedCredential = String(sessionStorage.getItem(CREDENTIAL_STORAGE_KEY) || "");
+    if (!storedCredential) return false;
+
+    const accepted = await setCredential(storedCredential, false);
+    if (!accepted) sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
+    return accepted;
   }
 
   function renderButton() {
@@ -283,6 +312,7 @@
     if (!container || !window.google?.accounts?.id || !isConfigured()) return false;
 
     container.replaceChildren();
+    container.classList.remove("site-account-loading");
     window.google.accounts.id.initialize({
       client_id: getClientId(),
       callback: handleCredentialResponse,
@@ -297,8 +327,8 @@
       shape: "pill",
       logo_alignment: "left",
       locale: "zh_TW",
+      width: 300,
     });
-
     return true;
   }
 
@@ -332,8 +362,11 @@
       return getState();
     }
 
-    if (status) status.textContent = "請先使用 Google 帳號登入。";
-    notify();
+    const restored = await restoreCredential();
+    if (!restored) {
+      updateUI();
+      notify();
+    }
     return getState();
   }
 
@@ -342,6 +375,8 @@
     user = null;
     nickname = "";
     profileLoading = false;
+    sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
+    sessionStorage.removeItem("evanFootballGoogleIdToken");
     window.google?.accounts?.id?.disableAutoSelect?.();
     setText("google-nickname-status", "");
     updateUI();
