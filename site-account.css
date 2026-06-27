@@ -1,6 +1,6 @@
 /* ===== 全站統一帳戶入口 ===== */
 .site-account {
-  position: relative;
+  position: static;
   flex: 0 0 auto;
 }
 
@@ -58,7 +58,10 @@
   top: calc(100% + 10px);
   right: 0;
   z-index: 80;
-  width: min(360px, calc(100vw - 28px));
+  width: min(360px, calc(100vw - 32px));
+  max-height: calc(100dvh - 110px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
   padding: 16px;
   border: 1px solid rgba(139, 123, 255, 0.42);
   border-radius: 18px;
@@ -171,7 +174,16 @@
   font-size: 0.82rem;
 }
 
+.site-header {
+  transition: padding-bottom 0.18s ease;
+}
+
+.site-header.site-account-open {
+  padding-bottom: var(--site-account-menu-space, 190px);
+}
+
 .header-inner.has-site-account {
+  position: relative;
   justify-content: flex-start;
 }
 
@@ -199,6 +211,10 @@
     max-width: 82px;
   }
 
+  .site-account-menu {
+    max-height: calc(100dvh - 130px);
+  }
+
   .site-account-menu .google-nickname-row {
     grid-template-columns: 1fr;
   }
@@ -206,5 +222,11 @@
   .site-account-menu .google-nickname-row .btn,
   .site-account-menu .google-signout-button {
     width: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header {
+    transition: none;
   }
 }
