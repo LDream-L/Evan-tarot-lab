@@ -1,6 +1,6 @@
 /* ===== 全站統一帳戶入口 ===== */
 .site-account {
-  position: static;
+  position: relative;
   flex: 0 0 auto;
 }
 
@@ -18,7 +18,7 @@
   font: inherit;
   font-size: 0.84rem;
   font-weight: 700;
-  transition: border-color 0.2s, background 0.2s, transform 0.1s;
+  transition: border-color 0.18s ease, background 0.18s ease, transform 0.12s ease;
 }
 
 .site-account-trigger:hover,
@@ -28,17 +28,37 @@
   transform: translateY(-1px);
 }
 
-.site-account-avatar {
+.site-account-trigger:focus-visible,
+.site-account-close:focus-visible,
+.site-account-menu button:focus-visible,
+.site-account-menu input:focus-visible {
+  outline: 2px solid rgba(196, 166, 255, 0.95);
+  outline-offset: 2px;
+}
+
+.site-account-avatar,
+.site-account-dialog-icon {
   display: grid;
   place-items: center;
-  width: 24px;
-  height: 24px;
   border-radius: 50%;
   background: radial-gradient(circle at 30% 20%, #f9a8ff, #8b7bff 62%, #493ea3);
   color: #fff;
-  font-size: 0.75rem;
   font-weight: 900;
   line-height: 1;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.22);
+}
+
+.site-account-avatar {
+  width: 24px;
+  height: 24px;
+  font-size: 0.75rem;
+}
+
+.site-account-dialog-icon {
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  font-size: 0.88rem;
 }
 
 .site-account-label {
@@ -51,45 +71,91 @@
 .site-account-caret {
   opacity: 0.68;
   font-size: 0.68rem;
+  transition: transform 0.18s ease;
+}
+
+.site-account-trigger[aria-expanded="true"] .site-account-caret {
+  transform: rotate(180deg);
+}
+
+.site-account-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 9998;
+  border: 0;
+  padding: 0;
+  background: rgba(1, 1, 14, 0.62);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  cursor: default;
+  transition: opacity 0.16s ease;
+}
+
+.site-account-backdrop.is-open {
+  opacity: 1;
+}
+
+.site-account-backdrop[hidden],
+.site-account-menu[hidden] {
+  display: none;
 }
 
 .site-account-menu {
-  position: absolute;
-  top: calc(100% + 10px);
-  right: 0;
-  z-index: 80;
-  width: min(360px, calc(100vw - 32px));
-  max-height: calc(100dvh - 110px);
+  position: fixed;
+  top: var(--site-account-top, 78px);
+  left: var(--site-account-left, auto);
+  z-index: 9999;
+  width: var(--site-account-width, min(380px, calc(100vw - 32px)));
+  max-height: var(--site-account-max-height, calc(100dvh - 96px));
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: 16px;
-  border: 1px solid rgba(139, 123, 255, 0.42);
-  border-radius: 18px;
-  background: rgba(8, 8, 28, 0.98);
-  box-shadow: 0 24px 58px rgba(0, 0, 0, 0.62);
-  backdrop-filter: blur(20px);
+  padding: 18px;
+  border: 1px solid rgba(154, 135, 255, 0.52);
+  border-radius: 20px;
+  background:
+    linear-gradient(145deg, rgba(25, 21, 58, 0.98), rgba(7, 7, 25, 0.99));
+  box-shadow:
+    0 28px 72px rgba(0, 0, 0, 0.62),
+    0 0 0 1px rgba(255, 255, 255, 0.025) inset;
+  opacity: 0;
+  transform: translateY(-8px) scale(0.985);
+  transform-origin: top right;
+  transition: opacity 0.16s ease, transform 0.16s ease;
 }
 
-.site-account-menu[hidden] {
-  display: none;
+.site-account-menu.is-open {
+  opacity: 1;
+  transform: translateY(0) scale(1);
 }
 
 .site-account-heading {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 12px;
-  margin-bottom: 12px;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.site-account-heading-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+  min-width: 0;
+}
+
+.site-account-heading-copy {
+  min-width: 0;
 }
 
 .site-account-heading strong {
   display: block;
-  font-size: 0.96rem;
+  margin-top: 1px;
+  font-size: 1rem;
 }
 
 .site-account-heading p,
 .site-account-menu p {
-  margin: 3px 0 0;
+  margin: 4px 0 0;
   color: var(--text-muted);
   font-size: 0.8rem;
   line-height: 1.5;
@@ -100,18 +166,21 @@
   place-items: center;
   width: 32px;
   height: 32px;
+  flex: 0 0 auto;
   padding: 0;
-  border: 1px solid rgba(139, 123, 255, 0.24);
+  border: 1px solid rgba(139, 123, 255, 0.28);
   border-radius: 50%;
-  background: transparent;
+  background: rgba(255, 255, 255, 0.025);
   color: var(--text-muted);
   cursor: pointer;
   font-size: 1rem;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
 }
 
 .site-account-close:hover {
   color: var(--text-main);
-  border-color: rgba(139, 123, 255, 0.6);
+  border-color: rgba(139, 123, 255, 0.7);
+  background: rgba(139, 123, 255, 0.1);
 }
 
 #google-signin-button {
@@ -120,28 +189,36 @@
 
 .site-account-menu .google-user-panel {
   display: grid;
-  gap: 12px;
+  gap: 15px;
+}
+
+.site-account-menu .google-nickname-editor {
+  padding: 14px;
+  border: 1px solid rgba(139, 123, 255, 0.2);
+  border-radius: 14px;
+  background: rgba(2, 3, 18, 0.42);
 }
 
 .site-account-menu .google-nickname-editor label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: 7px;
   font-size: 0.82rem;
-  font-weight: 700;
+  font-weight: 750;
 }
 
 .site-account-menu .google-nickname-row {
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 8px;
+  gap: 9px;
 }
 
 .site-account-menu .google-nickname-row input {
   width: 100%;
   min-width: 0;
-  padding: 9px 11px;
+  min-height: 42px;
+  padding: 9px 12px;
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
+  border-radius: 11px;
   outline: none;
   background: rgba(4, 5, 20, 0.98);
   color: var(--text-main);
@@ -152,9 +229,14 @@
   box-shadow: 0 0 0 1px var(--accent-soft);
 }
 
+.site-account-menu .google-nickname-row .btn {
+  min-width: 68px;
+  padding-inline: 15px;
+}
+
 .site-account-menu .google-nickname-help,
 .site-account-menu .google-nickname-status {
-  margin-top: 6px;
+  margin-top: 7px;
 }
 
 .site-account-menu .google-nickname-status {
@@ -162,8 +244,15 @@
   color: var(--accent-strong);
 }
 
+.site-account-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  padding-top: 2px;
+}
+
 .site-account-menu .google-signout-button {
-  justify-self: start;
+  min-width: 82px;
 }
 
 .site-account-loading {
@@ -174,16 +263,7 @@
   font-size: 0.82rem;
 }
 
-.site-header {
-  transition: padding-bottom 0.18s ease;
-}
-
-.site-header.site-account-open {
-  padding-bottom: var(--site-account-menu-space, 190px);
-}
-
 .header-inner.has-site-account {
-  position: relative;
   justify-content: flex-start;
 }
 
@@ -210,9 +290,23 @@
   .site-account-label {
     max-width: 82px;
   }
+}
 
+@media (max-width: 640px) {
   .site-account-menu {
-    max-height: calc(100dvh - 130px);
+    top: auto;
+    right: 12px;
+    bottom: 12px;
+    left: 12px;
+    width: auto;
+    max-height: calc(100dvh - 24px);
+    border-radius: 22px;
+    transform-origin: bottom center;
+    transform: translateY(14px) scale(0.99);
+  }
+
+  .site-account-menu.is-open {
+    transform: translateY(0) scale(1);
   }
 
   .site-account-menu .google-nickname-row {
@@ -223,10 +317,18 @@
   .site-account-menu .google-signout-button {
     width: 100%;
   }
+
+  .site-account-actions {
+    justify-content: stretch;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .site-header {
+  .site-account-trigger,
+  .site-account-caret,
+  .site-account-backdrop,
+  .site-account-menu,
+  .site-account-close {
     transition: none;
   }
 }
