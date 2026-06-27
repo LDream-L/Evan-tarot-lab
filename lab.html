@@ -6,8 +6,8 @@
   <title>Evan Tarot｜塔羅實驗室</title>
   <meta name="description" content="Evan Tarot 實驗室：將成熟的塔羅實驗轉化成可操作、可紀錄與可驗證的工具。" />
   <meta name="theme-color" content="#050518" />
-  <link rel="stylesheet" href="style.css?v=20260505-polish-v2" />
-  <link rel="stylesheet" href="lab.css?v=20260625-lab-v3" />
+  <link rel="stylesheet" href="style.css?v=20260627-lab-layout-v1" />
+  <link rel="stylesheet" href="lab.css?v=20260627-lab-layout-v1" />
 </head>
 <body>
   <header class="site-header">
@@ -21,7 +21,6 @@
         <a href="services.html">占卜項目</a>
         <a href="articles.html">文章</a>
         <a href="lab.html" aria-current="page">實驗室</a>
-        <a href="timeflow.html">時間流</a>
         <a href="services.html#booking">預約</a>
       </nav>
     </div>
@@ -59,72 +58,105 @@
 
     <section class="section alt lab-projects-section" id="projects">
       <div class="container">
-        <h2>目前的實驗物件</h2>
-        <p class="section-lead">從文章與實驗紀錄中發展完成，並已具備可操作介面的項目。</p>
+        <div class="lab-projects-header">
+          <div class="lab-projects-heading">
+            <p class="lab-section-eyebrow">Experiment Directory</p>
+            <h2>目前的實驗物件</h2>
+            <p class="section-lead">由可直接使用的工具、進行中的模型與驗證型紀錄組成；每個項目都保留輸入、輸出與後續檢查。</p>
+          </div>
+          <div class="lab-projects-summary" aria-label="目前共有三個實驗物件">
+            <strong>3</strong>
+            <span>個可操作項目</span>
+          </div>
+        </div>
 
-        <div class="lab-projects-grid">
+        <div class="lab-projects-grid" aria-label="實驗室項目清單">
           <article class="lab-project-card is-featured">
             <div class="lab-project-topline">
               <p class="lab-project-kicker">Lost Item Lab</p>
-              <span class="lab-project-status">進行中</span>
+              <span class="lab-project-status is-active">進行中</span>
             </div>
-            <h3>塔羅尋物</h3>
-            <p>先由大型區域反查三張牌的支持度，再用牌面空間特徵細化同一區域中的位置。</p>
+            <div class="lab-project-heading">
+              <span class="lab-project-number" aria-hidden="true">01</span>
+              <div>
+                <h3>塔羅尋物</h3>
+                <p class="lab-project-summary">先由大型區域反查三張牌的支持度，再用牌面空間特徵細化同一區域中的位置。</p>
+              </div>
+            </div>
             <div class="lab-project-meta">
               <span>v5.0.0</span>
               <span>大型區域反查</span>
               <span>零回測加權</span>
             </div>
-            <ul class="lab-project-points">
-              <li>區域與高低、內外、明暗線索分層處理</li>
-              <li>同分明列並列，不依抽牌順序硬拆</li>
-              <li>找到結果只作紀錄，不修改牌面分數</li>
-            </ul>
+            <div class="lab-project-detail">
+              <p class="lab-project-label">判讀核心</p>
+              <ul class="lab-project-points">
+                <li>區域與高低、內外、明暗線索分層處理</li>
+                <li>同分明列並列，不依抽牌順序硬拆</li>
+                <li>找到結果只作紀錄，不修改牌面分數</li>
+              </ul>
+            </div>
             <div class="lab-project-actions">
               <a class="btn primary" href="lost-item.html">開啟塔羅尋物</a>
               <a class="btn ghost" href="articles.html">查看相關文章</a>
             </div>
           </article>
 
-          <article class="lab-project-card">
+          <article class="lab-project-card is-experiment">
             <div class="lab-project-topline">
               <p class="lab-project-kicker">Football Match Lab</p>
-              <span class="lab-project-status">實驗中</span>
+              <span class="lab-project-status is-experiment">實驗中</span>
             </div>
-            <h3>世足賽事驗證</h3>
-            <p>把單張結果與四張攻防拆成獨立模型，分別驗證直接賽果與攻防推導比分。</p>
+            <div class="lab-project-heading">
+              <span class="lab-project-number" aria-hidden="true">02</span>
+              <div>
+                <h3>世足賽事驗證</h3>
+                <p class="lab-project-summary">把單張結果與四張攻防拆成獨立模型，分別驗證直接賽果與攻防推導比分。</p>
+              </div>
+            </div>
             <div class="lab-project-meta">
               <span>v1.2.0</span>
               <span>模型分離</span>
               <span>賽前鎖定</span>
             </div>
-            <ul class="lab-project-points">
-              <li>單張牌直接判斷 90 分鐘主勝、和局或客勝</li>
-              <li>四張攻防先推導比分，再由比分自動產生賽果</li>
-              <li>雙模型分開抽牌、分開統計，不事後挑選答案</li>
-            </ul>
+            <div class="lab-project-detail">
+              <p class="lab-project-label">驗證核心</p>
+              <ul class="lab-project-points">
+                <li>單張牌直接判斷 90 分鐘主勝、和局或客勝</li>
+                <li>四張攻防先推導比分，再由比分自動產生賽果</li>
+                <li>雙模型分開抽牌、分開統計，不事後挑選答案</li>
+              </ul>
+            </div>
             <div class="lab-project-actions">
               <a class="btn primary" href="football-lab.html">開啟世足驗證</a>
             </div>
           </article>
 
-          <article class="lab-project-card">
+          <article class="lab-project-card is-tool">
             <div class="lab-project-topline">
               <p class="lab-project-kicker">Timeflow Lab</p>
-              <span class="lab-project-status">驗證工具</span>
+              <span class="lab-project-status is-tool">驗證工具</span>
             </div>
-            <h3>占卜時間流</h3>
-            <p>將占卜問題、牌面、後續事件與驗證結果接在同一條主題流上。</p>
+            <div class="lab-project-heading">
+              <span class="lab-project-number" aria-hidden="true">03</span>
+              <div>
+                <h3>占卜時間流</h3>
+                <p class="lab-project-summary">將占卜問題、牌面、後續事件與驗證結果接在同一條主題流上。</p>
+              </div>
+            </div>
             <div class="lab-project-meta">
               <span>主題流</span>
               <span>事件連結</span>
               <span>結果驗證</span>
             </div>
-            <ul class="lab-project-points">
-              <li>保留占卜當下的原始判讀</li>
-              <li>將後續事件連回對應案例</li>
-              <li>比較成立、部分成立與未應驗</li>
-            </ul>
+            <div class="lab-project-detail">
+              <p class="lab-project-label">紀錄核心</p>
+              <ul class="lab-project-points">
+                <li>保留占卜當下的原始判讀</li>
+                <li>將後續事件連回對應案例</li>
+                <li>比較成立、部分成立與未應驗</li>
+              </ul>
+            </div>
             <div class="lab-project-actions">
               <a class="btn primary" href="timeflow.html">開啟占卜時間流</a>
             </div>
@@ -143,6 +175,6 @@
 
   <script src="JS/utils.js?v=20260505-polish-v2"></script>
   <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
-  <script src="JS/main.js?v=20260625-v500"></script>
+  <script src="JS/main.js?v=20260627-lab-nav-v1"></script>
 </body>
 </html>
