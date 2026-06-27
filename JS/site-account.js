@@ -3,13 +3,13 @@
 // 全站統一 Google 登入、暱稱與登出入口
 // ==============================
 // 主要函式複雜度：
-// - ensureMarkup / updateTrigger：O(1)
+// - ensureMarkup / syncMenuSpace / updateTrigger：O(1)
 // - loadDependencies：O(s)，s = 固定依賴數（最多 3）
 // 空間複雜度：O(1)
 //
 // 更快替代方案比較：
 // - 各功能頁各自建立登入面板：重複載入、狀態不一致、畫面占用大。
-// - 本實作：全站共用右上角帳戶入口，功能頁只讀同一份登入狀態。
+// - 本實作：全站共用右上角帳戶入口，開啟時由頁首預留面板高度，避免覆蓋頁面內容。
 // ==============================
 
 (function defineUnifiedSiteAccount() {
@@ -17,12 +17,15 @@
 
   if (window.EvanSiteAccount) return;
 
-  const SCRIPT_VERSION = "20260626-site-account-v1";
+  const SCRIPT_VERSION = "20260627-site-account-v2";
+  const MENU_SPACE_GAP = 20;
   const loadedScripts = new Map();
   let initialized = false;
   let accountRoot = null;
+  let siteHeader = null;
   let trigger = null;
   let menu = null;
+  let menuResizeObserver = null;
   let readyResolve;
   const ready = new Promise((resolve) => { readyResolve = resolve; });
 
@@ -108,6 +111,13 @@
   }
 
   /** 時間複雜度 O(1)，空間複雜度 O(1)。 */
+  function syncMenuSpace() {
+    if (!siteHeader || !menu || menu.hidden) return;
+    const menuHeight = Math.ceil(menu.getBoundingClientRect().height);
+    siteHeader.style.setProperty("--site-account-menu-space", `${menuHeight + MENU_SPACE_GAP}px`);
+  }
+
+  /** 時間複雜度 O(1)，空間複雜度 O(1)。 */
   function ensureMarkup() {
     const headerInner = document.querySelector(".site-header .header-inner");
     if (!headerInner) return false;
@@ -118,16 +128,26 @@
       headerInner.appendChild(accountRoot);
     }
 
+    siteHeader = headerInner.closest(".site-header");
     headerInner.classList.add("has-site-account");
     trigger = document.getElementById("site-account-trigger");
     menu = document.getElementById("site-account-menu");
-    return Boolean(trigger && menu);
+    return Boolean(siteHeader && trigger && menu);
   }
 
   function setOpen(nextOpen) {
     if (!trigger || !menu) return;
-    menu.hidden = !nextOpen;
-    trigger.setAttribute("aria-expanded", nextOpen ? "true" : "false");
+
+    const shouldOpen = Boolean(nextOpen);
+    menu.hidden = !shouldOpen;
+    trigger.setAttribute("aria-expanded", shouldOpen ? "true" : "false");
+    siteHeader?.classList.toggle("site-account-open", shouldOpen);
+
+    if (shouldOpen) {
+      window.requestAnimationFrame(syncMenuSpace);
+    } else {
+      siteHeader?.style.removeProperty("--site-account-menu-space");
+    }
   }
 
   function open(options = {}) {
@@ -159,6 +179,11 @@
       avatar.textContent = Array.from(source)[0]?.toUpperCase?.() || "G";
     }
     trigger?.classList.toggle("is-signed-in", signedIn);
+
+    if (menu && !menu.hidden) {
+      window.requestAnimationFrame(syncMenuSpace);
+    }
+
     window.dispatchEvent(new CustomEvent("evan-google-auth-change", { detail: state }));
   }
 
@@ -174,6 +199,13 @@
     document.addEventListener("keydown", (event) => {
       if (event.key === "Escape" && menu && !menu.hidden) close();
     });
+
+    window.addEventListener("resize", syncMenuSpace, { passive: true });
+
+    if (window.ResizeObserver && menu) {
+      menuResizeObserver = new ResizeObserver(syncMenuSpace);
+      menuResizeObserver.observe(menu);
+    }
   }
 
   async function loadDependencies() {
