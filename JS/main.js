@@ -12,7 +12,7 @@
 //
 // 更快替代方案比較：
 // - 各頁分別維護導覽與登入：容易出現名稱、狀態與介面不同步。
-// - 共用初始化：載入時一次補齊導覽與右上角帳戶入口。
+// - 共用初始化：載入時一次補齊導覽、集中實驗工具與右上角帳戶入口。
 // ==============================
 
 function loadSiteAccountScript() {
@@ -58,7 +58,7 @@ function ensureLabStyles() {
   if (document.querySelector('link[href*="lab.css"]')) return;
   const stylesheet = document.createElement("link");
   stylesheet.rel = "stylesheet";
-  stylesheet.href = "lab.css?v=20260624-lab-v2";
+  stylesheet.href = "lab.css?v=20260627-lab-layout-v1";
   document.head.appendChild(stylesheet);
 }
 
@@ -70,7 +70,7 @@ function createNavLink(href, text) {
 }
 
 /**
- * 文章與實驗室保持獨立，塔羅尋物歸入實驗室。
+ * 文章與實驗室保持獨立；塔羅尋物、世足驗證與占卜時間流均歸入實驗室。
  * 時間複雜度：O(n)
  * 空間複雜度：O(1)
  */
@@ -86,7 +86,7 @@ function normalizeSiteNavigation() {
 
   if (!articleLink) {
     articleLink = createNavLink("articles.html", "文章");
-    nav.insertBefore(articleLink, timeflowLink || null);
+    nav.insertBefore(articleLink, labLink || timeflowLink || null);
   }
   articleLink.textContent = "文章";
 
@@ -97,13 +97,19 @@ function normalizeSiteNavigation() {
   labLink.textContent = "實驗室";
 
   lostItemLink?.remove();
+  timeflowLink?.remove();
   articleLink.removeAttribute("aria-current");
   labLink.removeAttribute("aria-current");
 
   if (currentPage === "articles.html" || currentPage === "article.html") {
     articleLink.setAttribute("aria-current", "page");
   }
-  if (currentPage === "lab.html" || currentPage === "lost-item.html" || currentPage === "football-lab.html") {
+  if (
+    currentPage === "lab.html" ||
+    currentPage === "lost-item.html" ||
+    currentPage === "football-lab.html" ||
+    currentPage === "timeflow.html"
+  ) {
     labLink.setAttribute("aria-current", "page");
   }
 }
