@@ -30,7 +30,7 @@ function loadSiteAccountScript() {
     }
 
     const script = document.createElement("script");
-    script.src = "JS/site-account.js?v=20260626-site-account-v1";
+    script.src = "JS/site-account.js?v=20260627-site-account-v2";
     script.async = false;
     script.dataset.globalSiteAccount = "1";
     script.onload = () => resolve(Boolean(window.EvanSiteAccount));
