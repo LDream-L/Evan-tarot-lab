@@ -1,9 +1,9 @@
-// 世足賽事驗證 v1.3.0｜相容載入器
-// 依序載入雲端設定、全站帳戶、固定資料、核心、嚴格比分、渲染、晉級欄位修正、日期修正、事件、雲端同步、紀錄分流與命中視覺化。時間 O(m)，空間 O(1)，m=13。
+// 世足賽事驗證 v1.3.1｜相容載入器
+// 依序載入雲端設定、全站帳戶、固定資料、核心、嚴格比分、渲染、晉級欄位修正、日期修正、事件、雲端同步、紀錄分流、命中視覺化與紀錄顯示優化。時間 O(m)，空間 O(1)，m=14。
 (function loadFootballLabModules() {
   "use strict";
 
-  const version = "20260627-football-v130";
+  const version = "20260627-football-v131";
   const modules = [
     "JS/cloud-config.js",
     "JS/site-account.js",
@@ -18,6 +18,7 @@
     "JS/football-records-ux.js",
     "JS/football-hit-ux.js",
     "JS/football-strict-hit-ux.js",
+    "JS/football-record-display-ux.js",
   ];
 
   function loadNext(index) {
