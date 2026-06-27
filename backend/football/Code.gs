@@ -1,16 +1,18 @@
-// Evan Tarot｜世足賽事驗證 Google Sheets 後端 v1.0.0
+// Evan Tarot｜世足賽事驗證 Google Sheets 後端 v1.1.0
 // 正式部署位置：綁定全新的「Evan Tarot｜世足賽事驗證資料庫」Google 試算表。
 //
 // 主要複雜度：
 // - setupFootballWorkbook：O(s * h) 時間／O(h) 空間，s=工作表數、h=欄位數。
 // - createFootballRecord：O(r + c) 時間／O(c) 空間，r=既有賽事列、c=本場牌數（最多 5）。
 // - updateFootballActual：O(r) 時間／O(1) 額外空間。
+// - recalculateAllFootballEvaluations：O(r * h) 時間／O(r * h) 空間。
 // - listFootballRecords：O(r + c + e) 時間／O(r + c + e) 空間。
 //
 // 暴力替代：每次查詢逐格呼叫 Spreadsheet API，會造成大量遠端往返。
 // 本版優化：每張工作表一次批次讀取、一次批次寫入，並以 Map 組合牌面與事件。
+// 嚴格比分規則：單邊進球數相同不獨立計為命中，只有完整比分一致才算比分命中。
 
-const FOOTBALL_DB_VERSION = '1.0.0';
+const FOOTBALL_DB_VERSION = '1.1.0';
 const FOOTBALL_SCHEMA_VERSION = 'evan-football-tarot-v2';
 
 const FOOTBALL_SHEETS = Object.freeze({
@@ -203,6 +205,50 @@ function updateFootballActual_(recordId, actual) {
 }
 
 /**
+ * 依嚴格比分規則重算試算表內所有已核對紀錄。
+ * 時間複雜度：O(r * h)
+ * 空間複雜度：O(r * h)
+ * 更快替代方案：逐列 setValue 會產生 O(r) 次遠端寫入；本函式整批讀寫一次。
+ */
+function recalculateAllFootballEvaluations() {
+  const sheet = getFootballSpreadsheet_().getSheetByName(FOOTBALL_SHEETS.MATCHES);
+  const lastRow = sheet.getLastRow();
+  const headers = FOOTBALL_HEADERS.FootballMatches;
+  if (lastRow < 2) return { ok: true, updated: 0 };
+
+  const range = sheet.getRange(2, 1, lastRow - 1, headers.length);
+  const rows = range.getValues();
+  const index = Object.fromEntries(headers.map((header, column) => [header, column]));
+  let updated = 0;
+
+  rows.forEach((row) => {
+    const actualHomeGoals = toNullableNumber_(row[index.actualHomeGoals]);
+    const actualAwayGoals = toNullableNumber_(row[index.actualAwayGoals]);
+    if (!Number.isInteger(actualHomeGoals) || !Number.isInteger(actualAwayGoals)) return;
+
+    const stored = rowToObject_(headers, row);
+    const evaluation = evaluateActual_(stored, {
+      homeGoals: actualHomeGoals,
+      awayGoals: actualAwayGoals,
+    });
+
+    row[index.actualResult] = evaluation.actualResult;
+    row[index.directResultHit] = nullable_(evaluation.directResultHit);
+    row[index.structureResultHit] = nullable_(evaluation.structureResultHit);
+    row[index.structureHomeGoalHit] = nullable_(evaluation.structureHomeGoalHit);
+    row[index.structureAwayGoalHit] = nullable_(evaluation.structureAwayGoalHit);
+    row[index.structureExactHit] = nullable_(evaluation.structureExactHit);
+    row[index.structureAbsoluteError] = nullable_(evaluation.structureAbsoluteError);
+    row[index.modelsAgree] = nullable_(evaluation.modelsAgree);
+    row[index.updatedAt] = new Date().toISOString();
+    updated += 1;
+  });
+
+  range.setValues(rows);
+  return { ok: true, updated };
+}
+
+/**
  * 新增賽後特殊事件。
  * 時間複雜度：O(1)
  * 空間複雜度：O(1)
@@ -295,22 +341,32 @@ function buildMatchRow_(record) {
   return FOOTBALL_HEADERS.FootballMatches.map((header) => Object.prototype.hasOwnProperty.call(values, header) ? values[header] : '');
 }
 
+/**
+ * 嚴格比分核對：單邊進球數相同只作誤差資訊，不獨立計為命中。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ */
 function evaluateActual_(stored, actual) {
-  const actualResult = getResult_(Number(actual.homeGoals), Number(actual.awayGoals));
+  const actualHome = Number(actual.homeGoals);
+  const actualAway = Number(actual.awayGoals);
+  const actualResult = getResult_(actualHome, actualAway);
   const hasDirect = stored.directResult === 'H' || stored.directResult === 'D' || stored.directResult === 'A';
   const structureHome = toNullableNumber_(stored.structureHomeGoals);
   const structureAway = toNullableNumber_(stored.structureAwayGoals);
   const hasStructure = Number.isInteger(structureHome) && Number.isInteger(structureAway);
   const structureResult = hasStructure ? getResult_(structureHome, structureAway) : '';
+  const exactScoreHit = hasStructure ? structureHome === actualHome && structureAway === actualAway : null;
+
   return {
     actualResult,
     directResultHit: hasDirect ? stored.directResult === actualResult : null,
     structureResultHit: hasStructure ? structureResult === actualResult : null,
-    structureHomeGoalHit: hasStructure ? structureHome === Number(actual.homeGoals) : null,
-    structureAwayGoalHit: hasStructure ? structureAway === Number(actual.awayGoals) : null,
-    structureExactHit: hasStructure ? structureHome === Number(actual.homeGoals) && structureAway === Number(actual.awayGoals) : null,
+    // 舊欄位保留相容性，但只有完整比分命中時才為 true。
+    structureHomeGoalHit: hasStructure ? exactScoreHit : null,
+    structureAwayGoalHit: hasStructure ? exactScoreHit : null,
+    structureExactHit: exactScoreHit,
     structureAbsoluteError: hasStructure
-      ? Math.abs(structureHome - Number(actual.homeGoals)) + Math.abs(structureAway - Number(actual.awayGoals))
+      ? Math.abs(structureHome - actualHome) + Math.abs(structureAway - actualAway)
       : null,
     modelsAgree: hasDirect && hasStructure ? stored.directResult === structureResult : null,
   };
