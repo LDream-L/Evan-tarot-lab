@@ -56,6 +56,7 @@ function syncBookingAvailabilityField(form) {
 
   const isRequired = requiresBookingAvailability(modeField.value);
   availabilityWrapper.hidden = !isRequired;
+  availabilityWrapper.style.display = isRequired ? "block" : "none";
   availabilityField.required = isRequired;
 
   if (!isRequired) {
