@@ -6,11 +6,12 @@
 // - ensureMarkup / positionMenu / updateTrigger：O(1)
 // - getFocusableElements：O(k)，k = 帳戶視窗內可聚焦元件數
 // - loadDependencies：O(s)，s = 固定依賴數（最多 3）
-// 空間複雜度：O(k)
+// 空間複雜度：O(k + s)
 //
 // 更快替代方案比較：
-// - 撐高頁首容納帳戶面板：不會重疊，但會產生大面積空白並推動整頁內容。
-// - 本實作：帳戶面板以 body portal 顯示為浮動視窗，搭配遮罩、焦點管理與自動定位。
+// - 每次 resize / scroll 都直接重新量測：高頻事件可能重複觸發版面計算。
+// - 本實作：以 requestAnimationFrame 合併重新定位；資源載入則以 marker 共用 Promise，
+//   並辨識頁面既有 script，避免 Google Identity Services 重複載入。
 // ==============================
 
 (function defineUnifiedSiteAccount() {
@@ -18,11 +19,12 @@
 
   if (window.EvanSiteAccount) return;
 
-  const SCRIPT_VERSION = "20260627-site-account-v3";
+  const SCRIPT_VERSION = "20260629-stability-v1";
   const DESKTOP_WIDTH = 380;
   const VIEWPORT_MARGIN = 16;
   const TRIGGER_GAP = 10;
   const CLOSE_ANIMATION_MS = 170;
+  const DEPENDENCY_TIMEOUT_MS = 12000;
   const loadedScripts = new Map();
 
   let initialized = false;
@@ -32,6 +34,7 @@
   let menu = null;
   let menuResizeObserver = null;
   let closeTimer = 0;
+  let repositionRaf = 0;
   let lastFocusedElement = null;
   let readyResolve;
 
@@ -39,12 +42,21 @@
     readyResolve = resolve;
   });
 
-  function loadStyle(href, marker) {
-    const existing = document.querySelector(`link[data-site-account-style="${marker}"]`);
-    if (existing) {
-      existing.href = href;
-      return;
+  function normalizeUrl(url) {
+    try {
+      return new URL(url, document.baseURI).href;
+    } catch (error) {
+      console.warn("[site-account] 無法正規化資源網址：", url, error);
+      return String(url || "");
     }
+  }
+
+  function loadStyle(href, marker) {
+    const normalizedHref = normalizeUrl(href);
+    const existing = Array.from(document.querySelectorAll("link[rel='stylesheet']")).find((link) =>
+      link.dataset.siteAccountStyle === marker || link.href === normalizedHref
+    );
+    if (existing) return;
 
     const link = document.createElement("link");
     link.rel = "stylesheet";
@@ -53,24 +65,57 @@
     document.head.appendChild(link);
   }
 
-  function loadScript(src, marker) {
+  function loadScript(src, marker, isReady) {
+    if (typeof isReady === "function" && isReady()) return Promise.resolve(true);
     if (loadedScripts.has(marker)) return loadedScripts.get(marker);
 
-    const existing = document.querySelector(`script[data-site-account-script="${marker}"]`);
-    if (existing) {
-      const promise = Promise.resolve(true);
-      loadedScripts.set(marker, promise);
-      return promise;
-    }
+    const normalizedSrc = normalizeUrl(src);
+    const existing = Array.from(document.scripts).find((script) =>
+      script.dataset.siteAccountScript === marker || script.src === normalizedSrc
+    );
 
     const promise = new Promise((resolve) => {
-      const script = document.createElement("script");
-      script.src = src;
-      script.async = false;
-      script.dataset.siteAccountScript = marker;
-      script.onload = () => resolve(true);
-      script.onerror = () => resolve(false);
-      document.head.appendChild(script);
+      let script = existing;
+      let settled = false;
+      let pollTimer = 0;
+      let timeoutTimer = 0;
+
+      const cleanup = () => {
+        if (pollTimer) window.clearInterval(pollTimer);
+        if (timeoutTimer) window.clearTimeout(timeoutTimer);
+        script?.removeEventListener("load", handleLoad);
+        script?.removeEventListener("error", handleError);
+      };
+
+      const finish = (success) => {
+        if (settled) return;
+        settled = true;
+        cleanup();
+        resolve(Boolean(success));
+      };
+
+      const checkReady = () => {
+        if (typeof isReady !== "function" || isReady()) finish(true);
+      };
+
+      const handleLoad = () => checkReady();
+      const handleError = () => finish(false);
+
+      if (!script) {
+        script = document.createElement("script");
+        script.src = src;
+        script.async = false;
+        script.dataset.siteAccountScript = marker;
+      }
+
+      script.addEventListener("load", handleLoad);
+      script.addEventListener("error", handleError);
+
+      pollTimer = window.setInterval(checkReady, 100);
+      timeoutTimer = window.setTimeout(() => finish(false), DEPENDENCY_TIMEOUT_MS);
+
+      if (!existing) document.head.appendChild(script);
+      checkReady();
     });
 
     loadedScripts.set(marker, promise);
@@ -217,6 +262,14 @@
     menu.style.setProperty("--site-account-max-height", `${Math.round(maxHeight)}px`);
   }
 
+  function queuePositionMenu() {
+    if (repositionRaf) return;
+    repositionRaf = window.requestAnimationFrame(() => {
+      repositionRaf = 0;
+      if (menu && !menu.hidden) positionMenu();
+    });
+  }
+
   /** 時間複雜度 O(k)，空間複雜度 O(k)。 */
   function getFocusableElements() {
     if (!menu) return [];
@@ -310,9 +363,7 @@
 
     trigger?.classList.toggle("is-signed-in", signedIn);
 
-    if (menu && !menu.hidden) {
-      window.requestAnimationFrame(positionMenu);
-    }
+    if (menu && !menu.hidden) queuePositionMenu();
 
     window.dispatchEvent(new CustomEvent("evan-google-auth-change", { detail: state }));
   }
@@ -357,15 +408,11 @@
       trapFocus(event);
     });
 
-    const reposition = () => {
-      if (menu && !menu.hidden) positionMenu();
-    };
-
-    window.addEventListener("resize", reposition, { passive: true });
-    window.addEventListener("scroll", reposition, { passive: true, capture: true });
+    window.addEventListener("resize", queuePositionMenu, { passive: true });
+    window.addEventListener("scroll", queuePositionMenu, { passive: true, capture: true });
 
     if (window.ResizeObserver && menu) {
-      menuResizeObserver = new ResizeObserver(reposition);
+      menuResizeObserver = new ResizeObserver(queuePositionMenu);
       menuResizeObserver.observe(menu);
     }
   }
@@ -374,15 +421,27 @@
     loadStyle(`site-account.css?v=${SCRIPT_VERSION}`, "account");
 
     if (!window.EVAN_CLOUD_CONFIG) {
-      await loadScript(`JS/cloud-config.js?v=${SCRIPT_VERSION}`, "cloud-config");
+      await loadScript(
+        `JS/cloud-config.js?v=${SCRIPT_VERSION}`,
+        "cloud-config",
+        () => Boolean(window.EVAN_CLOUD_CONFIG)
+      );
     }
 
     if (!window.EvanGoogleAuth) {
-      await loadScript(`JS/google-auth.js?v=${SCRIPT_VERSION}`, "google-auth");
+      await loadScript(
+        `JS/google-auth.js?v=${SCRIPT_VERSION}`,
+        "google-auth",
+        () => Boolean(window.EvanGoogleAuth)
+      );
     }
 
     if (!window.google?.accounts?.id) {
-      await loadScript("https://accounts.google.com/gsi/client?hl=zh-TW", "google-identity");
+      await loadScript(
+        "https://accounts.google.com/gsi/client?hl=zh-TW",
+        "google-identity",
+        () => Boolean(window.google?.accounts?.id)
+      );
     }
   }
 
