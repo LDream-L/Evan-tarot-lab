@@ -7,15 +7,18 @@
 // - fetchCloudRecords：O(n)
 // - buildThreads：O(n)
 // - renderThreads：O(n)
-// - submitMainComment / submitReply：O(1)（不含網路延遲）
+// - submitMainComment / submitReply：O(n)（送出後核對一次資料）
 // 空間複雜度：O(n)
 //
 // 更快替代方案比較：
-// - 暴力法：每個主留言重複掃描全部資料找回覆，最差 O(n²)。
-// - 本實作：用 Map 建立 threadId 查表，再單次分配回覆，維持 O(n)。
+// - no-cors 寫入後固定等待再查詢：無法讀取後端結果，延遲固定且錯誤不透明。
+// - 本實作：直接讀取 JSON 成功結果；遇到逾時時只查詢既有紀錄，不自動重送，
+//   以 threadId／requestId 核對是否其實已完成，避免重複留言。
 // ==============================
 
 (function initThreadedArticleComments() {
+  "use strict";
+
   const REQUEST_TIMEOUT_MS = 12000;
   const MAX_RECORDS = 300;
   const META_PATTERN = /^\[\[v2;a=([a-zA-Z0-9_-]+);k=([cr]);i=([a-zA-Z0-9_-]+);p=([a-zA-Z0-9_-]*)\]\]([\s\S]*)$/;
@@ -112,14 +115,14 @@
     const credential = window.EvanGoogleAuth?.getCredential?.() || "";
     if (!credential) throw new Error("GOOGLE_LOGIN_REQUIRED");
 
-    await fetchWithTimeout(getApiUrl(), {
+    const response = await fetchWithTimeout(getApiUrl(), {
       method: "POST",
-      mode: "no-cors",
       cache: "no-store",
       headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: JSON.stringify({
         action: "create",
         credential,
+        requestId: record.threadId,
         title: encodeMetadata(record),
         text: record.text,
         createdAt: record.createdAt,
@@ -127,6 +130,11 @@
       }),
       keepalive: true,
     });
+
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const payload = await response.json();
+    if (!payload?.success) throw new Error(payload?.error || "留言儲存失敗");
+    return payload;
   }
 
   function formatTaipeiDate(value) {
@@ -160,17 +168,20 @@
     element.classList.remove("is-error", "is-success");
   }
 
+  function openAccountPanel(focusNickname) {
+    window.EvanSiteAccount?.open?.({ focusNickname: Boolean(focusNickname) });
+  }
+
   function requireCommentIdentity() {
     if (!window.EvanGoogleAuth?.isSignedIn?.()) {
-      document.getElementById("google-auth-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
-      showMessage("請先使用 Google 帳號登入。", "is-error");
+      openAccountPanel(false);
+      showMessage("請先使用右上角的 Google 帳戶入口登入。", "is-error");
       return false;
     }
 
     if (!window.EvanGoogleAuth?.hasNickname?.()) {
-      document.getElementById("google-nickname-input")?.focus();
-      document.getElementById("google-auth-card")?.scrollIntoView({ behavior: "smooth", block: "center" });
-      showMessage("請先設定公開暱稱。", "is-error");
+      openAccountPanel(true);
+      showMessage("請先在右上角帳戶視窗設定公開暱稱。", "is-error");
       return false;
     }
 
@@ -330,13 +341,28 @@
     renderThreads();
   }
 
-  async function persistRecord(record) {
-    await postCloudRecord(record);
-    await new Promise((resolve) => window.setTimeout(resolve, 900));
-    await reloadRecords();
+  function hasSavedRecord(threadId) {
+    return records.some((item) => item.threadId === threadId);
+  }
 
-    const saved = records.some((item) => item.threadId === record.threadId);
-    if (!saved) throw new Error("AUTH_PROFILE_OR_SAVE_FAILED");
+  async function persistRecord(record) {
+    try {
+      await postCloudRecord(record);
+    } catch (error) {
+      try {
+        await reloadRecords();
+      } catch (reloadError) {
+        console.error("[article-comments] 送出失敗後核對留言也失敗：", reloadError);
+      }
+
+      if (hasSavedRecord(record.threadId)) return;
+      throw error;
+    }
+
+    await reloadRecords();
+    if (!hasSavedRecord(record.threadId)) {
+      throw new Error("後端回報成功，但重新讀取後找不到本次留言。");
+    }
   }
 
   async function submitMainComment(event) {
@@ -367,7 +393,12 @@
       showMessage("留言已送出。", "is-success");
     } catch (error) {
       console.error("[article-comments] 留言送出失敗：", error);
-      showMessage("登入、暱稱或雲端儲存狀態異常，請重新確認後再試。", "is-error");
+      showMessage(
+        error?.name === "AbortError"
+          ? "送出逾時；系統已核對既有留言且未找到本筆，請稍後再試。"
+          : error?.message || "登入、暱稱或雲端儲存狀態異常，請重新確認後再試。",
+        "is-error"
+      );
     } finally {
       submitButton.disabled = !window.EvanGoogleAuth?.hasNickname?.();
     }
@@ -400,7 +431,10 @@
     } catch (error) {
       console.error("[article-comments] 回覆送出失敗：", error);
       submitButton.disabled = false;
-      window.EvanDialog?.alert?.("登入、暱稱或雲端儲存狀態異常，請重新確認後再試。", "送出失敗");
+      window.EvanDialog?.alert?.(
+        error?.message || "登入、暱稱或雲端儲存狀態異常，請重新確認後再試。",
+        "送出失敗"
+      );
     }
   }
 
