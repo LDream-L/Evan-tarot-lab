@@ -6,11 +6,12 @@
 // 主要函式複雜度：
 // - verifyAdmin：O(1)
 // - ensureAdminEntries：O(n)，n = 導覽連結數
+// - waitForAuthModules：O(a)，a = 固定載入檢查次數上限
 // 空間複雜度：O(1)
 //
 // 更快替代方案比較：
 // - 只在前端判斷帳號：速度快，但可被偽造，不能作為權限依據。
-// - 本實作：每次登入狀態改變時向 Apps Script 驗證，通過後才顯示入口。
+// - 本實作：等待登入模組完成後，向 Apps Script 驗證，通過才顯示入口。
 // ==============================
 
 (function defineAdminNavigation() {
@@ -19,6 +20,8 @@
   if (window.EvanAdminNavigation) return;
 
   const REQUEST_TIMEOUT_MS = 12000;
+  const AUTH_WAIT_ATTEMPTS = 120;
+  const AUTH_WAIT_INTERVAL_MS = 100;
   let initialized = false;
   let verificationSequence = 0;
   let isAdmin = false;
@@ -43,6 +46,14 @@
     } finally {
       window.clearTimeout(timer);
     }
+  }
+
+  async function waitForAuthModules() {
+    for (let attempt = 0; attempt < AUTH_WAIT_ATTEMPTS; attempt += 1) {
+      if (window.EvanSiteAccount && window.EvanGoogleAuth) return true;
+      await new Promise((resolve) => window.setTimeout(resolve, AUTH_WAIT_INTERVAL_MS));
+    }
+    return false;
   }
 
   function removeAdminEntries() {
@@ -131,10 +142,16 @@
     if (initialized) return isAdmin;
     initialized = true;
 
-    await window.EvanSiteAccount?.ready;
-    await window.EvanGoogleAuth?.init?.();
-    window.EvanGoogleAuth?.onChange?.(verifyAdmin);
-    return verifyAdmin(window.EvanGoogleAuth?.getState?.() || {});
+    const modulesReady = await waitForAuthModules();
+    if (!modulesReady) {
+      console.warn("[admin-navigation] 登入模組載入逾時，未顯示管理入口。");
+      return false;
+    }
+
+    await window.EvanSiteAccount.ready;
+    await window.EvanGoogleAuth.init();
+    window.EvanGoogleAuth.onChange(verifyAdmin);
+    return verifyAdmin(window.EvanGoogleAuth.getState());
   }
 
   window.EvanAdminNavigation = Object.freeze({
