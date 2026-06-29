@@ -10,7 +10,7 @@
 <link href="style.css?v=20260629-timeflow-v4" rel="stylesheet"/>
 <link href="google-auth.css?v=20260626-unified-account-v1" rel="stylesheet"/>
 <link href="site-account.css?v=20260627-site-account-v3" rel="stylesheet"/>
-<link href="timeflow.css?v=20260629-timeflow-v4" rel="stylesheet"/>
+<link href="timeflow.css?v=20260629-timeflow-cloud-v1" rel="stylesheet"/>
 </head>
 <body>
 <header class="site-header">
@@ -41,7 +41,7 @@
 </div>
 <div class="hero-meta">
 <span class="pill pill-soft">主題流管理</span>
-<span class="pill pill-outline">單一 / 平行檢視</span>
+<span class="pill pill-outline">Google Sheets 同步</span>
 </div>
 </div>
 <aside aria-label="時間流功能" class="hero-card">
@@ -50,7 +50,7 @@
 <ul>
 <li>單一時間流：固定聚焦一個主題</li>
 <li>平行時間流：同時比較多個主題</li>
-<li>事件連回占卜案例後，保留完整驗證脈絡</li>
+<li>登入後自動讀取與同步 Google Sheets</li>
 </ul>
 <p class="hero-note">日期統一顯示在主軸；節點卡片不再重複日期。</p>
 </div>
@@ -63,9 +63,9 @@
 <div class="tool-header timeflow-tool-header">
 <div>
 <h2>占卜時間流</h2>
-<p>建立主題流後，加入占卜案例與後續事件；登入 Google 帳號後可編輯本機資料。</p>
+<p>建立主題流後，加入占卜案例與後續事件；登入 Google 帳號後會同步到專用 Google Sheets。</p>
 </div>
-<p class="timeflow-storage-notice" id="map-auth-hint">訪客僅能瀏覽；請從右上角登入 Google 帳號後編輯。</p>
+<p class="timeflow-storage-notice" id="map-auth-hint">訪客僅能瀏覽；登入 Google 帳號後讀取與同步雲端資料。</p>
 </div>
 <div class="map-tool-layout" id="divination-map-app">
 <div aria-label="占卜時間流工具列" class="map-toolbar">
@@ -91,7 +91,7 @@
 <button aria-label="自動置中畫布" class="map-icon-btn" id="map-zoom-reset" title="依目前內容自動置中" type="button">85%</button>
 <button aria-label="放大畫布" class="map-icon-btn" id="map-zoom-in" type="button">＋</button>
 <button class="map-icon-btn map-text-btn" id="map-export-json" type="button">下載 JSON</button>
-<button class="map-icon-btn map-text-btn map-danger-btn" id="map-reset-data" type="button">清空本機資料</button>
+<button class="map-icon-btn map-text-btn map-danger-btn" id="map-reset-data" type="button">重設時間流</button>
 </div>
 </div>
 <div aria-label="可平移與縮放的圖譜畫布" class="map-viewport" id="map-viewport" tabindex="0">
@@ -134,7 +134,7 @@
 <div class="map-timeline-header"><h4>下方驗證時間軸</h4><p>依日期列出目前篩選後的占卜案例與事件。</p></div>
 <div class="map-timeline" id="map-timeline"></div>
 </section>
-<p class="timeflow-local-note"><strong>資料位置：</strong>目前正式資料仍保存在這個瀏覽器的 localStorage。下載 JSON 可做完整備份；換裝置、換瀏覽器或清除網站資料前，請先備份。</p>
+<p class="timeflow-local-note"><strong>資料位置：</strong>登入後正式資料會同步到專用 Google Sheets；瀏覽器 localStorage 保留本機快取。下載 JSON 仍可作為額外離線備份。</p>
 </div>
 </div>
 </div>
@@ -149,9 +149,11 @@
 <script src="https://accounts.google.com/gsi/client?hl=zh-TW" async defer></script>
 <script src="JS/utils.js?v=20260629-timeflow-v4"></script>
 <script src="JS/cloud-config.js?v=20260624-articles-cloud-v1"></script>
+<script src="JS/timeflow-config.js?v=20260629-timeflow-cloud-v1"></script>
 <script src="JS/google-auth.js?v=20260626-unified-account-v1"></script>
 <script src="JS/site-account.js?v=20260627-site-account-v3"></script>
 <script src="JS/divination-map.js?v=20260629-timeflow-v4"></script>
+<script src="JS/timeflow-cloud.js?v=20260629-timeflow-cloud-v1"></script>
 <script src="JS/ripple-effect.js?v=20260505-fixed-axis-free-card-v5"></script>
 <script src="JS/main.js?v=20260627-lab-nav-v1"></script>
 </body>
