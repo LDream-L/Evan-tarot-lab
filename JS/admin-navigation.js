@@ -142,4 +142,10 @@
     refresh: () => verifyAdmin(window.EvanGoogleAuth?.getState?.() || {}),
     isAdmin: () => isAdmin,
   });
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
 })();
