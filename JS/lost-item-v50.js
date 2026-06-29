@@ -5,12 +5,12 @@
 // 主要函式複雜度：
 // - handleLostItemForm：O(1)（固定欄位，不含網路延遲）
 // - renderLostItemResult：O(c + a + e)，c <= 3、a <= 5、e <= 8
-// - handleLostItemFeedbackForm：O(1)
+// - handleLostItemFeedbackForm：O(c + a)
 // 空間複雜度：O(c + a + e)
 //
-// 暴力法：前端公開 78 張牌與全部區域資料並自行計分。
-// 優化法：前端只送固定輸入並渲染結果；完整牌面資料與大型區域反查留在
-// Google Sheets／Apps Script 後端，避免公開模型資料並降低前端維護成本。
+// 暴力法：POST 失敗後自動改用 GET，可能讓同一題被抽牌、寫入兩次。
+// 優化法：每次提交附上 requestId，只允許單一 POST；失敗時保留同一 requestId，
+// 由使用者明確重試，避免前端在不確定後端狀態時自動再執行一次。
 // ==============================
 
 (function initLostItemV50() {
@@ -19,6 +19,7 @@
   const EXPECTED_VERSION = "5.0.0";
   const REQUEST_TIMEOUT_MS = 18000;
   const CLIENT_ID_KEY = "evanLostItemClientIdV50";
+  const REQUEST_ID_DATASET_KEY = "requestId";
   const FEEDBACK_FORM = Object.freeze({
     url: "https://docs.google.com/forms/d/e/1FAIpQLScdDR6CrMrs_G7HVMAbQYo95s4AaH5b3KDupUZ9TlD5e5yKLQ/formResponse",
     fields: {
@@ -56,6 +57,24 @@
     return value;
   }
 
+  /** 時間複雜度 O(1)，空間複雜度 O(1)。 */
+  function createRequestId() {
+    return window.crypto?.randomUUID?.() ||
+      `req_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 12)}`;
+  }
+
+  function getOrCreateRequestId(form) {
+    if (!form) return createRequestId();
+    if (!form.dataset[REQUEST_ID_DATASET_KEY]) {
+      form.dataset[REQUEST_ID_DATASET_KEY] = createRequestId();
+    }
+    return form.dataset[REQUEST_ID_DATASET_KEY];
+  }
+
+  function clearRequestId(form) {
+    if (form) delete form.dataset[REQUEST_ID_DATASET_KEY];
+  }
+
   async function fetchWithTimeout(url, options = {}) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
@@ -87,9 +106,10 @@
     element.classList.remove("is-error", "is-success");
   }
 
-  function buildRequestPayload() {
+  function buildRequestPayload(requestId) {
     return {
       action: "lostitem",
+      requestId,
       itemName: readValue("item-name"),
       notes: readValue("item-notes"),
       cardCount: Number(readValue("card-count") || 3),
@@ -103,34 +123,19 @@
     };
   }
 
-  async function requestByPost(payload) {
+  async function requestLostItem(payload) {
     const response = await fetchWithTimeout(getApiUrl(), {
       method: "POST",
       headers: { "Content-Type": "text/plain;charset=UTF-8" },
       body: JSON.stringify(payload),
     });
     if (!response.ok) throw new Error(`後端回應失敗：HTTP ${response.status}`);
-    return response.json();
-  }
 
-  async function requestByGet(payload) {
-    const url = new URL(getApiUrl());
-    Object.entries(payload).forEach(([key, value]) => {
-      url.searchParams.set(key, String(value == null ? "" : value));
-    });
-    url.searchParams.set("_", String(Date.now()));
-    const response = await fetchWithTimeout(url.toString(), { method: "GET" });
-    if (!response.ok) throw new Error(`後端備援回應失敗：HTTP ${response.status}`);
-    return response.json();
-  }
-
-  async function requestLostItem(payload) {
-    try {
-      return await requestByPost(payload);
-    } catch (error) {
-      console.warn("[lost-item-v5] POST 失敗，改用 GET：", error);
-      return requestByGet(payload);
+    const result = await response.json();
+    if (result?.requestId && result.requestId !== payload.requestId) {
+      throw new Error("後端回傳的 requestId 與本次請求不一致。請重新整理後再試。");
     }
+    return result;
   }
 
   function addSummary(container, label, value) {
@@ -292,7 +297,7 @@
     const areaNotice = document.getElementById("lost-item-area-notice");
     if (!result || !summary) return;
 
-    title.textContent = `占卜結果｜關於「${payload.itemName || "這個物品"}」`;
+    if (title) title.textContent = `占卜結果｜關於「${payload.itemName || "這個物品"}」`;
     summary.replaceChildren();
     addSummary(summary, "模型", payload.model);
     addSummary(summary, "大型區域聚焦", payload.focusLevel);
@@ -301,12 +306,14 @@
 
     if (areaNotice) areaNotice.textContent = payload.areaNotice || "";
 
-    if (payload.zeroStep) {
-      zeroStep.textContent = payload.zeroStep;
-      zeroStep.classList.remove("hidden");
-    } else {
-      zeroStep.textContent = "";
-      zeroStep.classList.add("hidden");
+    if (zeroStep) {
+      if (payload.zeroStep) {
+        zeroStep.textContent = payload.zeroStep;
+        zeroStep.classList.remove("hidden");
+      } else {
+        zeroStep.textContent = "";
+        zeroStep.classList.add("hidden");
+      }
     }
 
     renderCards(payload.cards);
@@ -320,6 +327,7 @@
       cards: payload.cards || [],
       topAreas: payload.topAreas || [],
       createdAt: payload.createdAt || new Date().toISOString(),
+      requestId: payload.requestId || "",
     };
 
     result.classList.remove("hidden");
@@ -328,9 +336,11 @@
 
   window.handleLostItemForm = async function handleLostItemForm(event) {
     event.preventDefault();
+    const form = event.currentTarget;
     const itemNameInput = document.getElementById("item-name");
     const submit = document.getElementById("lost-item-submit");
-    const payload = buildRequestPayload();
+    const requestId = getOrCreateRequestId(form);
+    const payload = buildRequestPayload(requestId);
 
     if (!payload.itemName) {
       itemNameInput?.focus();
@@ -355,10 +365,14 @@
         throw new Error(`網站已更新至 v${EXPECTED_VERSION}，但 Apps Script 後端仍是 v${response.version || "未知"}；請先部署新版後端。`);
       }
       renderLostItemResult(response);
+      clearRequestId(form);
       setMessage("已完成 v5.0.0 大型區域反查。", "is-success");
     } catch (error) {
       console.error("[lost-item-v5] 尋物失敗：", error);
-      setMessage(error?.message || "尋物計算失敗，請稍後再試。", "is-error");
+      const timeoutMessage = error?.name === "AbortError"
+        ? "後端回應逾時。系統沒有自動改送第二次請求，以避免重複抽牌；可按同一按鈕用相同 requestId 明確重試。"
+        : error?.message || "尋物計算失敗，請稍後再試。";
+      setMessage(timeoutMessage, "is-error");
     } finally {
       if (submit) {
         submit.disabled = false;
@@ -368,6 +382,9 @@
   };
 
   function nowTaipeiStamp() {
+    const sharedValue = window.nowTaipeiISO?.();
+    if (sharedValue) return sharedValue.replace("T", " ");
+
     return new Intl.DateTimeFormat("sv-SE", {
       timeZone: "Asia/Taipei",
       year: "numeric",
@@ -393,9 +410,10 @@
     return data;
   }
 
-  window.handleLostItemFeedbackForm = function handleLostItemFeedbackForm(event) {
+  window.handleLostItemFeedbackForm = async function handleLostItemFeedbackForm(event) {
     event.preventDefault();
-    const form = event.target;
+    const form = event.currentTarget;
+    const submit = form.querySelector('button[type="submit"]');
     const status = String(form.querySelector('input[name="found-status"]:checked')?.value || "");
     const context = window.lastLostItemContext;
     const message = document.getElementById("lost-item-feedback-message");
@@ -404,6 +422,7 @@
       if (message) {
         message.textContent = "請先抽牌產生結果後再回饋。";
         message.classList.remove("hidden");
+        message.classList.add("is-error");
       }
       return;
     }
@@ -416,6 +435,7 @@
     const userNote = readValue("found-notes");
     const note = [
       userNote,
+      context.requestId ? `requestId：${context.requestId}` : "",
       cards ? `抽牌：${cards}` : "",
       order ? `大型區域順序：${order}` : "",
       "此回饋只作結果紀錄，不回寫牌面分數或區域權重。",
@@ -429,13 +449,31 @@
       feedbackAt: nowTaipeiStamp(),
     });
 
-    fetch(FEEDBACK_FORM.url, { method: "POST", mode: "no-cors", body: data })
-      .catch((error) => console.warn("[lost-item-v5] 回饋送出失敗：", error));
-
-    form.reset();
+    if (submit) submit.disabled = true;
     if (message) {
-      message.textContent = "感謝你的回饋；本筆只作紀錄，不會改變牌面權重。";
-      message.classList.remove("hidden");
+      message.textContent = "回饋送出中…";
+      message.classList.remove("hidden", "is-error", "is-success");
+    }
+
+    try {
+      await fetch(FEEDBACK_FORM.url, { method: "POST", mode: "no-cors", body: data });
+      form.reset();
+      if (message) {
+        message.textContent = "回饋請求已送出；Google 表單不提供可讀回應，因此前端無法進一步驗證是否已入庫。";
+        message.classList.add("is-success");
+      }
+    } catch (error) {
+      console.warn("[lost-item-v5] 回饋送出失敗：", error);
+      if (message) {
+        message.textContent = "回饋送出失敗，表單內容已保留，請稍後再試。";
+        message.classList.add("is-error");
+      }
+    } finally {
+      if (submit) submit.disabled = false;
     }
   };
+
+  const lostItemForm = document.getElementById("lost-item-form");
+  lostItemForm?.addEventListener("input", () => clearRequestId(lostItemForm));
+  lostItemForm?.addEventListener("change", () => clearRequestId(lostItemForm));
 })();
