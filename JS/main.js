@@ -6,60 +6,98 @@
 // 主要函式複雜度：
 // - normalizeSiteNavigation：O(n)，n = 導覽連結數
 // - normalizeLostItemLabContext：O(1)
-// - loadSiteAccountScript：O(1)
+// - loadSiteAccountScript / loadArticleCommentsScript：O(1)
+// - bindCorePageEvents：O(1)
 // - DOMContentLoaded 初始化：O(n)
-// 空間複雜度：O(n)
+// 空間複雜度：O(1)
 //
 // 更快替代方案比較：
-// - 各頁分別維護導覽與登入：容易出現名稱、狀態與介面不同步。
-// - 共用初始化：載入時一次補齊導覽、集中實驗工具與右上角帳戶入口。
+// - 阻塞法：先等待 Google 登入模組完成，再綁定尋物、預約與其他核心功能。
+// - 優化法：核心表單立即可用，帳戶與留言模組獨立載入，避免第三方登入拖慢整頁操作。
 // ==============================
 
+const MAIN_ASSET_PROMISES = new Map();
+
+/**
+ * 載入一次 JavaScript；同一 marker 共用同一 Promise。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ */
+function loadScriptOnce({ src, marker, isReady }) {
+  if (typeof isReady === "function" && isReady()) return Promise.resolve(true);
+  if (MAIN_ASSET_PROMISES.has(marker)) return MAIN_ASSET_PROMISES.get(marker);
+
+  const promise = new Promise((resolve) => {
+    const selector = `script[data-main-asset="${marker}"]`;
+    let script = document.querySelector(selector);
+    let settled = false;
+
+    const finish = (success) => {
+      if (settled) return;
+      settled = true;
+      resolve(Boolean(success));
+    };
+
+    const handleLoad = () => finish(typeof isReady !== "function" || isReady());
+    const handleError = () => finish(false);
+
+    if (!script) {
+      script = document.createElement("script");
+      script.src = src;
+      script.dataset.mainAsset = marker;
+      script.addEventListener("load", handleLoad, { once: true });
+      script.addEventListener("error", handleError, { once: true });
+      document.head.appendChild(script);
+      return;
+    }
+
+    script.addEventListener("load", handleLoad, { once: true });
+    script.addEventListener("error", handleError, { once: true });
+    window.setTimeout(() => {
+      if (typeof isReady === "function" && isReady()) finish(true);
+    }, 0);
+  });
+
+  MAIN_ASSET_PROMISES.set(marker, promise);
+  return promise;
+}
+
 function loadSiteAccountScript() {
-  return new Promise((resolve) => {
-    if (window.EvanSiteAccount) {
-      window.EvanSiteAccount.init().finally(() => resolve(true));
-      return;
+  return loadScriptOnce({
+    src: "JS/site-account.js?v=20260629-stability-v1",
+    marker: "site-account",
+    isReady: () => Boolean(window.EvanSiteAccount),
+  }).then(async (loaded) => {
+    if (!loaded || !window.EvanSiteAccount) return false;
+    try {
+      return await window.EvanSiteAccount.init();
+    } catch (error) {
+      console.error("[main] 帳戶模組初始化失敗：", error);
+      return false;
     }
-
-    const existing = document.querySelector('script[data-global-site-account="1"]');
-    if (existing) {
-      existing.addEventListener("load", () => resolve(Boolean(window.EvanSiteAccount)), { once: true });
-      existing.addEventListener("error", () => resolve(false), { once: true });
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "JS/site-account.js?v=20260627-site-account-v3";
-    script.async = false;
-    script.dataset.globalSiteAccount = "1";
-    script.onload = () => resolve(Boolean(window.EvanSiteAccount));
-    script.onerror = () => resolve(false);
-    document.head.appendChild(script);
   });
 }
 
 function loadArticleCommentsScript() {
-  return new Promise((resolve) => {
-    if (window.EvanArticleComments) {
-      resolve(true);
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "JS/article-comments.js?v=20260624-article-comments-v1";
-    script.onload = () => resolve(Boolean(window.EvanArticleComments));
-    script.onerror = () => resolve(false);
-    document.head.appendChild(script);
+  return loadScriptOnce({
+    src: "JS/article-comments.js?v=20260629-stability-v1",
+    marker: "article-comments",
+    isReady: () => Boolean(window.EvanArticleComments),
   });
+}
+
+function ensureStylesheetOnce(href, marker) {
+  if (document.querySelector(`link[data-main-style="${marker}"]`)) return;
+  const stylesheet = document.createElement("link");
+  stylesheet.rel = "stylesheet";
+  stylesheet.href = href;
+  stylesheet.dataset.mainStyle = marker;
+  document.head.appendChild(stylesheet);
 }
 
 function ensureLabStyles() {
   if (document.querySelector('link[href*="lab.css"]')) return;
-  const stylesheet = document.createElement("link");
-  stylesheet.rel = "stylesheet";
-  stylesheet.href = "lab.css?v=20260627-lab-layout-v1";
-  document.head.appendChild(stylesheet);
+  ensureStylesheetOnce("lab.css?v=20260627-lab-layout-v1", "lab");
 }
 
 function createNavLink(href, text) {
@@ -158,30 +196,12 @@ function normalizeLostItemLabContext() {
   }
 }
 
-document.addEventListener("DOMContentLoaded", async () => {
-  normalizeSiteNavigation();
-  normalizeLostItemLabContext();
-  await loadSiteAccountScript();
-
-  const articlePage = Boolean(
-    document.getElementById("article-list") &&
-    document.getElementById("comment-form")
-  );
-
-  let articleCommentsReady = false;
-
-  if (articlePage) {
-    const stylesheet = document.createElement("link");
-    stylesheet.rel = "stylesheet";
-    stylesheet.href = "article-comments.css?v=20260624-article-comments-v1";
-    document.head.appendChild(stylesheet);
-
-    articleCommentsReady = await loadArticleCommentsScript();
-    if (articleCommentsReady) {
-      await window.EvanArticleComments.init();
-    }
-  }
-
+/**
+ * 核心表單不等待 Google 登入或第三方資源。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ */
+function bindCorePageEvents() {
   const lostItemForm = document.getElementById("lost-item-form");
   if (lostItemForm && window.handleLostItemForm) {
     lostItemForm.addEventListener("submit", window.handleLostItemForm);
@@ -198,30 +218,65 @@ document.addEventListener("DOMContentLoaded", async () => {
   }
 
   const commentForm = document.getElementById("comment-form");
-  if (commentForm) {
-    const commentHandler = articleCommentsReady
-      ? window.EvanArticleComments.handleArticleCommentForm
-      : window.handleCommentForm;
-
-    if (commentHandler) commentForm.addEventListener("submit", commentHandler);
+  if (commentForm && window.handleCommentForm) {
+    commentForm.addEventListener("submit", window.handleCommentForm);
   }
+}
+
+function bindSmoothHashNavigation() {
+  document.addEventListener("click", (event) => {
+    const anchor = event.target.closest?.('a[href^="#"]');
+    if (!anchor) return;
+
+    const targetId = anchor.getAttribute("href");
+    if (!targetId || targetId === "#") return;
+
+    let targetElement = null;
+    try {
+      targetElement = document.querySelector(targetId);
+    } catch (error) {
+      console.warn("[main] 無效的頁內連結：", targetId, error);
+      return;
+    }
+
+    if (!targetElement) return;
+    event.preventDefault();
+    targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
+}
+
+function initOptionalArticleComments(accountReadyPromise) {
+  const articlePage = Boolean(
+    document.getElementById("article-list") &&
+    document.getElementById("comment-form")
+  );
+  if (!articlePage) return;
+
+  ensureStylesheetOnce(
+    "article-comments.css?v=20260629-stability-v1",
+    "article-comments"
+  );
+
+  Promise.all([accountReadyPromise, loadArticleCommentsScript()])
+    .then(([, commentsReady]) => {
+      if (!commentsReady || !window.EvanArticleComments) return;
+      return window.EvanArticleComments.init?.();
+    })
+    .catch((error) => {
+      console.error("[main] 文章留言模組初始化失敗：", error);
+    });
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  normalizeSiteNavigation();
+  normalizeLostItemLabContext();
+  bindCorePageEvents();
+  bindSmoothHashNavigation();
 
   window.loadMappingFromSheet?.();
-
-  if (!articleCommentsReady) {
-    window.renderComments?.();
-  }
-
+  window.renderComments?.();
   window.initDivinationMap?.();
 
-  document.querySelectorAll('a[href^="#"]').forEach((anchor) => {
-    anchor.addEventListener("click", function (event) {
-      const targetId = this.getAttribute("href");
-      const targetElement = document.querySelector(targetId);
-      if (!targetElement) return;
-
-      event.preventDefault();
-      targetElement.scrollIntoView({ behavior: "smooth", block: "start" });
-    });
-  });
+  const accountReadyPromise = loadSiteAccountScript();
+  initOptionalArticleComments(accountReadyPromise);
 });
