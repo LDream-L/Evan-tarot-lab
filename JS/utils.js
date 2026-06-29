@@ -6,8 +6,8 @@
 // 主要函式複雜度：
 // - nowTaipeiISO：O(1)
 // - initSiteBranding：O(1)
-// - createDialog：O(1)
-// 空間複雜度：O(1)
+// - escapeHtml / createDialog：O(m)，m = 動態文字總長度
+// 空間複雜度：O(m)
 //
 // 品牌圖示替代方案比較：
 // - 逐頁改 HTML：每新增頁面都要重複維護。
@@ -168,14 +168,30 @@
 // ==============================
 // Evan Tarot Custom Dialog
 // 統一網站彈窗樣式，取代原生 alert / confirm / prompt
-// 時間複雜度：O(1)
-// 空間複雜度：O(1)
+// 時間複雜度：O(m)，m = 動態文字總長度
+// 空間複雜度：O(m)
 // 更快替代方案：原生 alert/prompt/confirm 雖然成本最低，但無法配合網站 UI；本實作使用單一 Promise modal，維持低成本並符合視覺系統。
+// 安全替代方案：動態文字先做 HTML／屬性編碼，再進入固定模板，避免使用者輸入或後端訊息被解讀成標籤。
 // ==============================
 (function initEvanDialog() {
   if (window.EvanDialog) return;
 
+  const ESCAPE_PATTERN = /[&<>"']/g;
+  const ESCAPE_MAP = Object.freeze({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    '"': "&quot;",
+    "'": "&#39;",
+  });
+
+  function escapeHtml(value) {
+    return String(value ?? "").replace(ESCAPE_PATTERN, (character) => ESCAPE_MAP[character]);
+  }
+
   function closeDialog(backdrop, result, resolve) {
+    if (backdrop.dataset.closing === "1") return;
+    backdrop.dataset.closing = "1";
     backdrop.classList.add("is-leaving");
     window.setTimeout(() => {
       backdrop.remove();
@@ -187,20 +203,24 @@
     return new Promise((resolve) => {
       document.querySelector(".evan-dialog-backdrop")?.remove();
 
+      const safeTitle = escapeHtml(title);
+      const safeMessage = escapeHtml(message);
+      const safeDefaultValue = escapeHtml(defaultValue);
+      const safePlaceholder = escapeHtml(placeholder);
       const backdrop = document.createElement("div");
       backdrop.className = "evan-dialog-backdrop";
       backdrop.innerHTML = `
-        <div class="evan-dialog" role="dialog" aria-modal="true" aria-label="${title}">
+        <div class="evan-dialog" role="dialog" aria-modal="true" aria-label="${safeTitle}">
           <div class="evan-dialog-orb" aria-hidden="true"></div>
           <div class="evan-dialog-header">
             <p class="map-form-kicker">Evan Tarot</p>
-            <h3>${title}</h3>
-            ${message ? `<p>${message}</p>` : ""}
+            <h3>${safeTitle}</h3>
+            ${safeMessage ? `<p>${safeMessage}</p>` : ""}
           </div>
           ${type === "prompt" ? `
             <label class="evan-dialog-field">
               <span>輸入內容</span>
-              <input id="evan-dialog-input" type="text" value="${defaultValue}" placeholder="${placeholder}" autocomplete="off" />
+              <input id="evan-dialog-input" type="text" value="${safeDefaultValue}" placeholder="${safePlaceholder}" autocomplete="off" />
             </label>
           ` : ""}
           <div class="evan-dialog-actions">
