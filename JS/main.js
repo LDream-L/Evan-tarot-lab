@@ -6,14 +6,14 @@
 // 主要函式複雜度：
 // - normalizeSiteNavigation：O(n)，n = 導覽連結數
 // - normalizeLostItemLabContext：O(1)
-// - loadSiteAccountScript / loadArticleCommentsScript：O(1)
+// - loadSiteAccountScript / loadArticleCommentsScript / loadAdminNavigationScript：O(1)
 // - bindCorePageEvents：O(1)
 // - DOMContentLoaded 初始化：O(n)
 // 空間複雜度：O(1)
 //
 // 更快替代方案比較：
 // - 阻塞法：先等待 Google 登入模組完成，再綁定尋物、預約與其他核心功能。
-// - 優化法：核心表單立即可用，帳戶與留言模組獨立載入，避免第三方登入拖慢整頁操作。
+// - 優化法：核心表單立即可用，帳戶、管理入口與留言模組獨立載入，避免第三方登入拖慢整頁操作。
 // ==============================
 
 const MAIN_ASSET_PROMISES = new Map();
@@ -83,6 +83,22 @@ function loadArticleCommentsScript() {
     src: "JS/article-comments.js?v=20260629-stability-v1",
     marker: "article-comments",
     isReady: () => Boolean(window.EvanArticleComments),
+  });
+}
+
+function loadAdminNavigationScript() {
+  return loadScriptOnce({
+    src: "JS/admin-navigation.js?v=20260629-admin-entry-v4",
+    marker: "admin-navigation",
+    isReady: () => Boolean(window.EvanAdminNavigation),
+  }).then(async (loaded) => {
+    if (!loaded || !window.EvanAdminNavigation) return false;
+    try {
+      return await window.EvanAdminNavigation.init();
+    } catch (error) {
+      console.error("[main] 管理員入口初始化失敗：", error);
+      return false;
+    }
   });
 }
 
@@ -278,5 +294,10 @@ document.addEventListener("DOMContentLoaded", () => {
   window.initDivinationMap?.();
 
   const accountReadyPromise = loadSiteAccountScript();
+  accountReadyPromise
+    .then(() => loadAdminNavigationScript())
+    .catch((error) => {
+      console.error("[main] 管理員入口載入失敗：", error);
+    });
   initOptionalArticleComments(accountReadyPromise);
 });
