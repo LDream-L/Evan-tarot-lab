@@ -10,8 +10,8 @@
 // 空間複雜度：O(m)
 //
 // 更快替代方案比較：
-// - 各頁獨立登入：切換頁面後必須重新操作，且功能模組各自保存憑證。
-// - 本實作：同一分頁工作階段共用一份 Google ID Token，各功能只讀同一登入狀態。
+// - no-cors 寫入後輪詢最多 5 次：無法讀取後端結果，且會增加等待與 API 請求。
+// - 本實作：直接讀取 Apps Script JSON 回應，成功後更新本地狀態，只在必要時補做一次 profile 同步。
 // ==============================
 
 (function initGoogleAuthModule() {
@@ -95,6 +95,22 @@
     } finally {
       window.clearTimeout(timer);
     }
+  }
+
+  async function readJsonResponse(response, fallbackMessage) {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+    let payload = null;
+    try {
+      payload = await response.json();
+    } catch (error) {
+      throw new Error(fallbackMessage || "後端沒有回傳可讀的 JSON。", { cause: error });
+    }
+
+    if (!payload?.success) {
+      throw new Error(payload?.error || fallbackMessage || "後端處理失敗。");
+    }
+    return payload;
   }
 
   function getState() {
@@ -241,35 +257,36 @@
     if (status) status.textContent = "暱稱儲存中…";
 
     try {
-      await fetchWithTimeout(getApiUrl(), {
+      const response = await fetchWithTimeout(getApiUrl(), {
         method: "POST",
-        mode: "no-cors",
         cache: "no-store",
         headers: { "Content-Type": "text/plain;charset=UTF-8" },
         body: JSON.stringify({
           action: "setNickname",
           credential,
           nickname: nextNickname,
+          requestId: window.crypto?.randomUUID?.() || `nickname_${Date.now().toString(36)}`,
           website: "",
         }),
         keepalive: true,
       });
 
-      profileLoading = false;
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        await new Promise((resolve) => window.setTimeout(resolve, 500 + attempt * 250));
-        const profile = await loadProfile();
-        if (profile?.nickname === nextNickname) {
-          if (status) status.textContent = "暱稱已更新，所有歷史留言會同步顯示新暱稱。";
-          return true;
-        }
-      }
+      const payload = await readJsonResponse(response, "暱稱儲存失敗。");
+      const savedNickname = String(
+        payload?.profile?.nickname || payload?.nickname || nextNickname
+      ).trim();
 
-      if (status) status.textContent = "暱稱尚未成功更新，請確認 Apps Script 已部署最新版。";
-      return false;
+      nickname = savedNickname || nextNickname;
+      if (input) input.value = nickname;
+      if (status) status.textContent = "暱稱已更新，所有歷史留言會同步顯示新暱稱。";
+      return true;
     } catch (error) {
       console.error("[google-auth] 暱稱儲存失敗：", error);
-      if (status) status.textContent = "暱稱儲存失敗，請稍後再試。";
+      if (status) {
+        status.textContent = error?.name === "AbortError"
+          ? "暱稱儲存逾時，請先重新開啟帳戶確認暱稱是否已更新，再決定是否重試。"
+          : error?.message || "暱稱儲存失敗，請稍後再試。";
+      }
       return false;
     } finally {
       profileLoading = false;
