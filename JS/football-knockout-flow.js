@@ -36,6 +36,7 @@ return out;
 const baseResults=mode=>modeResults(mode,text("football-direct-result"),integer("football-structure-home-goals"),integer("football-structure-away-goals"));
 const extraResults=mode=>modeResults(mode,text("football-extra-direct-result"),integer("football-extra-structure-home-goals"),integer("football-extra-structure-away-goals"));
 const hasDraw=results=>results.includes("D");
+const consensus=results=>{const decided=results.filter(result=>result!=="D");return decided.length&&decided.every(result=>result===decided[0])?decided[0]:"";};
 const option=(value,label)=>{const o=document.createElement("option");o.value=value;o.textContent=label;return o;};
 function injectStyle(){
 if($("football-knockout-style"))return;
@@ -74,7 +75,7 @@ for(let i=0;i<specs.length;i+=1){const j=i+randomInt(pool.length-i);[pool[i],poo
 return cards;
 }
 function specsFor(stage,mode){
-if(stage==="penalties")return penaltySpecs;
+if(stage==="penalty")return penaltySpecs;
 return extraSpecs.filter(spec=>(spec[3]==="direct"&&base.modeIncludesDirect(mode))||(spec[3]==="structure"&&base.modeIncludesStructure(mode)));
 }
 function cardInput(stage,spec,source,drawn){
@@ -145,17 +146,20 @@ function validateKnockout(prediction,draft){
 if(!draft||scope(draft.match)!==ADV)return "";
 if(!validWinner.has(prediction.advance))return "請選擇最終晉級隊伍。";
 const results=modeResults(draft.match.mode,prediction.directResult,prediction.structureHomeGoals,prediction.structureAwayGoals);
-if(!hasDraw(results))return "";
+if(!hasDraw(results)){const decided=consensus(results);return decided&&prediction.advance!==decided?"最終晉級隊伍需與 90 分鐘勝者一致。":"";}
 if(rule(draft.match)===ET){
 let error=cardsError("extra",draft);if(error)return error;
 if(base.modeIncludesDirect(draft.match.mode)&&(!validResult.has(text("football-extra-direct-result"))||!text("football-extra-direct-notes")))return "請完成延長賽單張結果與解讀。";
 if(base.modeIncludesStructure(draft.match.mode)){
 const h=integer("football-extra-structure-home-goals"),a=integer("football-extra-structure-away-goals");if(h==null||a==null||h<0||a<0)return "請填寫延長賽兩隊新增進球。";if(!text("football-extra-structure-notes"))return "請完成延長賽攻防解讀。";
 }
-if(!hasDraw(extraResults(draft.match.mode)))return "";
+const extraStageResults=extraResults(draft.match.mode);
+if(!hasDraw(extraStageResults)){const decided=consensus(extraStageResults);return decided&&prediction.advance!==decided?"最終晉級隊伍需與延長賽勝者一致。":"";}
 }
 const error=cardsError("penalty",draft);if(error)return error;
-if(!validWinner.has(text("football-penalty-winner"))||!text("football-penalty-notes"))return "請完成 PK 最終勝者與牌面解讀。";
+const penaltyWinner=text("football-penalty-winner");
+if(!validWinner.has(penaltyWinner)||!text("football-penalty-notes"))return "請完成 PK 最終勝者與牌面解讀。";
+if(prediction.advance!==penaltyWinner)return "最終晉級隊伍需與 PK 勝者一致。";
 return "";
 }
 function buildKnockout(prediction,draft){
@@ -191,10 +195,14 @@ return "";
 }
 function validateActual(record){
 if(!record||scope(record.match)!==ADV)return "";const h=integer("football-actual-home"),a=integer("football-actual-away");if(h==null||a==null)return "";
-if(!validWinner.has(text("football-actual-advance")))return "請填寫最終晉級隊伍。";
-if(h===a&&rule(record.match)===ET){const eh=integer("football-extra-home"),ea=integer("football-extra-away");if(eh==null||ea==null||eh<h||ea<a)return "90 分鐘和局時，請填寫 120 分鐘總比分。";if(eh===ea){const ph=integer("football-actual-penalty-home"),pa=integer("football-actual-penalty-away");if(ph==null||pa==null||ph===pa)return "請填寫能分出勝負的 PK 比分。";}}
-if(h===a&&rule(record.match)===PK){const ph=integer("football-actual-penalty-home"),pa=integer("football-actual-penalty-away");if(ph==null||pa==null||ph===pa)return "請填寫能分出勝負的 PK 比分。";}
-return "";
+const advance=text("football-actual-advance");if(!validWinner.has(advance))return "請填寫最終晉級隊伍。";
+if(h!==a)return advance===(h>a?"H":"A")?"":"最終晉級隊伍需與 90 分鐘勝者一致。";
+if(rule(record.match)===ET){
+const eh=integer("football-extra-home"),ea=integer("football-extra-away");if(eh==null||ea==null||eh<h||ea<a)return "90 分鐘和局時，請填寫 120 分鐘總比分。";
+if(eh!==ea)return advance===(eh>ea?"H":"A")?"":"最終晉級隊伍需與延長賽後勝者一致。";
+}
+const ph=integer("football-actual-penalty-home"),pa=integer("football-actual-penalty-away");if(ph==null||pa==null||ph===pa)return "請填寫能分出勝負的 PK 比分。";
+return advance===(ph>pa?"H":"A")?"":"最終晉級隊伍需與 PK 勝者一致。";
 }
 function actualKnockout(record,actual){
 const decidedBy=actualRoute(record,actual),out={decidedBy};
