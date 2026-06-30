@@ -1,0 +1,22 @@
+.article-admin-media-card.is-portrait-media img {
+  width: 100%;
+  aspect-ratio: 3 / 4 !important;
+  object-fit: contain !important;
+  padding: 10px;
+  background: rgba(4, 5, 20, 0.96);
+}
+
+.article-admin-media-card.is-portrait-media img[data-hq-media-state="loading"] {
+  opacity: 0.35;
+}
+
+.article-admin-media-card.is-portrait-media img[data-hq-media-state="ready"] {
+  opacity: 1;
+  transition: opacity 180ms ease;
+}
+
+.article-media-portrait img {
+  aspect-ratio: 3 / 4 !important;
+  object-fit: contain !important;
+  background: rgba(4, 4, 16, 0.92);
+}
