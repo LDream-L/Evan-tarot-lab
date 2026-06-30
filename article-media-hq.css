@@ -2,21 +2,25 @@
   width: 100%;
   aspect-ratio: 3 / 4 !important;
   object-fit: contain !important;
+  object-position: center;
   padding: 10px;
   background: rgba(4, 5, 20, 0.96);
 }
 
-.article-admin-media-card.is-portrait-media img[data-hq-media-state="loading"] {
-  opacity: 0.35;
+.article-admin-media-card.is-portrait-media img[data-hq-media-state="loading"],
+.article-admin-media-card.is-portrait-media img[data-hq-media-state="fallback"],
+.article-admin-media-card.is-portrait-media img[data-hq-media-state="ready"] {
+  opacity: 1;
 }
 
 .article-admin-media-card.is-portrait-media img[data-hq-media-state="ready"] {
-  opacity: 1;
   transition: opacity 180ms ease;
 }
 
 .article-media-portrait img {
+  width: 100%;
   aspect-ratio: 3 / 4 !important;
   object-fit: contain !important;
+  object-position: center;
   background: rgba(4, 4, 16, 0.92);
 }
