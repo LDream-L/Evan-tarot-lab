@@ -6,23 +6,52 @@
 // 主要函式複雜度：
 // - get：O(1)
 // - list：O(m)，m = 圖片數量
-// - resolveSrc：首次 O(b)，之後 O(1)，b = 圖片 Base64 字元數
+// - resolveSrc：首次 O(b + p)，之後 O(1)，b = Base64 字元數，p = 分段數
 // - upgradeMediaImages：O(i)，i = 當前頁面圖片數
 // 空間複雜度：O(m + b)
 //
 // 更快替代方案比較：
-// - 分散寫法：每篇文章各自貼完整圖片網址，維護時必須逐篇搜尋與修改。
-// - 單一低畫質 JPG：載入簡單，但放大後細節與文字容易失真。
-// - 本實作：文章使用圖片代碼查表；惡魔牌以分段高畫質 WebP 組合一次並快取 Object URL。
+// - 低畫質 JPG：請求少，但放大後文字與細節失真。
+// - 每篇文章存完整網址：修改圖片時必須逐篇更新。
+// - 本實作：文章只保存代碼；高畫質圖首次線性組合並快取 Object URL，後續查詢直接使用快取。
 // ==============================
 
 (function initArticleMediaLibrary() {
   "use strict";
 
   const DEVIL_ID = "tarot-devil-xv";
-  const TRANSPARENT_PIXEL = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+  const VERSION = "20260630-devil-v3";
   const resolvedSourceById = new Map();
   const resolvingPromiseById = new Map();
+
+  const DEVIL_SOURCE_PARTS = Object.freeze([
+    "assets/article-media/devil-v2/part_00.txt",
+    "assets/article-media/devil-v2/part_01.txt",
+    "assets/article-media/devil-v2/part_02.txt",
+    "assets/article-media/devil-v2/part_03.txt",
+    "assets/article-media/devil-v2/part_04.txt",
+    "assets/article-media/devil-v2/part_05.txt",
+    "assets/article-media/devil-v2/part_06.txt",
+    "assets/article-media/devil-v2/p07_00.txt",
+    "assets/article-media/devil-v2/p07_01.txt",
+    "assets/article-media/devil-v2/p07_02.txt",
+    "assets/article-media/devil-v2/p07_03.txt",
+    "assets/article-media/devil-v2/p08_00.txt",
+    "assets/article-media/devil-v2/p08_01.txt",
+    "assets/article-media/devil-v2/p08_02.txt",
+    "assets/article-media/devil-v2/p08_03.txt",
+    "assets/article-media/devil-v2/p09_00.txt",
+    "assets/article-media/devil-v2/p09_01.txt",
+    "assets/article-media/devil-v2/p09_02.txt",
+    "assets/article-media/devil-v2/p09_03.txt",
+    "assets/article-media/devil-v2/p09_04.txt",
+    "assets/article-media/devil-v2/p09_05.txt",
+    "assets/article-media/devil-v2/p09_06.txt",
+    "assets/article-media/devil-v2/p09_07.txt",
+    "assets/article-media/devil-v2/p10_00.txt",
+    "assets/article-media/devil-v2/p10_01.txt",
+    "assets/article-media/devil-v2/p10_02.txt",
+  ].map((path) => `${path}?v=${VERSION}`));
 
   const MEDIA_LIBRARY = Object.freeze({
     "case-shadow-dialogue": Object.freeze({
@@ -47,12 +76,9 @@
       creditUrl: "https://www.pexels.com/photo/man-and-woman-standing-face-to-face-in-a-dark-room-7119374/",
     }),
     "tarot-devil-xv": Object.freeze({
-      src: TRANSPARENT_PIXEL,
-      fallbackSrc: "https://ldream-l.github.io/Evan-tarot-lab/assets/article-media/tarot-devil-xv.jpg?v=20260630-fallback",
-      sourceParts: Object.freeze([
-        "assets/article-media/devil-payload/part_00.txt?v=20260630-hq-v1",
-        "assets/article-media/devil-payload/part_01.txt?v=20260630-hq-v1",
-      ]),
+      src: `assets/article-media/tarot-devil-xv.jpg?v=${VERSION}-fallback`,
+      fallbackSrc: `assets/article-media/tarot-devil-xv.jpg?v=${VERSION}-fallback`,
+      sourceParts: DEVIL_SOURCE_PARTS,
       mimeType: "image/webp",
       adminVariant: "portrait",
       defaultVariant: "portrait",
@@ -74,8 +100,8 @@
 
   function base64ToObjectUrl(base64, mimeType) {
     const binary = window.atob(base64);
-    if (binary.slice(0, 4) !== "RIFF" || binary.slice(8, 12) !== "WEBP") {
-      throw new Error("高畫質圖片資料格式不正確。");
+    if (binary.length < 12 || binary.slice(0, 4) !== "RIFF" || binary.slice(8, 12) !== "WEBP") {
+      throw new Error("高畫質圖片資料不完整或格式錯誤。");
     }
 
     const bytes = new Uint8Array(binary.length);
@@ -83,6 +109,21 @@
       bytes[index] = binary.charCodeAt(index);
     }
     return URL.createObjectURL(new Blob([bytes], { type: mimeType || "image/webp" }));
+  }
+
+  function verifyImageSource(source) {
+    return new Promise((resolve, reject) => {
+      const probe = new Image();
+      probe.onload = () => {
+        if (probe.naturalWidth < 500 || probe.naturalHeight < 700) {
+          reject(new Error(`圖片尺寸異常：${probe.naturalWidth} × ${probe.naturalHeight}`));
+          return;
+        }
+        resolve(source);
+      };
+      probe.onerror = () => reject(new Error("瀏覽器無法解碼高畫質惡魔牌圖片。"));
+      probe.src = source;
+    });
   }
 
   async function resolveSrc(mediaId) {
@@ -94,17 +135,20 @@
     if (resolvingPromiseById.has(normalizedId)) return resolvingPromiseById.get(normalizedId);
 
     const promise = (async () => {
+      let objectUrl = "";
       try {
         const chunks = await Promise.all(media.sourceParts.map(async (url) => {
           const response = await fetch(url, { cache: "no-store" });
-          if (!response.ok) throw new Error(`圖片資料載入失敗：HTTP ${response.status}`);
+          if (!response.ok) throw new Error(`圖片資料載入失敗：HTTP ${response.status}｜${url}`);
           return response.text();
         }));
         const base64 = chunks.join("").replace(/\s+/g, "");
-        const objectUrl = base64ToObjectUrl(base64, media.mimeType);
+        objectUrl = base64ToObjectUrl(base64, media.mimeType);
+        await verifyImageSource(objectUrl);
         resolvedSourceById.set(normalizedId, objectUrl);
         return objectUrl;
       } catch (error) {
+        if (objectUrl) URL.revokeObjectURL(objectUrl);
         console.error(`[article-media] ${normalizedId} 高畫質圖片載入失敗：`, error);
         return media.fallbackSrc || media.src || "";
       } finally {
@@ -132,8 +176,10 @@
   }
 
   async function upgradeMediaImages(root = document) {
-    const images = root.querySelectorAll?.("img") || [];
-    const targets = Array.from(images).filter((image) => {
+    const images = root instanceof HTMLImageElement
+      ? [root]
+      : Array.from(root.querySelectorAll?.("img") || []);
+    const targets = images.filter((image) => {
       const alt = String(image.alt || "");
       const src = String(image.getAttribute("src") || "");
       return alt.startsWith("XV THE DEVIL") || src.includes("tarot-devil-xv");
@@ -146,9 +192,10 @@
       try {
         const source = await resolveSrc(DEVIL_ID);
         if (source) image.src = source;
-        image.dataset.hqMediaState = "ready";
+        image.dataset.hqMediaState = source.startsWith("blob:") ? "ready" : "fallback";
       } catch (error) {
         image.dataset.hqMediaState = "error";
+        image.src = get(DEVIL_ID)?.fallbackSrc || image.src;
         console.error("[article-media] 惡魔牌圖片更新失敗：", error);
       }
     }
@@ -158,7 +205,7 @@
     if (document.querySelector('link[data-article-media-hq-style="true"]')) return;
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = "article-media-hq.css?v=20260630-hq-v1";
+    link.href = `article-media-hq.css?v=${VERSION}`;
     link.dataset.articleMediaHqStyle = "true";
     document.head.appendChild(link);
   }
@@ -168,8 +215,7 @@
       for (const mutation of mutations) {
         for (const node of mutation.addedNodes) {
           if (!(node instanceof Element)) continue;
-          if (node.matches?.("img")) upgradeMediaImages(node.parentElement || document);
-          else if (node.querySelector?.("img")) upgradeMediaImages(node);
+          upgradeMediaImages(node);
         }
       }
     });
