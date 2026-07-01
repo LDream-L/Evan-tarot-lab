@@ -1,6 +1,0 @@
-text_size=15000
-text_sha256=69870fb72227cf02b22a54cb4258275f2227fe745eca9b16394a3f5730463b2f
-decode_status=0
-binary_size=11250
-binary_sha256=627fdbf851fbb2cf6a1d82e8988cfd1d43235e4d663d7c7c4f69c6c35f6e4ca0
-file_type=RIFF (little-endian) data, Web/P image, VP8 encoding, 720x960, Scaling: [none]x[none], YUV color, decoders should clamp
