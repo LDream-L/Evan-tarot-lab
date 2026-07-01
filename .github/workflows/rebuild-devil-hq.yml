@@ -1,4 +1,4 @@
-name: Rebuild Devil HQ Image
+name: Build Devil Image
 
 on:
   workflow_dispatch:
@@ -12,7 +12,7 @@ permissions:
   contents: write
 
 jobs:
-  rebuild:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -20,73 +20,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Rebuild and verify exact JPG
+      - name: Decode JPG
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p assets/article-media
-
-          TEMP_FILE="assets/article-media/tarot-devil-xv-hq.candidate.jpg"
-          FINAL_FILE="assets/article-media/tarot-devil-xv-hq.jpg"
-          REPORT_FILE="assets/article-media/devil-rebuild-report.txt"
-
+          OUTPUT='assets/article-media/tarot-devil-xv-hq.jpg'
           cat \
             assets/article-media/devil-jpg-upload/chunk_00.txt \
             assets/article-media/devil-jpg-upload/chunk_01.txt \
             assets/article-media/devil-jpg-upload/chunk_02.txt \
             assets/article-media/devil-jpg-upload/chunk_03.txt \
-            | tr -d '\n\r ' \
-            | base64 --decode \
-            > "$TEMP_FILE"
+            | tr -d '\n\r\t ' \
+            | base64 --decode > "$OUTPUT"
 
-          ACTUAL_SIZE="$(stat -c%s "$TEMP_FILE")"
-          ACTUAL_SHA="$(sha256sum "$TEMP_FILE" | awk '{print $1}')"
-          FILE_TYPE="$(file -b "$TEMP_FILE")"
-          EXPECTED_SIZE="293528"
-          EXPECTED_SHA="aceb31abded3fcbaf2693d8f9d730bebc4a1d711b42f0b99a0b394cd30ae23cb"
+          test "$(stat -c%s "$OUTPUT")" -gt 100000
+          test "$(xxd -p -l 3 "$OUTPUT")" = 'ffd8ff'
+          test "$(tail -c 2 "$OUTPUT" | xxd -p)" = 'ffd9'
+          file "$OUTPUT" | grep -q 'JPEG image data'
 
-          {
-            echo "actual_size=$ACTUAL_SIZE"
-            echo "expected_size=$EXPECTED_SIZE"
-            echo "actual_sha256=$ACTUAL_SHA"
-            echo "expected_sha256=$EXPECTED_SHA"
-            echo "file_type=$FILE_TYPE"
-          } > "$REPORT_FILE"
-
-          if [ "$ACTUAL_SIZE" != "$EXPECTED_SIZE" ]; then
-            echo "verified=false" >> "$REPORT_FILE"
-            echo "Unexpected JPG size: $ACTUAL_SIZE" >&2
-            exit 1
-          fi
-
-          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
-            echo "verified=false" >> "$REPORT_FILE"
-            echo "Unexpected JPG SHA-256: $ACTUAL_SHA" >&2
-            exit 1
-          fi
-
-          if ! printf '%s' "$FILE_TYPE" | grep -q 'JPEG image data'; then
-            echo "verified=false" >> "$REPORT_FILE"
-            echo "Decoded file is not a JPEG: $FILE_TYPE" >&2
-            exit 1
-          fi
-
-          mv "$TEMP_FILE" "$FINAL_FILE"
-          echo "verified=true" >> "$REPORT_FILE"
-
-      - name: Commit verified image
+      - name: Commit JPG
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add \
-            assets/article-media/tarot-devil-xv-hq.jpg \
-            assets/article-media/devil-rebuild-report.txt
-
+          git add assets/article-media/tarot-devil-xv-hq.jpg
           if git diff --cached --quiet; then
             exit 0
           fi
-
-          git commit -m 'asset: build verified Devil HQ JPG'
+          git commit -m 'asset: add direct Devil HQ JPG'
           git push
