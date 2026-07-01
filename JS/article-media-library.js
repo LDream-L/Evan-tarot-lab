@@ -18,7 +18,7 @@
   "use strict";
 
   const DEVIL_ID = "tarot-devil-xv";
-  const VERSION = "20260701-devil-vector-v1";
+  const VERSION = "20260701-devil-original-v1";
 
   const MEDIA_LIBRARY = Object.freeze({
     "case-shadow-dialogue": Object.freeze({
@@ -43,12 +43,12 @@
       creditUrl: "https://www.pexels.com/photo/man-and-woman-standing-face-to-face-in-a-dark-room-7119374/",
     }),
     "tarot-devil-xv": Object.freeze({
-      src: `assets/article-media/tarot-devil-xv.svg?v=${VERSION}`,
+      src: `assets/article-media/tarot-devil-xv.jpg?v=${VERSION}`,
       adminVariant: "portrait",
       defaultVariant: "portrait",
       alt: "XV THE DEVIL 惡魔塔羅牌：中央惡魔張開雙翼，下方男女被鎖鏈束縛。",
       caption: "XV THE DEVIL｜惡魔不只象徵外在誘惑，也可能呈現內在規則、慾望與尚未掙脫的束縛。",
-      creditLabel: "Evan Tarot｜重建向量版",
+      creditLabel: "Evan Tarot",
       creditUrl: "",
     }),
   });
