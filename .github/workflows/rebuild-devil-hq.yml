@@ -1,10 +1,11 @@
 name: Rebuild Devil HQ Image
 
 on:
+  workflow_dispatch:
   push:
     branches: [main]
     paths:
-      - 'assets/article-media/devil-v2/**'
+      - 'assets/article-media/devil-jpg-upload/**'
       - '.github/workflows/rebuild-devil-hq.yml'
 
 permissions:
@@ -19,56 +20,32 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Rebuild, inspect and verify image
+      - name: Rebuild and verify exact JPG
         shell: bash
         run: |
-          set -u
+          set -euo pipefail
           mkdir -p assets/article-media
-          TEMP_FILE="assets/article-media/tarot-devil-xv-hq.candidate.webp"
+
+          TEMP_FILE="assets/article-media/tarot-devil-xv-hq.candidate.jpg"
+          FINAL_FILE="assets/article-media/tarot-devil-xv-hq.jpg"
           REPORT_FILE="assets/article-media/devil-rebuild-report.txt"
 
-          set +e
           cat \
-            assets/article-media/devil-v2/part_00.txt \
-            assets/article-media/devil-v2/part_01.txt \
-            assets/article-media/devil-v2/part_02.txt \
-            assets/article-media/devil-v2/part_03.txt \
-            assets/article-media/devil-v2/part_04.txt \
-            assets/article-media/devil-v2/part_05.txt \
-            assets/article-media/devil-v2/part_06.txt \
-            assets/article-media/devil-v2/p07_00.txt \
-            assets/article-media/devil-v2/p07_01.txt \
-            assets/article-media/devil-v2/p07_02.txt \
-            assets/article-media/devil-v2/p07_03.txt \
-            assets/article-media/devil-v2/p08_00.txt \
-            assets/article-media/devil-v2/p08_01.txt \
-            assets/article-media/devil-v2/p08_02.txt \
-            assets/article-media/devil-v2/p08_03.txt \
-            assets/article-media/devil-v2/p09_00.txt \
-            assets/article-media/devil-v2/p09_01.txt \
-            assets/article-media/devil-v2/p09_02.txt \
-            assets/article-media/devil-v2/p09_03.txt \
-            assets/article-media/devil-v2/p09_04.txt \
-            assets/article-media/devil-v2/p09_05.txt \
-            assets/article-media/devil-v2/p09_06.txt \
-            assets/article-media/devil-v2/p09_07.txt \
-            assets/article-media/devil-v2/p10_00.txt \
-            assets/article-media/devil-v2/p10_01.txt \
-            assets/article-media/devil-v2/p10_02.txt \
+            assets/article-media/devil-jpg-upload/chunk_00.txt \
+            assets/article-media/devil-jpg-upload/chunk_01.txt \
+            assets/article-media/devil-jpg-upload/chunk_02.txt \
+            assets/article-media/devil-jpg-upload/chunk_03.txt \
             | tr -d '\n\r ' \
             | base64 --decode \
             > "$TEMP_FILE"
-          DECODE_STATUS=$?
-          set -e
 
-          ACTUAL_SIZE="$(stat -c%s "$TEMP_FILE" 2>/dev/null || echo 0)"
-          ACTUAL_SHA="$(sha256sum "$TEMP_FILE" 2>/dev/null | awk '{print $1}')"
-          FILE_TYPE="$(file -b "$TEMP_FILE" 2>/dev/null || true)"
-          EXPECTED_SIZE="113982"
-          EXPECTED_SHA="947ec140343ae7ffbec60ac3b95862f2ef314a147f1c1132a28e07c317e03f85"
+          ACTUAL_SIZE="$(stat -c%s "$TEMP_FILE")"
+          ACTUAL_SHA="$(sha256sum "$TEMP_FILE" | awk '{print $1}')"
+          FILE_TYPE="$(file -b "$TEMP_FILE")"
+          EXPECTED_SIZE="293528"
+          EXPECTED_SHA="aceb31abded3fcbaf2693d8f9d730bebc4a1d711b42f0b99a0b394cd30ae23cb"
 
           {
-            echo "decode_status=$DECODE_STATUS"
             echo "actual_size=$ACTUAL_SIZE"
             echo "expected_size=$EXPECTED_SIZE"
             echo "actual_sha256=$ACTUAL_SHA"
@@ -76,29 +53,40 @@ jobs:
             echo "file_type=$FILE_TYPE"
           } > "$REPORT_FILE"
 
-          if [ "$DECODE_STATUS" -eq 0 ] \
-            && [ "$ACTUAL_SIZE" = "$EXPECTED_SIZE" ] \
-            && [ "$ACTUAL_SHA" = "$EXPECTED_SHA" ] \
-            && printf '%s' "$FILE_TYPE" | grep -q 'Web/P image'; then
-            mv "$TEMP_FILE" assets/article-media/tarot-devil-xv-hq.webp
-            echo "verified=true" >> "$REPORT_FILE"
-          else
-            rm -f "$TEMP_FILE"
+          if [ "$ACTUAL_SIZE" != "$EXPECTED_SIZE" ]; then
             echo "verified=false" >> "$REPORT_FILE"
+            echo "Unexpected JPG size: $ACTUAL_SIZE" >&2
+            exit 1
           fi
 
-      - name: Commit report and verified image
+          if [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+            echo "verified=false" >> "$REPORT_FILE"
+            echo "Unexpected JPG SHA-256: $ACTUAL_SHA" >&2
+            exit 1
+          fi
+
+          if ! printf '%s' "$FILE_TYPE" | grep -q 'JPEG image data'; then
+            echo "verified=false" >> "$REPORT_FILE"
+            echo "Decoded file is not a JPEG: $FILE_TYPE" >&2
+            exit 1
+          fi
+
+          mv "$TEMP_FILE" "$FINAL_FILE"
+          echo "verified=true" >> "$REPORT_FILE"
+
+      - name: Commit verified image
         shell: bash
         run: |
           set -euo pipefail
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add assets/article-media/devil-rebuild-report.txt
-          if [ -f assets/article-media/tarot-devil-xv-hq.webp ]; then
-            git add assets/article-media/tarot-devil-xv-hq.webp
-          fi
+          git add \
+            assets/article-media/tarot-devil-xv-hq.jpg \
+            assets/article-media/devil-rebuild-report.txt
+
           if git diff --cached --quiet; then
             exit 0
           fi
-          git commit -m 'chore: report Devil image rebuild result'
+
+          git commit -m 'asset: build verified Devil HQ JPG'
           git push
