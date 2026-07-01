@@ -1,0 +1,1 @@
+Trigger the Rebuild Devil HQ Image workflow after the verified JPG chunks were uploaded.
