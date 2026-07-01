@@ -1,0 +1,7 @@
+decode_status=0
+actual_size=51918
+expected_size=113982
+actual_sha256=e39a160b8bced6be63e90228e5235d6914fd621e233dd60ce5b70e66f10bbc4e
+expected_sha256=947ec140343ae7ffbec60ac3b95862f2ef314a147f1c1132a28e07c317e03f85
+file_type=RIFF (little-endian) data, Web/P image, VP8 encoding, 540x720, Scaling: [none]x[none], YUV color, decoders should clamp
+verified=false
