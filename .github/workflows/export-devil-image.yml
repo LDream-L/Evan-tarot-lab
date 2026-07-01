@@ -15,88 +15,79 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Build decoding candidates
+      - name: Rebuild original WebP
         shell: bash
         run: |
-          mkdir -p devil-candidates
+          mkdir -p devil-export
           python - <<'PY'
           from pathlib import Path
           import base64
           import hashlib
           import re
+          import struct
           import traceback
 
-          out = Path('devil-candidates')
+          out = Path('devil-export')
           report = []
-          paths = [
-              Path('assets/article-media/devil-jpg-upload/chunk_00.txt'),
-              Path('assets/article-media/devil-jpg-upload/chunk_01.txt'),
-              Path('assets/article-media/devil-jpg-upload/chunk_02.txt'),
-              Path('assets/article-media/devil-jpg-upload/chunk_03.txt'),
+          names = [
+              'part_00.txt', 'part_01.txt', 'part_02.txt', 'part_03.txt',
+              'part_04.txt', 'part_05.txt', 'part_06.txt',
+              'p07_00.txt', 'p07_01.txt', 'p07_02.txt', 'p07_03.txt',
+              'p08_00.txt', 'p08_01.txt', 'p08_02.txt', 'p08_03.txt',
+              'p09_00.txt', 'p09_01.txt', 'p09_02.txt', 'p09_03.txt',
+              'p09_04.txt', 'p09_05.txt', 'p09_06.txt', 'p09_07.txt',
+              'p10_00.txt', 'p10_01.txt', 'p10_02.txt',
           ]
+          paths = [Path('assets/article-media/devil-v2') / name for name in names]
 
           parts = []
           for path in paths:
+              if not path.is_file():
+                  report.append(f'MISSING: {path}')
+                  continue
               raw = path.read_text(encoding='utf-8', errors='replace')
               clean = ''.join(re.findall(r'[A-Za-z0-9+/=]', raw))
               parts.append(clean)
-              invalid = sorted(set(re.sub(r'[A-Za-z0-9+/=\s]', '', raw)))
               report.append(
-                  f'{path}: raw={len(raw)} clean={len(clean)} '
-                  f'equals={clean.count("=")} first_eq={clean.find("=")} '
-                  f'last16={clean[-16:]} invalid={repr("".join(invalid))}'
+                  f'{path.name}: raw={len(raw)} clean={len(clean)} '
+                  f'equals={clean.count("=")} first_eq={clean.find("=")}'
               )
 
-          def write_candidate(name, producer):
-              try:
-                  data = producer()
-                  (out / name).write_bytes(data)
-                  report.append(
-                      f'{name}: size={len(data)} sha256={hashlib.sha256(data).hexdigest()} '
-                      f'head={data[:3].hex()} tail={data[-2:].hex()}'
-                  )
-              except Exception as error:
-                  report.append(f'{name}: ERROR {type(error).__name__}: {error}')
-                  report.append(traceback.format_exc())
+          joined = ''.join(part.rstrip('=') for part in parts)
+          joined += '=' * ((4 - len(joined) % 4) % 4)
 
-          joined = ''.join(parts)
-          write_candidate('candidate-joined.jpg', lambda: base64.b64decode(joined, validate=False))
+          try:
+              data = base64.b64decode(joined, validate=False)
+              output = out / 'tarot-devil-xv-hq.webp'
+              output.write_bytes(data)
+              riff_size = struct.unpack('<I', data[4:8])[0] + 8 if len(data) >= 12 else -1
+              report.extend([
+                  f'files_found={len(parts)}/{len(paths)}',
+                  f'base64_length={len(joined)}',
+                  f'output_size={len(data)}',
+                  f'riff_declared_size={riff_size}',
+                  f'sha256={hashlib.sha256(data).hexdigest()}',
+                  f'header={data[:12]!r}',
+                  f'tail={data[-16:].hex()}',
+                  f'valid_riff_webp={data[:4] == b"RIFF" and data[8:12] == b"WEBP"}',
+                  f'container_size_matches={riff_size == len(data)}',
+              ])
+          except Exception as error:
+              report.append(f'ERROR {type(error).__name__}: {error}')
+              report.append(traceback.format_exc())
 
-          joined_without_internal_padding = ''.join(part.rstrip('=') for part in parts)
-          joined_without_internal_padding += '=' * ((4 - len(joined_without_internal_padding) % 4) % 4)
-          write_candidate(
-              'candidate-joined-no-internal-padding.jpg',
-              lambda: base64.b64decode(joined_without_internal_padding, validate=False),
-          )
-
-          decoded_parts = []
-          for index, part in enumerate(parts):
-              padded = part + ('=' * ((4 - len(part) % 4) % 4))
-              try:
-                  decoded = base64.b64decode(padded, validate=False)
-              except Exception as error:
-                  report.append(f'part-{index:02d}: ERROR {type(error).__name__}: {error}')
-                  decoded = b''
-              decoded_parts.append(decoded)
-              (out / f'part-{index:02d}.bin').write_bytes(decoded)
-              report.append(
-                  f'part-{index:02d}: size={len(decoded)} sha256={hashlib.sha256(decoded).hexdigest()} '
-                  f'head={decoded[:3].hex()} tail={decoded[-2:].hex()}'
-              )
-
-          write_candidate('candidate-parts.jpg', lambda: b''.join(decoded_parts))
           (out / 'report.txt').write_text('\n'.join(report), encoding='utf-8')
           print('\n'.join(report))
           PY
 
-          file devil-candidates/* || true
+          file devil-export/* || true
           exit 0
 
-      - name: Upload candidates
+      - name: Upload original image
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: devil-decoding-candidates
-          path: devil-candidates
+          name: devil-original-webp
+          path: devil-export
           if-no-files-found: error
           retention-days: 1
