@@ -1,0 +1,74 @@
+name: Cleanup Devil Image Assets
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/article-media/tarot-devil-xv-hq.jpg'
+      - '.github/workflows/cleanup-devil-assets.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify direct JPG
+        id: verify
+        shell: bash
+        run: |
+          set -euo pipefail
+          FILE='assets/article-media/tarot-devil-xv-hq.jpg'
+          if [ ! -f "$FILE" ]; then
+            echo 'ready=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          test "$(stat -c%s "$FILE")" -gt 100000
+          test "$(xxd -p -l 3 "$FILE")" = 'ffd8ff'
+          test "$(tail -c 2 "$FILE" | xxd -p)" = 'ffd9'
+          file "$FILE" | grep -q 'JPEG image data'
+          echo 'ready=true' >> "$GITHUB_OUTPUT"
+
+      - name: Remove obsolete image pipeline
+        if: steps.verify.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf \
+            assets/article-media/devil-jpg-upload \
+            assets/article-media/devil-hq-upload \
+            assets/article-media/devil-v2 \
+            assets/article-media/'魔鬼-jpg-上傳' \
+            assets/article-media/'魔鬼載重' \
+            assets/article-media/'惡魔-v2'
+
+          rm -f \
+            assets/article-media/devil-rebuild-report.txt \
+            assets/article-media/devil-upload-inspection.txt \
+            assets/article-media/tarot-devil-xv-small.jpg.txt \
+            assets/article-media/tarot-devil-xv.jpg \
+            assets/article-media/tarot-devil-xv.webp \
+            article-media-hq.css \
+            .github/workflows/rebuild-devil-hq.yml \
+            .github/workflows/cleanup-devil-assets.yml
+
+      - name: Commit cleanup
+        if: steps.verify.outputs.ready == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -A
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'cleanup: keep one direct Devil JPG only'
+          git push
