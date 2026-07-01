@@ -15,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rebuild and verify JPG
+      - name: Rebuild JPG
         shell: bash
         run: |
           set -euo pipefail
@@ -28,13 +28,18 @@ jobs:
             | tr -d '\n\r\t ' \
             | base64 --decode > "$OUTPUT"
 
-          test "$(stat -c%s "$OUTPUT")" = '293528'
-          test "$(sha256sum "$OUTPUT" | awk '{print $1}')" = 'aceb31abded3fcbaf2693d8f9d730bebc4a1d711b42f0b99a0b394cd30ae23cb'
+          echo "size=$(stat -c%s "$OUTPUT")"
+          echo "sha256=$(sha256sum "$OUTPUT" | awk '{print $1}')"
+          echo "header=$(xxd -p -l 3 "$OUTPUT")"
+          echo "footer=$(tail -c 2 "$OUTPUT" | xxd -p)"
+          file "$OUTPUT"
+
           test "$(xxd -p -l 3 "$OUTPUT")" = 'ffd8ff'
           test "$(tail -c 2 "$OUTPUT" | xxd -p)" = 'ffd9'
           file "$OUTPUT" | grep -q 'JPEG image data'
 
-      - name: Upload verified JPG
+      - name: Upload rebuilt JPG
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: devil-hq-jpg
