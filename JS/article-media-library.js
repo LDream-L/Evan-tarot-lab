@@ -11,46 +11,24 @@
 // 空間複雜度：O(m + b)
 //
 // 更快替代方案比較：
-// - 低畫質 JPG：請求少，但放大後文字與細節失真。
-// - 每篇文章存完整網址：修改圖片時必須逐篇更新。
-// - 本實作：文章只保存代碼；高畫質圖首次線性組合並快取 Object URL，後續查詢直接使用快取。
+// - 直接使用低畫質 JPG：請求少，但放大後細節失真。
+// - 每篇文章保存完整圖片網址：換圖時必須逐篇修改。
+// - 目前作法：四段 JPG 資料並行下載，只在首次線性重組一次，之後以 Object URL 快取重複使用。
 // ==============================
 
 (function initArticleMediaLibrary() {
   "use strict";
 
   const DEVIL_ID = "tarot-devil-xv";
-  const VERSION = "20260630-devil-v3";
+  const VERSION = "20260701-devil-jpg-v1";
   const resolvedSourceById = new Map();
   const resolvingPromiseById = new Map();
 
   const DEVIL_SOURCE_PARTS = Object.freeze([
-    "assets/article-media/devil-v2/part_00.txt",
-    "assets/article-media/devil-v2/part_01.txt",
-    "assets/article-media/devil-v2/part_02.txt",
-    "assets/article-media/devil-v2/part_03.txt",
-    "assets/article-media/devil-v2/part_04.txt",
-    "assets/article-media/devil-v2/part_05.txt",
-    "assets/article-media/devil-v2/part_06.txt",
-    "assets/article-media/devil-v2/p07_00.txt",
-    "assets/article-media/devil-v2/p07_01.txt",
-    "assets/article-media/devil-v2/p07_02.txt",
-    "assets/article-media/devil-v2/p07_03.txt",
-    "assets/article-media/devil-v2/p08_00.txt",
-    "assets/article-media/devil-v2/p08_01.txt",
-    "assets/article-media/devil-v2/p08_02.txt",
-    "assets/article-media/devil-v2/p08_03.txt",
-    "assets/article-media/devil-v2/p09_00.txt",
-    "assets/article-media/devil-v2/p09_01.txt",
-    "assets/article-media/devil-v2/p09_02.txt",
-    "assets/article-media/devil-v2/p09_03.txt",
-    "assets/article-media/devil-v2/p09_04.txt",
-    "assets/article-media/devil-v2/p09_05.txt",
-    "assets/article-media/devil-v2/p09_06.txt",
-    "assets/article-media/devil-v2/p09_07.txt",
-    "assets/article-media/devil-v2/p10_00.txt",
-    "assets/article-media/devil-v2/p10_01.txt",
-    "assets/article-media/devil-v2/p10_02.txt",
+    "assets/article-media/devil-jpg-upload/chunk_00.txt",
+    "assets/article-media/devil-jpg-upload/chunk_01.txt",
+    "assets/article-media/devil-jpg-upload/chunk_02.txt",
+    "assets/article-media/devil-jpg-upload/chunk_03.txt",
   ].map((path) => `${path}?v=${VERSION}`));
 
   const MEDIA_LIBRARY = Object.freeze({
@@ -79,7 +57,7 @@
       src: `assets/article-media/tarot-devil-xv.jpg?v=${VERSION}-fallback`,
       fallbackSrc: `assets/article-media/tarot-devil-xv.jpg?v=${VERSION}-fallback`,
       sourceParts: DEVIL_SOURCE_PARTS,
-      mimeType: "image/webp",
+      mimeType: "image/jpeg",
       adminVariant: "portrait",
       defaultVariant: "portrait",
       alt: "XV THE DEVIL 惡魔塔羅牌：中央惡魔張開雙翼，下方男女被鎖鏈束縛。",
@@ -98,17 +76,23 @@
     return Object.entries(MEDIA_LIBRARY).map(([id, media]) => ({ id, ...media }));
   }
 
-  function base64ToObjectUrl(base64, mimeType) {
+  function base64JpegToObjectUrl(base64, mimeType) {
     const binary = window.atob(base64);
-    if (binary.length < 12 || binary.slice(0, 4) !== "RIFF" || binary.slice(8, 12) !== "WEBP") {
-      throw new Error("高畫質圖片資料不完整或格式錯誤。");
+    const isJpeg = binary.length >= 4
+      && binary.charCodeAt(0) === 0xff
+      && binary.charCodeAt(1) === 0xd8
+      && binary.charCodeAt(2) === 0xff;
+
+    if (!isJpeg) {
+      throw new Error("高畫質惡魔牌資料不完整，或不是有效的 JPG。 ");
     }
 
     const bytes = new Uint8Array(binary.length);
     for (let index = 0; index < binary.length; index += 1) {
       bytes[index] = binary.charCodeAt(index);
     }
-    return URL.createObjectURL(new Blob([bytes], { type: mimeType || "image/webp" }));
+
+    return URL.createObjectURL(new Blob([bytes], { type: mimeType || "image/jpeg" }));
   }
 
   function verifyImageSource(source) {
@@ -121,7 +105,7 @@
         }
         resolve(source);
       };
-      probe.onerror = () => reject(new Error("瀏覽器無法解碼高畫質惡魔牌圖片。"));
+      probe.onerror = () => reject(new Error("瀏覽器無法解碼高畫質惡魔牌 JPG。"));
       probe.src = source;
     });
   }
@@ -139,17 +123,20 @@
       try {
         const chunks = await Promise.all(media.sourceParts.map(async (url) => {
           const response = await fetch(url, { cache: "no-store" });
-          if (!response.ok) throw new Error(`圖片資料載入失敗：HTTP ${response.status}｜${url}`);
+          if (!response.ok) {
+            throw new Error(`圖片資料載入失敗：HTTP ${response.status}｜${url}`);
+          }
           return response.text();
         }));
+
         const base64 = chunks.join("").replace(/\s+/g, "");
-        objectUrl = base64ToObjectUrl(base64, media.mimeType);
+        objectUrl = base64JpegToObjectUrl(base64, media.mimeType);
         await verifyImageSource(objectUrl);
         resolvedSourceById.set(normalizedId, objectUrl);
         return objectUrl;
       } catch (error) {
         if (objectUrl) URL.revokeObjectURL(objectUrl);
-        console.error(`[article-media] ${normalizedId} 高畫質圖片載入失敗：`, error);
+        console.error(`[article-media] ${normalizedId} 高畫質 JPG 載入失敗：`, error);
         return media.fallbackSrc || media.src || "";
       } finally {
         resolvingPromiseById.delete(normalizedId);
@@ -179,6 +166,7 @@
     const images = root instanceof HTMLImageElement
       ? [root]
       : Array.from(root.querySelectorAll?.("img") || []);
+
     const targets = images.filter((image) => {
       const alt = String(image.alt || "");
       const src = String(image.getAttribute("src") || "");
@@ -188,6 +176,7 @@
     for (const image of targets) {
       markDevilLayout(image);
       if (image.dataset.hqMediaState === "ready" || image.dataset.hqMediaState === "loading") continue;
+
       image.dataset.hqMediaState = "loading";
       try {
         const source = await resolveSrc(DEVIL_ID);
