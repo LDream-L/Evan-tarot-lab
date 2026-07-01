@@ -15,79 +15,24 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rebuild original WebP
+      - name: Inspect current complete image
         shell: bash
         run: |
+          set -euo pipefail
           mkdir -p devil-export
-          python - <<'PY'
-          from pathlib import Path
-          import base64
-          import hashlib
-          import re
-          import struct
-          import traceback
+          cp assets/article-media/tarot-devil-xv.jpg devil-export/tarot-devil-xv.jpg
+          {
+            echo "size=$(stat -c%s devil-export/tarot-devil-xv.jpg)"
+            echo "sha256=$(sha256sum devil-export/tarot-devil-xv.jpg | awk '{print $1}')"
+            echo "header=$(od -An -tx1 -N3 devil-export/tarot-devil-xv.jpg | tr -d ' \n')"
+            echo "footer=$(tail -c 2 devil-export/tarot-devil-xv.jpg | od -An -tx1 | tr -d ' \n')"
+            file devil-export/tarot-devil-xv.jpg
+          } | tee devil-export/report.txt
 
-          out = Path('devil-export')
-          report = []
-          names = [
-              'part_00.txt', 'part_01.txt', 'part_02.txt', 'part_03.txt',
-              'part_04.txt', 'part_05.txt', 'part_06.txt',
-              'p07_00.txt', 'p07_01.txt', 'p07_02.txt', 'p07_03.txt',
-              'p08_00.txt', 'p08_01.txt', 'p08_02.txt', 'p08_03.txt',
-              'p09_00.txt', 'p09_01.txt', 'p09_02.txt', 'p09_03.txt',
-              'p09_04.txt', 'p09_05.txt', 'p09_06.txt', 'p09_07.txt',
-              'p10_00.txt', 'p10_01.txt', 'p10_02.txt',
-          ]
-          paths = [Path('assets/article-media/devil-v2') / name for name in names]
-
-          parts = []
-          for path in paths:
-              if not path.is_file():
-                  report.append(f'MISSING: {path}')
-                  continue
-              raw = path.read_text(encoding='utf-8', errors='replace')
-              clean = ''.join(re.findall(r'[A-Za-z0-9+/=]', raw))
-              parts.append(clean)
-              report.append(
-                  f'{path.name}: raw={len(raw)} clean={len(clean)} '
-                  f'equals={clean.count("=")} first_eq={clean.find("=")}'
-              )
-
-          joined = ''.join(part.rstrip('=') for part in parts)
-          joined += '=' * ((4 - len(joined) % 4) % 4)
-
-          try:
-              data = base64.b64decode(joined, validate=False)
-              output = out / 'tarot-devil-xv-hq.webp'
-              output.write_bytes(data)
-              riff_size = struct.unpack('<I', data[4:8])[0] + 8 if len(data) >= 12 else -1
-              report.extend([
-                  f'files_found={len(parts)}/{len(paths)}',
-                  f'base64_length={len(joined)}',
-                  f'output_size={len(data)}',
-                  f'riff_declared_size={riff_size}',
-                  f'sha256={hashlib.sha256(data).hexdigest()}',
-                  f'header={data[:12]!r}',
-                  f'tail={data[-16:].hex()}',
-                  f'valid_riff_webp={data[:4] == b"RIFF" and data[8:12] == b"WEBP"}',
-                  f'container_size_matches={riff_size == len(data)}',
-              ])
-          except Exception as error:
-              report.append(f'ERROR {type(error).__name__}: {error}')
-              report.append(traceback.format_exc())
-
-          (out / 'report.txt').write_text('\n'.join(report), encoding='utf-8')
-          print('\n'.join(report))
-          PY
-
-          file devil-export/* || true
-          exit 0
-
-      - name: Upload original image
-        if: always()
+      - name: Upload complete image
         uses: actions/upload-artifact@v4
         with:
-          name: devil-original-webp
+          name: devil-complete-fallback
           path: devil-export
           if-no-files-found: error
           retention-days: 1
