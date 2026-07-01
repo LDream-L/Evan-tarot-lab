@@ -1,0 +1,73 @@
+name: Rebuild Devil HQ Image
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'assets/article-media/devil-v2/**'
+      - '.github/workflows/rebuild-devil-hq.yml'
+
+permissions:
+  contents: write
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Rebuild and verify exact image
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p assets/article-media
+          cat \
+            assets/article-media/devil-v2/part_00.txt \
+            assets/article-media/devil-v2/part_01.txt \
+            assets/article-media/devil-v2/part_02.txt \
+            assets/article-media/devil-v2/part_03.txt \
+            assets/article-media/devil-v2/part_04.txt \
+            assets/article-media/devil-v2/part_05.txt \
+            assets/article-media/devil-v2/part_06.txt \
+            assets/article-media/devil-v2/p07_00.txt \
+            assets/article-media/devil-v2/p07_01.txt \
+            assets/article-media/devil-v2/p07_02.txt \
+            assets/article-media/devil-v2/p07_03.txt \
+            assets/article-media/devil-v2/p08_00.txt \
+            assets/article-media/devil-v2/p08_01.txt \
+            assets/article-media/devil-v2/p08_02.txt \
+            assets/article-media/devil-v2/p08_03.txt \
+            assets/article-media/devil-v2/p09_00.txt \
+            assets/article-media/devil-v2/p09_01.txt \
+            assets/article-media/devil-v2/p09_02.txt \
+            assets/article-media/devil-v2/p09_03.txt \
+            assets/article-media/devil-v2/p09_04.txt \
+            assets/article-media/devil-v2/p09_05.txt \
+            assets/article-media/devil-v2/p09_06.txt \
+            assets/article-media/devil-v2/p09_07.txt \
+            assets/article-media/devil-v2/p10_00.txt \
+            assets/article-media/devil-v2/p10_01.txt \
+            assets/article-media/devil-v2/p10_02.txt \
+            | tr -d '\n\r ' \
+            | base64 --decode \
+            > assets/article-media/tarot-devil-xv-hq.webp
+
+          echo '947ec140343ae7ffbec60ac3b95862f2ef314a147f1c1132a28e07c317e03f85  assets/article-media/tarot-devil-xv-hq.webp' | sha256sum --check
+          test "$(stat -c%s assets/article-media/tarot-devil-xv-hq.webp)" -eq 113982
+          file assets/article-media/tarot-devil-xv-hq.webp | grep -q 'Web/P image'
+
+      - name: Commit verified binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/article-media/tarot-devil-xv-hq.webp
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'fix: replace Devil card with verified HQ original'
+          git push
