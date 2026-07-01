@@ -15,33 +15,62 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Rebuild JPG
+      - name: Build decoding candidates
         shell: bash
         run: |
           set -euo pipefail
-          OUTPUT='assets/article-media/tarot-devil-xv-hq.jpg'
-          : > "$OUTPUT"
+          mkdir -p devil-candidates
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import hashlib
+          import re
 
-          for CHUNK in \
-            assets/article-media/devil-jpg-upload/chunk_00.txt \
-            assets/article-media/devil-jpg-upload/chunk_01.txt \
-            assets/article-media/devil-jpg-upload/chunk_02.txt \
-            assets/article-media/devil-jpg-upload/chunk_03.txt
-          do
-            tr -d '\n\r\t ' < "$CHUNK" | base64 --decode >> "$OUTPUT"
-          done
+          paths = [
+              Path('assets/article-media/devil-jpg-upload/chunk_00.txt'),
+              Path('assets/article-media/devil-jpg-upload/chunk_01.txt'),
+              Path('assets/article-media/devil-jpg-upload/chunk_02.txt'),
+              Path('assets/article-media/devil-jpg-upload/chunk_03.txt'),
+          ]
 
-          echo "size=$(stat -c%s "$OUTPUT")"
-          echo "sha256=$(sha256sum "$OUTPUT" | awk '{print $1}')"
-          echo "header=$(xxd -p -l 3 "$OUTPUT")"
-          echo "footer=$(tail -c 2 "$OUTPUT" | xxd -p)"
-          file "$OUTPUT"
+          parts = []
+          for path in paths:
+              raw = path.read_text(encoding='utf-8', errors='replace')
+              clean = ''.join(re.findall(r'[A-Za-z0-9+/=]', raw))
+              parts.append(clean)
+              invalid = sorted(set(re.sub(r'[A-Za-z0-9+/=\s]', '', raw)))
+              print(path, 'raw=', len(raw), 'clean=', len(clean), 'equals=', clean.count('='), 'invalid=', repr(''.join(invalid)))
 
-      - name: Upload rebuilt JPG
+          joined = ''.join(parts)
+          joined_bytes = base64.b64decode(joined, validate=False)
+          Path('devil-candidates/candidate-joined.jpg').write_bytes(joined_bytes)
+
+          decoded_parts = []
+          for index, part in enumerate(parts):
+              padded = part + ('=' * ((4 - len(part) % 4) % 4))
+              try:
+                  decoded = base64.b64decode(padded, validate=False)
+              except Exception as error:
+                  print('part decode failed', index, repr(error))
+                  decoded = b''
+              decoded_parts.append(decoded)
+              Path(f'devil-candidates/part-{index:02d}.bin').write_bytes(decoded)
+
+          parts_bytes = b''.join(decoded_parts)
+          Path('devil-candidates/candidate-parts.jpg').write_bytes(parts_bytes)
+
+          for path in sorted(Path('devil-candidates').iterdir()):
+              data = path.read_bytes()
+              print(path, 'size=', len(data), 'sha256=', hashlib.sha256(data).hexdigest(), 'head=', data[:3].hex(), 'tail=', data[-2:].hex())
+          PY
+
+          file devil-candidates/* || true
+
+      - name: Upload candidates
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: devil-hq-jpg
-          path: assets/article-media/tarot-devil-xv-hq.jpg
+          name: devil-decoding-candidates
+          path: devil-candidates
           if-no-files-found: error
           retention-days: 1
