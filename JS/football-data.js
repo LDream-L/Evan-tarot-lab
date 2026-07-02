@@ -1,10 +1,10 @@
-// 世足賽事驗證 v1.2.0｜固定資料
+// 世足賽事驗證 v1.6.0｜固定資料
 // 讀取時間 O(1)，牌組空間 O(78)。
 (function defineFootballLabData() {
   "use strict";
 
   const positions = [
-    { key: "directResult", title: "單張｜90 分鐘結果", note: "只判斷正規時間加傷停的主勝、和局或客勝" },
+    { key: "directResult", title: "單張｜90 分鐘整體能量", note: "觀察總進球區間與是否和局，不判定主隊或客隊勝" },
     { key: "homeAttack", title: "攻防組｜主隊進攻", note: "主隊創造機會與把握進球的狀態" },
     { key: "awayDefense", title: "攻防組｜客隊防守", note: "客隊限制主隊與承受壓力的狀態" },
     { key: "awayAttack", title: "攻防組｜客隊進攻", note: "客隊創造機會與把握進球的狀態" },
@@ -12,10 +12,10 @@
   ];
 
   window.FOOTBALL_LAB_DATA = Object.freeze({
-    modelVersion: "1.2.0",
+    modelVersion: "1.6.0",
     storageKey: "evanFootballTarotRecordsV1",
     resultLabels: Object.freeze({ H: "主隊勝", D: "和局", A: "客隊勝" }),
-    modeLabels: Object.freeze({ direct: "單張結果模式", structure: "四張攻防模式", dual: "雙模型比較模式", legacy5: "舊版五牌位" }),
+    modeLabels: Object.freeze({ direct: "單張整體能量模式", structure: "四張攻防模式", dual: "雙模型比較模式", legacy5: "舊版五牌位" }),
     cardSourceLabels: Object.freeze({ manual: "手動記錄實體抽牌", random: "網站隨機抽牌" }),
     positionSets: Object.freeze({
       direct: Object.freeze(["directResult"]),
