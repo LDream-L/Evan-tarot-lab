@@ -125,58 +125,7 @@ function createNavLink(href, text) {
 }
 
 /**
- * 建立不依賴外部圖片的 Podcast 小圖示。
- * 時間複雜度：O(1)
- * 空間複雜度：O(1)
- */
-function createPodcastIcon() {
-  const svgNamespace = "http://www.w3.org/2000/svg";
-  const svg = document.createElementNS(svgNamespace, "svg");
-  svg.setAttribute("viewBox", "0 0 24 24");
-  svg.setAttribute("width", "16");
-  svg.setAttribute("height", "16");
-  svg.setAttribute("aria-hidden", "true");
-  svg.setAttribute("focusable", "false");
-  svg.style.flex = "0 0 auto";
-
-  const background = document.createElementNS(svgNamespace, "rect");
-  background.setAttribute("x", "1");
-  background.setAttribute("y", "1");
-  background.setAttribute("width", "22");
-  background.setAttribute("height", "22");
-  background.setAttribute("rx", "5");
-  background.setAttribute("fill", "#8b5cf6");
-
-  const outerRing = document.createElementNS(svgNamespace, "path");
-  outerRing.setAttribute("d", "M6.2 11a5.8 5.8 0 0 1 11.6 0");
-  outerRing.setAttribute("fill", "none");
-  outerRing.setAttribute("stroke", "#ffffff");
-  outerRing.setAttribute("stroke-width", "1.5");
-  outerRing.setAttribute("stroke-linecap", "round");
-
-  const innerRing = document.createElementNS(svgNamespace, "path");
-  innerRing.setAttribute("d", "M8.6 11a3.4 3.4 0 0 1 6.8 0");
-  innerRing.setAttribute("fill", "none");
-  innerRing.setAttribute("stroke", "#ffffff");
-  innerRing.setAttribute("stroke-width", "1.5");
-  innerRing.setAttribute("stroke-linecap", "round");
-
-  const head = document.createElementNS(svgNamespace, "circle");
-  head.setAttribute("cx", "12");
-  head.setAttribute("cy", "11");
-  head.setAttribute("r", "1.8");
-  head.setAttribute("fill", "#ffffff");
-
-  const body = document.createElementNS(svgNamespace, "path");
-  body.setAttribute("d", "M12 13.4c-1.25 0-2.25 1-2.25 2.25V20h4.5v-4.35c0-1.25-1-2.25-2.25-2.25Z");
-  body.setAttribute("fill", "#ffffff");
-
-  svg.append(background, outerRing, innerRing, head, body);
-  return svg;
-}
-
-/**
- * 將 Podcast 入口統一放在預約前，點擊後另開 Apple Podcast。
+ * 將 Podcast 文字入口統一放在預約前，點擊後另開 Apple Podcast。
  * 時間複雜度：O(n)，n = 導覽連結數
  * 空間複雜度：O(1)
  */
@@ -194,10 +143,7 @@ function normalizePodcastNavigation(nav) {
   podcastLink.rel = "noopener noreferrer";
   podcastLink.title = "在 Apple Podcast 收聽《有點偏》";
   podcastLink.setAttribute("aria-label", "前往 Apple Podcast 收聽《有點偏》（另開新分頁）");
-  podcastLink.style.display = "inline-flex";
-  podcastLink.style.alignItems = "center";
-  podcastLink.style.gap = "5px";
-  podcastLink.replaceChildren(createPodcastIcon(), document.createTextNode("Podcast"));
+  podcastLink.textContent = "Podcast";
 
   nav.insertBefore(podcastLink, bookingLink || null);
 }
