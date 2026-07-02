@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Evan Tarot｜塔羅占卜、文章、Podcast 與實驗室</title>
-  <meta name="description" content="Evan 的塔羅占卜風格、文章、Podcast《有點偏》、實驗室與占卜時間流。" />
+  <title>Evan Tarot｜塔羅占卜、文章與實驗室</title>
+  <meta name="description" content="Evan 的塔羅占卜風格、文章、實驗室與占卜時間流。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260624-copy-cleanup-v1" />
 </head>
@@ -21,7 +21,13 @@
         <a href="articles.html">文章</a>
         <a href="lab.html">實驗室</a>
         <a href="timeflow.html">時間流</a>
-        <a href="index.html#podcast">Podcast</a>
+        <a
+          data-podcast-link="true"
+          href="https://podcasts.apple.com/tw/podcast/%E6%9C%89%E9%BB%9E%E5%81%8F/id1896598359"
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label="前往 Apple Podcast 收聽《有點偏》（另開新分頁）"
+        >Podcast</a>
         <a href="services.html#booking">預約</a>
       </nav>
     </div>
@@ -54,7 +60,6 @@
               <li>想先認識風格：查看關於 Evan</li>
               <li>想閱讀紀錄與觀點：前往文章</li>
               <li>想使用工具或看驗證：進入實驗室</li>
-              <li>想聽生活觀點：收聽 Podcast《有點偏》</li>
             </ul>
             <p class="hero-note">有明確問題時，可直接查看占卜項目與預約方式。</p>
           </div>
@@ -102,52 +107,17 @@
         </div>
       </div>
     </section>
-
-    <section class="section alt" id="podcast">
-      <div class="container">
-        <h2>Podcast《有點偏》</h2>
-        <p class="section-lead">
-          從生活經驗與那些不一定被說出口的念頭出發，聊聊興趣、情緒、選擇與人生方向。
-        </p>
-        <div class="card-grid article-grid">
-          <article class="card article-card">
-            <span class="article-tag">Podcast</span>
-            <h3>有點偏</h3>
-            <p>
-              有些事情沒有唯一的標準答案。換個角度看，也許原本被忽略的經驗、能力與選擇，會長出另一條路。
-            </p>
-            <div class="hero-cta">
-              <a
-                class="btn primary"
-                href="https://podcasts.apple.com/tw/podcast/%E6%9C%89%E9%BB%9E%E5%81%8F/id1896598359"
-                target="_blank"
-                rel="noopener noreferrer"
-                aria-label="前往 Apple Podcast 收聽有點偏"
-              >在 Apple Podcast 收聽</a>
-            </div>
-          </article>
-        </div>
-      </div>
-    </section>
   </main>
 
   <footer class="site-footer">
     <div class="container footer-inner">
-      <p>Evan Tarot ｜塔羅占卜、文章、Podcast 與實驗室</p>
+      <p>Evan Tarot ｜塔羅占卜、文章與實驗室</p>
       <p class="footer-sub">以結構化牌義、情境分析與後續驗證，協助你整理問題與下一步。</p>
-      <p>
-        <a
-          class="inline-link"
-          href="https://podcasts.apple.com/tw/podcast/%E6%9C%89%E9%BB%9E%E5%81%8F/id1896598359"
-          target="_blank"
-          rel="noopener noreferrer"
-        >收聽 Podcast《有點偏》</a>
-      </p>
     </div>
   </footer>
 
   <script src="JS/utils.js?v=20260629-stability-v1"></script>
   <script src="JS/ripple-effect.js?v=20260624-copy-cleanup-v1"></script>
-  <script src="JS/main.js?v=20260629-admin-navigation-v1"></script>
+  <script src="JS/main.js?v=20260702-podcast-nav-v1"></script>
 </body>
 </html>
