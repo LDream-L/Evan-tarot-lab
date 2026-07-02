@@ -1,9 +1,10 @@
-// Evan Tarot｜世足賽事驗證 Google Sheets 後端 v1.1.0
+// Evan Tarot｜世足賽事驗證 Google Sheets 後端 v1.2.0
 // 正式部署位置：綁定全新的「Evan Tarot｜世足賽事驗證資料庫」Google 試算表。
 //
 // 主要複雜度：
 // - setupFootballWorkbook：O(s * h) 時間／O(h) 空間，s=工作表數、h=欄位數。
 // - createFootballRecord：O(r + c) 時間／O(c) 空間，r=既有賽事列、c=本場牌數（最多 5）。
+// - updateFootballMatch：O(r + h) 時間／O(h) 空間。
 // - updateFootballActual：O(r) 時間／O(1) 額外空間。
 // - recalculateAllFootballEvaluations：O(r * h) 時間／O(r * h) 空間。
 // - listFootballRecords：O(r + c + e) 時間／O(r + c + e) 空間。
@@ -12,7 +13,7 @@
 // 本版優化：每張工作表一次批次讀取、一次批次寫入，並以 Map 組合牌面與事件。
 // 嚴格比分規則：單邊進球數相同不獨立計為命中，只有完整比分一致才算比分命中。
 
-const FOOTBALL_DB_VERSION = '1.1.0';
+const FOOTBALL_DB_VERSION = '1.2.0';
 const FOOTBALL_SCHEMA_VERSION = 'evan-football-tarot-v2';
 
 const FOOTBALL_SHEETS = Object.freeze({
@@ -88,8 +89,8 @@ function doGet(e) {
 
 /**
  * Web App 寫入入口。
- * 時間複雜度：依 action 為 O(r + c) 或 O(r)
- * 空間複雜度：O(c)
+ * 時間複雜度：依 action 為 O(r + c)、O(r + h) 或 O(r)
+ * 空間複雜度：O(c + h)
  */
 function doPost(e) {
   try {
@@ -98,6 +99,9 @@ function doPost(e) {
     const action = String(payload.action || '');
     if (action === 'createRecord') {
       return jsonOutput_({ ok: true, result: createFootballRecord_(payload.record) });
+    }
+    if (action === 'updateMatch') {
+      return jsonOutput_({ ok: true, result: updateFootballMatch_(payload.recordId, payload.match) });
     }
     if (action === 'updateActual') {
       return jsonOutput_({ ok: true, result: updateFootballActual_(payload.recordId, payload.actual) });
@@ -148,6 +152,51 @@ function createFootballRecord_(record) {
       cardsSheet.getRange(cardsSheet.getLastRow() + 1, 1, cardRows.length, cardRows[0].length).setValues(cardRows);
     }
     return { created: true, recordId: record.id };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+/**
+ * 只修正賽事基本資料，不改動牌面、鎖定預測或賽後結果。
+ * 時間複雜度：O(r + h)
+ * 空間複雜度：O(h)
+ * 更快替代方案：逐欄 setValue 會產生多次遠端寫入；本函式整列讀取、整列寫回一次。
+ */
+function updateFootballMatch_(recordId, match) {
+  if (!recordId) throw new Error('缺少 recordId。');
+  validateEditableMatch_(match);
+
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const sheet = getFootballSpreadsheet_().getSheetByName(FOOTBALL_SHEETS.MATCHES);
+    const rowNumber = findRecordRow_(sheet, recordId);
+    if (rowNumber < 2) throw new Error('找不到指定紀錄。');
+
+    const headers = FOOTBALL_HEADERS.FootballMatches;
+    const row = sheet.getRange(rowNumber, 1, 1, headers.length).getValues()[0];
+    const odds = match.odds || {};
+    const updates = {
+      competition: String(match.competition || '').trim(),
+      stage: String(match.stage || '').trim(),
+      kickoff: String(match.kickoff || '').trim(),
+      infoState: String(match.infoState || '').trim(),
+      homeTeam: String(match.homeTeam || '').trim(),
+      awayTeam: String(match.awayTeam || '').trim(),
+      knownInfo: String(match.knownInfo || '').trim(),
+      homeOdds: nullable_(toNullableNumber_(odds.home)),
+      drawOdds: nullable_(toNullableNumber_(odds.draw)),
+      awayOdds: nullable_(toNullableNumber_(odds.away)),
+      updatedAt: new Date().toISOString(),
+    };
+
+    Object.entries(updates).forEach(([key, value]) => {
+      const column = headers.indexOf(key);
+      if (column >= 0) row[column] = value;
+    });
+    sheet.getRange(rowNumber, 1, 1, headers.length).setValues([row]);
+    return { updated: true, recordId, updatedFields: Object.keys(updates) };
   } finally {
     lock.releaseLock();
   }
@@ -380,6 +429,26 @@ function validateRecord_(record) {
     throw new Error('賽事基本資料不完整。');
   }
   if (!record.lockedAt) throw new Error('只允許寫入已鎖定的賽前紀錄。');
+}
+
+function validateEditableMatch_(match) {
+  if (!match || !String(match.competition || '').trim() || !String(match.kickoff || '').trim()
+    || !String(match.homeTeam || '').trim() || !String(match.awayTeam || '').trim()) {
+    throw new Error('賽事名稱、開賽時間與兩隊名稱不可留白。');
+  }
+  if (Number.isNaN(Date.parse(String(match.kickoff)))) throw new Error('開賽時間格式不正確。');
+
+  const homeTeam = String(match.homeTeam).trim().toLowerCase();
+  const awayTeam = String(match.awayTeam).trim().toLowerCase();
+  if (homeTeam === awayTeam) throw new Error('主隊與客隊不能是同一支隊伍。');
+
+  const odds = match.odds || {};
+  const values = [odds.home, odds.draw, odds.away].map(toNullableNumber_);
+  const count = values.filter((value) => Number.isFinite(value)).length;
+  if (count !== 0 && count !== 3) throw new Error('市場賠率要嘛三項都填，要嘛全部留白。');
+  if (values.some((value) => value != null && (value < 1.01 || value > 999))) {
+    throw new Error('市場賠率必須介於 1.01 與 999。');
+  }
 }
 
 function validateActual_(actual) {
