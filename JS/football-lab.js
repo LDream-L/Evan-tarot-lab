@@ -1,9 +1,9 @@
 // 世足賽事驗證 v1.6.0｜相容載入器
-// 依序載入雲端設定、帳戶、資料、核心、比分規則、渲染、淘汰賽流程、單張能量、事件、雲端同步與紀錄介面。時間 O(m)，空間 O(1)，m=20。
+// 依序載入雲端設定、帳戶、資料、核心、比分規則、渲染、淘汰賽流程、單張能量、事件、雲端同步與紀錄介面。時間 O(m)，空間 O(1)，m=21。
 (function loadFootballLabModules() {
   "use strict";
 
-  const version = "20260702-football-v160-direct-energy";
+  const version = "20260702-football-v160-direct-energy-b";
   const modules = [
     "JS/cloud-config.js",
     "JS/site-account.js",
@@ -15,6 +15,7 @@
     "JS/football-datetime-fix.js",
     "JS/football-knockout-flow.js",
     "JS/football-direct-energy.js",
+    "JS/football-direct-energy-form.js",
     "JS/football-events.js",
     "JS/football-cloud.js",
     "JS/football-records-ux.js",
