@@ -3,7 +3,7 @@
 (function loadFootballLabModules() {
   "use strict";
 
-  const version = "20260702-football-v160-direct-energy-b";
+  const version = "20260702-football-v160-direct-energy-c";
   const modules = [
     "JS/cloud-config.js",
     "JS/site-account.js",
