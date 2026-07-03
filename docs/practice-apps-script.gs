@@ -3,7 +3,7 @@ const ACCESS_KEY_PROPERTY = 'PRACTICE_ACCESS_KEY';
 const NOTIFY_EMAIL_PROPERTY = 'PRACTICE_NOTIFY_EMAIL';
 
 const PRACTICE_FIELDS = [
-  ['practice-date', '日期'], ['practice-time', '時間'], ['practice-week', '訓練週期'],
+  ['practice-date', '日期'], ['practice-time', '時間'], ['practice-week', '訓練週期代碼'],
   ['practice-session-number', '本週第幾次'], ['practice-duration', '實際完成時間（分鐘）'],
   ['practice-audio-duration', '實際音檔長度（分鐘）'], ['practice-willingness', '願意開始'],
   ['practice-mental', '精神狀態'], ['practice-fatigue', '身體疲累'], ['practice-anxiety', '焦慮或躁動'],
@@ -28,6 +28,105 @@ const PRACTICE_FIELDS = [
   ['practice-next-change', '最希望下一版修改的地方']
 ];
 
+const PRACTICE_EMAIL_SECTIONS = Object.freeze([
+  Object.freeze({
+    title: '基本資料',
+    fields: [
+      ['practice-date', '日期'], ['practice-time', '時間'],
+      ['practice-session-number', '本週第幾次'],
+      ['practice-duration', '實際完成時間', '分鐘'],
+      ['practice-audio-duration', '實際音檔長度', '分鐘']
+    ]
+  }),
+  Object.freeze({
+    title: '開始前狀態',
+    fields: [
+      ['practice-willingness', '願意開始', '/10'],
+      ['practice-mental', '精神狀態', '/10'],
+      ['practice-fatigue', '身體疲累', '/10'],
+      ['practice-anxiety', '焦慮或躁動', '/10']
+    ]
+  }),
+  Object.freeze({
+    title: '過程與節奏',
+    fields: [
+      ['practice-distraction', '注意力最常跑去哪裡'],
+      ['practice-pace', '整體速度'],
+      ['practice-helpful-line', '最有幫助的一句'],
+      ['practice-awkward-line', '最出戲的一句'],
+      ['practice-repeated', '覺得重複的地方'],
+      ['practice-speed-notes', '太快／太慢的地方']
+    ]
+  }),
+  Object.freeze({
+    title: '身體反應',
+    fields: [
+      ['practice-brow', '眉心感覺'], ['practice-body-sensation', '其他身體感'],
+      ['practice-dizziness', '頭暈'], ['practice-head-pressure', '頭脹'],
+      ['practice-chest-tightness', '胸悶'], ['practice-nausea', '噁心'],
+      ['practice-floating', '飄忽或不真實感'], ['practice-anxiety-rise', '焦慮升高'],
+      ['practice-discomfort', '其他不舒服']
+    ]
+  }),
+  Object.freeze({
+    title: '出現的內容',
+    fields: [
+      ['practice-first-word', '第一個字詞'], ['practice-first-image', '第一個畫面'],
+      ['practice-first-emotion', '第一個情緒'], ['practice-first-body', '第一個身體感'],
+      ['practice-interpretation', '後來自己補上的解釋'],
+      ['practice-no-content', '本次沒有明顯內容']
+    ]
+  }),
+  Object.freeze({
+    title: '回神',
+    fields: [
+      ['practice-clear-after', '睜眼後是否清楚'],
+      ['practice-recovery-seconds', '完全回到正常狀態', '秒'],
+      ['practice-best-reorientation', '最有效的回神步驟'],
+      ['practice-sudden-step', '仍然太突然的步驟']
+    ]
+  }),
+  Object.freeze({
+    title: '塔羅校準',
+    optional: true,
+    fields: [
+      ['practice-card', '抽到的牌'], ['practice-card-orientation', '正逆位'],
+      ['practice-awake-for-tarot', '抽牌時是否完全清醒'],
+      ['practice-tarot-match', '冥想與牌面一致處'],
+      ['practice-tarot-mismatch', '冥想與牌面不一致處'],
+      ['practice-followup-event', '後續實際事件']
+    ]
+  }),
+  Object.freeze({
+    title: '練習後',
+    fields: [
+      ['practice-after-30', '30 分鐘後狀態'], ['practice-sleep', '當晚睡眠'],
+      ['practice-next-day', '隔天狀態'], ['practice-willing-next', '下一次是否願意再做'],
+      ['practice-next-change', '最希望下一版修改的地方']
+    ]
+  })
+]);
+
+const PRACTICE_WEEK_DETAIL_LABELS = Object.freeze({
+  'week-1-v8': Object.freeze({
+    breathToFeetHelpful: '把注意力帶回腳底是否有幫助',
+    repeatedSection: '哪一段覺得重複',
+    speedSection: '哪一段太快或太慢',
+    reorientationEffective: '左右觀看或其他回神步驟是否有效',
+    suddenStep: '有沒有哪一步仍然太突然'
+  }),
+  'week-2-v9': Object.freeze({
+    thoughtLabelEffective: '用「想法」標記後是否比較容易回來',
+    thoughtStage: '思緒最常在哪個階段出現',
+    groundingStable: '腳底是否能成為穩定錨點',
+    dualAnchorDifficulty: '同時注意腳底與眉心的難度',
+    groundingReducedFloating: '保留腳底注意力是否降低飄忽',
+    browChange: '眉心感覺與第一週相比',
+    rawFeeling: '練習中最先出現的原始感受',
+    laterInterpretation: '後來才加上的解釋或推論'
+  })
+});
+
 function doPost(e) {
   try {
     const payload = parsePayload_(e);
@@ -49,14 +148,14 @@ function doPost(e) {
   }
 }
 
-// Time O(payload), space O(payload).
+// 時間複雜度 O(payload)，空間複雜度 O(payload)。
 function parsePayload_(e) {
   const raw = e && e.postData && e.postData.contents;
   if (!raw) throw new Error('沒有收到資料。');
   return JSON.parse(raw);
 }
 
-// Time O(k), space O(1), where k is key length.
+// 時間複雜度 O(k)，空間複雜度 O(1)，k 為金鑰長度。
 function verifyAccessKey_(candidate) {
   const expected = PropertiesService.getScriptProperties().getProperty(ACCESS_KEY_PROPERTY);
   if (!expected) throw new Error('尚未設定 PRACTICE_ACCESS_KEY。');
@@ -72,7 +171,7 @@ function timingSafeEqual_(left, right) {
   return diff === 0;
 }
 
-// Time O(1), space O(1). Headers are written in one batch instead of cell by cell.
+// 時間複雜度 O(f)，空間複雜度 O(f)，f 為固定欄位數。
 function ensurePracticeSheet_() {
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
   let sheet = spreadsheet.getSheetByName(PRACTICE_SHEET_NAME);
@@ -80,7 +179,7 @@ function ensurePracticeSheet_() {
 
   const headers = ['接收時間', 'Record ID', 'Created At', 'Updated At']
     .concat(PRACTICE_FIELDS.map(([, label]) => label))
-    .concat(['原始 JSON']);
+    .concat(['原始 JSON', '週次名稱', '版本', '週次專屬回饋 JSON']);
   const currentHeader = sheet.getRange(1, 1, 1, headers.length).getValues()[0];
   const headerChanged = headers.some((header, index) => currentHeader[index] !== header);
   if (headerChanged) {
@@ -90,7 +189,7 @@ function ensurePracticeSheet_() {
   return sheet;
 }
 
-// Time O(n) to locate an existing ID, space O(m) for one row. A database index would be faster at high volume; this tracker is low-volume.
+// 時間複雜度 O(n)，空間複雜度 O(f)。低資料量下以 Record ID 搜尋比額外維護索引更穩定。
 function upsertPracticeRecord_(record) {
   if (!record || !record.id || !record.data) throw new Error('紀錄格式不完整。');
   const lock = LockService.getScriptLock();
@@ -121,7 +220,12 @@ function buildRow_(record) {
   const data = record.data || {};
   return [new Date(), record.id, record.createdAt || '', record.updatedAt || '']
     .concat(PRACTICE_FIELDS.map(([key]) => normalizeCell_(data[key])))
-    .concat([JSON.stringify(record)]);
+    .concat([
+      JSON.stringify(record),
+      record.weekLabel || '',
+      record.version || '',
+      JSON.stringify(record.weekDetails || {})
+    ]);
 }
 
 function normalizeCell_(value) {
@@ -131,7 +235,7 @@ function normalizeCell_(value) {
   return String(value);
 }
 
-// Time O(n) because deletion first locates the ID. Low volume makes this safer than maintaining a row cache.
+// 時間複雜度 O(n)，空間複雜度 O(1)。
 function deletePracticeRecord_(recordId) {
   if (!recordId) throw new Error('缺少 recordId。');
   const lock = LockService.getScriptLock();
@@ -148,26 +252,75 @@ function deletePracticeRecord_(recordId) {
   }
 }
 
+// 時間複雜度 O(f + w)，空間複雜度 O(f + w)，f 為固定欄位數，w 為當週專屬欄位數。
 function notify_(record, updated) {
   const email = PropertiesService.getScriptProperties().getProperty(NOTIFY_EMAIL_PROPERTY);
   if (!email) return;
+
   const data = record.data || {};
-  const subject = `【修煉紀錄】${data['practice-date'] || '未填日期'}｜${data['practice-week'] || '未分類'}`;
-  const body = [
-    updated ? '既有紀錄已更新。' : '新增一筆修煉紀錄。', '',
-    `日期：${data['practice-date'] || ''}`,
-    `週期：${data['practice-week'] || ''}`,
-    `完成時間：${data['practice-duration'] || ''} 分鐘`,
-    `精神：${data['practice-mental'] || ''}/10`,
-    `疲累：${data['practice-fatigue'] || ''}/10`,
-    `焦慮：${data['practice-anxiety'] || ''}/10`,
-    `眉心：${data['practice-brow'] || ''}`,
-    `飄忽：${data['practice-floating'] || ''}`,
-    `回神：${data['practice-recovery-seconds'] || ''} 秒`,
-    `希望修改：${data['practice-next-change'] || ''}`, '',
-    `Record ID：${record.id}`
-  ].join('\n');
-  MailApp.sendEmail(email, subject, body);
+  const weekKey = record.weekKey || data['practice-week'] || '';
+  const weekLabel = record.weekLabel || weekKey || '未分類';
+  const version = record.version || '';
+  const sessionNumber = hasPracticeValue_(data['practice-session-number'])
+    ? `｜第${data['practice-session-number']}次`
+    : '';
+  const subject = `【修煉紀錄】${data['practice-date'] || '未填日期'}｜${weekLabel}${sessionNumber}`;
+
+  const bodyLines = [
+    updated ? '既有修煉紀錄已更新。' : '新增一筆修煉紀錄。',
+    '',
+    `週次：${weekLabel}`,
+    `版本：${version || '未填'}`
+  ];
+
+  PRACTICE_EMAIL_SECTIONS.forEach((section) => {
+    const sectionLines = buildPracticeSectionLines_(section.fields, data);
+    if (section.optional && sectionLines.length === 0) return;
+    bodyLines.push('', `【${section.title}】`);
+    if (sectionLines.length) bodyLines.push(...sectionLines);
+    else bodyLines.push('未填');
+  });
+
+  const weekLines = buildWeekDetailLines_(weekKey, record.weekDetails || {});
+  bodyLines.push('', `【${weekLabel}｜本週專屬回饋】`);
+  bodyLines.push(...(weekLines.length ? weekLines : ['未填']));
+  bodyLines.push('', `Record ID：${record.id}`);
+
+  MailApp.sendEmail({
+    to: email,
+    subject,
+    body: bodyLines.join('\n'),
+    name: 'Evan 修煉紀錄'
+  });
+}
+
+function buildPracticeSectionLines_(fields, data) {
+  const lines = [];
+  fields.forEach(([key, label, suffix]) => {
+    const value = data[key];
+    if (!hasPracticeValue_(value)) return;
+    lines.push(`${label}：${formatPracticeEmailValue_(value, suffix)}`);
+  });
+  return lines;
+}
+
+function buildWeekDetailLines_(weekKey, details) {
+  const labels = PRACTICE_WEEK_DETAIL_LABELS[weekKey] || {};
+  const preferredKeys = Object.keys(labels);
+  const extraKeys = Object.keys(details).filter((key) => !Object.prototype.hasOwnProperty.call(labels, key));
+  return preferredKeys.concat(extraKeys)
+    .filter((key) => hasPracticeValue_(details[key]))
+    .map((key) => `${labels[key] || key}：${formatPracticeEmailValue_(details[key])}`);
+}
+
+function hasPracticeValue_(value) {
+  if (value === true || value === false || value === 0) return true;
+  return value !== null && value !== undefined && String(value).trim() !== '';
+}
+
+function formatPracticeEmailValue_(value, suffix) {
+  const normalized = normalizeCell_(value);
+  return suffix ? `${normalized}${suffix}` : normalized;
 }
 
 function json_(value) {
