@@ -1,0 +1,380 @@
+.practice-hero .hero-inner {
+  align-items: stretch;
+}
+
+.practice-breadcrumb {
+  display: inline-flex;
+  margin-bottom: 12px;
+  color: var(--accent-strong);
+  text-decoration: none;
+  font-size: 0.9rem;
+}
+
+.practice-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(280px, 0.75fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.practice-panel {
+  padding: 24px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(21, 22, 55, 0.98), rgba(8, 9, 28, 0.96));
+  box-shadow: var(--shadow-subtle);
+}
+
+.practice-side {
+  display: grid;
+  gap: 18px;
+  position: sticky;
+  top: 92px;
+}
+
+.practice-panel-heading,
+.practice-records-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 18px;
+}
+
+.practice-panel h2,
+.practice-records-heading h2 {
+  margin: 0;
+}
+
+.practice-eyebrow {
+  margin: 0 0 4px;
+  color: var(--accent-strong);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.practice-version {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  border: 1px solid rgba(139, 123, 255, 0.35);
+  border-radius: var(--radius-pill);
+  color: var(--accent-strong);
+  background: var(--accent-soft);
+  font-size: 0.78rem;
+}
+
+#practice-form {
+  display: grid;
+  gap: 18px;
+}
+
+#practice-form fieldset {
+  margin: 0;
+  padding: 18px;
+  border: 1px solid rgba(120, 120, 180, 0.32);
+  border-radius: var(--radius-md);
+  background: rgba(4, 5, 22, 0.5);
+}
+
+#practice-form legend {
+  padding: 0 8px;
+  color: #ffffff;
+  font-weight: 700;
+}
+
+.practice-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.practice-grid-4 {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.practice-span-2 {
+  grid-column: 1 / -1;
+}
+
+.practice-grid label,
+.practice-score-grid label {
+  display: grid;
+  gap: 7px;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.practice-grid input,
+.practice-grid select,
+.practice-grid textarea,
+.practice-import-label {
+  width: 100%;
+}
+
+.practice-grid input,
+.practice-grid select,
+.practice-grid textarea,
+.practice-import-label input {
+  border: 1px solid rgba(140, 140, 210, 0.42);
+  border-radius: 10px;
+  color: var(--text-main);
+  background: rgba(3, 4, 19, 0.92);
+}
+
+.practice-grid input,
+.practice-grid select {
+  min-height: 44px;
+  padding: 9px 11px;
+}
+
+.practice-grid textarea {
+  min-height: 92px;
+  padding: 10px 11px;
+  resize: vertical;
+}
+
+.practice-grid input:focus,
+.practice-grid select:focus,
+.practice-grid textarea:focus,
+.practice-import-label input:focus {
+  outline: 2px solid rgba(139, 123, 255, 0.5);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.practice-score-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.practice-score-grid label {
+  padding: 12px;
+  border: 1px solid rgba(120, 120, 180, 0.26);
+  border-radius: 10px;
+  background: rgba(12, 13, 38, 0.72);
+}
+
+.practice-score-grid output {
+  justify-self: end;
+  margin-top: -30px;
+  color: #ffffff;
+  font-weight: 800;
+}
+
+.practice-score-grid input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+}
+
+.practice-check {
+  display: inline-flex !important;
+  grid-template-columns: auto 1fr !important;
+  align-items: center;
+  justify-self: start;
+}
+
+.practice-check input {
+  width: 18px !important;
+  min-height: 18px !important;
+}
+
+.practice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.practice-message {
+  min-height: 1.5em;
+  margin: 0;
+  color: var(--success);
+}
+
+.practice-message.is-error {
+  color: var(--danger);
+}
+
+.practice-summary {
+  display: grid;
+  gap: 12px;
+}
+
+.practice-summary-card {
+  padding: 12px 14px;
+  border: 1px solid rgba(120, 120, 180, 0.28);
+  border-radius: 10px;
+  background: rgba(5, 6, 24, 0.72);
+}
+
+.practice-summary-card small {
+  display: block;
+  color: var(--text-muted);
+}
+
+.practice-summary-card strong {
+  display: block;
+  margin-top: 2px;
+  font-size: 1.25rem;
+}
+
+.practice-export-actions {
+  display: grid;
+  gap: 10px;
+}
+
+.practice-import-label {
+  display: grid;
+  gap: 7px;
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.practice-import-label input {
+  padding: 10px;
+}
+
+.practice-records-heading {
+  margin-bottom: 20px;
+}
+
+.practice-danger-button {
+  border: 1px solid rgba(240, 113, 129, 0.45);
+  border-radius: var(--radius-pill);
+  padding: 8px 14px;
+  color: #ffacb8;
+  background: rgba(80, 15, 28, 0.32);
+  cursor: pointer;
+}
+
+.practice-record-list {
+  display: grid;
+  gap: 14px;
+}
+
+.practice-record-card {
+  padding: 18px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: rgba(12, 13, 38, 0.88);
+}
+
+.practice-record-topline {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.practice-record-topline h3 {
+  margin: 0;
+}
+
+.practice-record-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.practice-record-meta span {
+  padding: 4px 9px;
+  border-radius: var(--radius-pill);
+  color: var(--text-muted);
+  background: rgba(139, 123, 255, 0.12);
+  font-size: 0.78rem;
+}
+
+.practice-record-body {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.practice-record-body div {
+  padding: 10px;
+  border-radius: 9px;
+  background: rgba(3, 4, 19, 0.55);
+}
+
+.practice-record-body small {
+  display: block;
+  color: var(--text-muted);
+}
+
+.practice-record-body strong {
+  display: block;
+  margin-top: 2px;
+  overflow-wrap: anywhere;
+}
+
+.practice-record-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.practice-record-actions button {
+  border: 1px solid rgba(139, 123, 255, 0.32);
+  border-radius: var(--radius-pill);
+  padding: 7px 12px;
+  color: var(--accent-strong);
+  background: rgba(9, 9, 30, 0.88);
+  cursor: pointer;
+}
+
+.practice-record-actions button[data-action="delete"] {
+  color: #ffacb8;
+  border-color: rgba(240, 113, 129, 0.36);
+}
+
+.practice-empty {
+  padding: 24px;
+  border: 1px dashed rgba(120, 120, 180, 0.38);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  text-align: center;
+}
+
+@media (max-width: 900px) {
+  .practice-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .practice-side {
+    position: static;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 720px) {
+  .practice-panel {
+    padding: 18px;
+  }
+
+  .practice-grid,
+  .practice-grid-4,
+  .practice-score-grid,
+  .practice-side,
+  .practice-record-body {
+    grid-template-columns: 1fr;
+  }
+
+  .practice-span-2 {
+    grid-column: auto;
+  }
+
+  .practice-panel-heading,
+  .practice-records-heading,
+  .practice-record-topline {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .practice-actions .btn {
+    width: 100%;
+  }
+}

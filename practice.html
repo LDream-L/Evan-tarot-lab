@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Evan Tarot｜修煉紀錄</title>
+  <meta name="description" content="記錄每週冥想修煉、身體反應、直覺內容、回神狀態與塔羅校準。" />
+  <meta name="theme-color" content="#050518" />
+  <link rel="stylesheet" href="style.css?v=20260703-practice-v1" />
+  <link rel="stylesheet" href="practice.css?v=20260703-practice-v1" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="logo">
+        <span class="logo-main">Evan Tarot</span>
+        <span class="logo-sub">Tarot Lab ／ Systematic Divination</span>
+      </div>
+      <nav class="nav" aria-label="主選單">
+        <a href="index.html#intro">介紹</a>
+        <a href="services.html">占卜項目</a>
+        <a href="articles.html">文章</a>
+        <a href="lab.html" aria-current="page">實驗室</a>
+        <a href="timeflow.html">時間流</a>
+        <a href="services.html#booking">預約</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero subpage-hero practice-hero">
+      <div class="hero-bg-orbit" aria-hidden="true"></div>
+      <div class="container hero-inner">
+        <div class="hero-text">
+          <a class="practice-breadcrumb" href="lab.html#projects">← 塔羅實驗室 / 修煉紀錄</a>
+          <h1>修煉紀錄。</h1>
+          <p>每次只填實際感受。網站會保存紀錄、整理趨勢，並產生可直接上傳給 ChatGPT 的回饋檔。</p>
+          <div class="hero-cta">
+            <a href="#practice-form-section" class="btn primary">開始填寫</a>
+            <a href="#practice-records" class="btn ghost">查看紀錄</a>
+          </div>
+          <div class="hero-meta">
+            <span class="pill pill-soft">自動保存</span>
+            <span class="pill pill-outline">一鍵匯出回饋</span>
+          </div>
+        </div>
+        <aside class="hero-card" aria-label="資料保存說明">
+          <div class="hero-card-inner">
+            <p class="hero-tag">資料保存</p>
+            <ul>
+              <li>紀錄先存在目前瀏覽器</li>
+              <li>可匯出 JSON、CSV 與文字摘要</li>
+              <li>清除瀏覽器資料前先下載備份</li>
+            </ul>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section id="practice-form-section" class="section alt">
+      <div class="container practice-layout">
+        <section class="practice-panel">
+          <div class="practice-panel-heading">
+            <div>
+              <p class="practice-eyebrow">Practice Entry</p>
+              <h2>新增練習紀錄</h2>
+            </div>
+            <span id="practice-form-mode" class="practice-version">新增模式</span>
+          </div>
+
+          <form id="practice-form" novalidate>
+            <input id="practice-record-id" type="hidden" />
+
+            <fieldset>
+              <legend>基本資料</legend>
+              <div class="practice-grid practice-grid-4">
+                <label>日期<input id="practice-date" type="date" required /></label>
+                <label>時間<input id="practice-time" type="time" /></label>
+                <label>訓練週期
+                  <select id="practice-week" required>
+                    <option value="第1週｜V8 基礎訓練">第1週｜V8 基礎訓練</option>
+                    <option value="第2週｜V9 節奏校準與思維辨識" selected>第2週｜V9 節奏校準與思維辨識</option>
+                    <option value="其他週期">其他週期</option>
+                  </select>
+                </label>
+                <label>本週第幾次<input id="practice-session-number" type="number" min="1" max="20" step="1" inputmode="numeric" /></label>
+                <label>實際完成時間（分鐘）<input id="practice-duration" type="number" min="0" max="120" step="0.5" inputmode="decimal" /></label>
+                <label>實際音檔長度（分鐘）<input id="practice-audio-duration" type="number" min="0" max="120" step="0.5" inputmode="decimal" /></label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>開始前狀態</legend>
+              <div class="practice-score-grid">
+                <label>願意開始 <output id="practice-willingness-output">10</output><input id="practice-willingness" type="range" min="0" max="10" value="10" /></label>
+                <label>精神狀態 <output id="practice-mental-output">5</output><input id="practice-mental" type="range" min="0" max="10" value="5" /></label>
+                <label>身體疲累 <output id="practice-fatigue-output">5</output><input id="practice-fatigue" type="range" min="0" max="10" value="5" /></label>
+                <label>焦慮或躁動 <output id="practice-anxiety-output">5</output><input id="practice-anxiety" type="range" min="0" max="10" value="5" /></label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>過程與節奏</legend>
+              <div class="practice-grid">
+                <label>注意力最常跑去哪裡
+                  <select id="practice-distraction">
+                    <option value="">請選擇</option>
+                    <option value="思維">思維</option>
+                    <option value="環境聲音">環境聲音</option>
+                    <option value="身體不適">身體不適</option>
+                    <option value="睡意">睡意</option>
+                    <option value="其他">其他</option>
+                  </select>
+                </label>
+                <label>整體速度
+                  <select id="practice-pace">
+                    <option value="">請選擇</option>
+                    <option value="太快">太快</option>
+                    <option value="剛好">剛好</option>
+                    <option value="太慢">太慢</option>
+                  </select>
+                </label>
+                <label>用「想法」標記後是否比較容易回來
+                  <select id="practice-thought-label">
+                    <option value="">請選擇</option>
+                    <option value="是">是</option>
+                    <option value="否">否</option>
+                    <option value="不確定">不確定</option>
+                    <option value="本次未使用">本次未使用</option>
+                  </select>
+                </label>
+                <label>腳底是否能成為穩定錨點
+                  <select id="practice-grounding">
+                    <option value="">請選擇</option>
+                    <option value="是">是</option>
+                    <option value="否">否</option>
+                    <option value="不確定">不確定</option>
+                  </select>
+                </label>
+                <label class="practice-span-2">哪一句最有幫助<input id="practice-helpful-line" type="text" maxlength="240" /></label>
+                <label class="practice-span-2">哪一句讓你出戲<input id="practice-awkward-line" type="text" maxlength="240" /></label>
+                <label>覺得重複的地方<textarea id="practice-repeated" rows="3" maxlength="500"></textarea></label>
+                <label>太快／太慢的地方<textarea id="practice-speed-notes" rows="3" maxlength="500"></textarea></label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>身體反應</legend>
+              <div class="practice-grid">
+                <label>眉心感覺<input id="practice-brow" type="text" maxlength="240" placeholder="例如：脹、溫、跳動、無感" /></label>
+                <label>其他身體感<input id="practice-body-sensation" type="text" maxlength="240" /></label>
+                <label>頭暈<select id="practice-dizziness" data-severity></select></label>
+                <label>頭脹<select id="practice-head-pressure" data-severity></select></label>
+                <label>胸悶<select id="practice-chest-tightness" data-severity></select></label>
+                <label>噁心<select id="practice-nausea" data-severity></select></label>
+                <label>飄忽或不真實感<select id="practice-floating" data-severity></select></label>
+                <label>焦慮升高<select id="practice-anxiety-rise" data-severity></select></label>
+                <label class="practice-span-2">其他不舒服<textarea id="practice-discomfort" rows="3" maxlength="500"></textarea></label>
+                <label class="practice-span-2">保留腳底注意力是否有幫助
+                  <select id="practice-grounding-help">
+                    <option value="">請選擇</option>
+                    <option value="有">有</option>
+                    <option value="沒有">沒有</option>
+                    <option value="不確定">不確定</option>
+                    <option value="本次未使用">本次未使用</option>
+                  </select>
+                </label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>出現的內容</legend>
+              <div class="practice-grid">
+                <label>第一個字詞<input id="practice-first-word" type="text" maxlength="180" /></label>
+                <label>第一個畫面<input id="practice-first-image" type="text" maxlength="240" /></label>
+                <label>第一個情緒<input id="practice-first-emotion" type="text" maxlength="180" /></label>
+                <label>第一個身體感<input id="practice-first-body" type="text" maxlength="240" /></label>
+                <label class="practice-span-2">後來自己補上的解釋<textarea id="practice-interpretation" rows="3" maxlength="700"></textarea></label>
+                <label class="practice-check"><input id="practice-no-content" type="checkbox" /> 本次沒有明顯內容</label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>回神</legend>
+              <div class="practice-grid">
+                <label>睜眼後是否清楚
+                  <select id="practice-clear-after">
+                    <option value="">請選擇</option>
+                    <option value="是">是</option>
+                    <option value="否">否</option>
+                  </select>
+                </label>
+                <label>完全回到正常狀態（秒）<input id="practice-recovery-seconds" type="number" min="0" max="3600" step="1" inputmode="numeric" /></label>
+                <label>最有效的回神步驟<input id="practice-best-reorientation" type="text" maxlength="240" /></label>
+                <label>哪一步仍然太突然<input id="practice-sudden-step" type="text" maxlength="240" /></label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>塔羅校準（有做才填）</legend>
+              <div class="practice-grid">
+                <label>抽到的牌<input id="practice-card" type="text" maxlength="120" /></label>
+                <label>正逆位
+                  <select id="practice-card-orientation">
+                    <option value="">未填</option>
+                    <option value="正位">正位</option>
+                    <option value="逆位">逆位</option>
+                  </select>
+                </label>
+                <label>抽牌時是否已完全清醒
+                  <select id="practice-awake-for-tarot">
+                    <option value="">未填</option>
+                    <option value="是">是</option>
+                    <option value="否">否</option>
+                  </select>
+                </label>
+                <label class="practice-span-2">冥想內容與牌面一致處<textarea id="practice-tarot-match" rows="3" maxlength="600"></textarea></label>
+                <label class="practice-span-2">不一致處<textarea id="practice-tarot-mismatch" rows="3" maxlength="600"></textarea></label>
+                <label class="practice-span-2">後續實際事件<textarea id="practice-followup-event" rows="3" maxlength="800"></textarea></label>
+              </div>
+            </fieldset>
+
+            <fieldset>
+              <legend>練習後</legend>
+              <div class="practice-grid">
+                <label>30 分鐘後的狀態<textarea id="practice-after-30" rows="3" maxlength="500"></textarea></label>
+                <label>當天晚上睡眠<textarea id="practice-sleep" rows="3" maxlength="500"></textarea></label>
+                <label>隔天狀態<textarea id="practice-next-day" rows="3" maxlength="500"></textarea></label>
+                <label>下一次是否願意再做
+                  <select id="practice-willing-next">
+                    <option value="">請選擇</option>
+                    <option value="是">是</option>
+                    <option value="勉強">勉強</option>
+                    <option value="否">否</option>
+                  </select>
+                </label>
+                <label class="practice-span-2">最希望下一版修改的地方<textarea id="practice-next-change" rows="3" maxlength="800"></textarea></label>
+              </div>
+            </fieldset>
+
+            <div class="practice-actions">
+              <button class="btn primary" type="submit">保存本次紀錄</button>
+              <button id="practice-reset" class="btn ghost" type="button">清空表單</button>
+            </div>
+            <p id="practice-message" class="practice-message" aria-live="polite"></p>
+          </form>
+        </section>
+
+        <aside class="practice-side">
+          <section class="practice-panel practice-summary-panel">
+            <p class="practice-eyebrow">Current Summary</p>
+            <h2>目前趨勢</h2>
+            <div id="practice-summary" class="practice-summary"></div>
+          </section>
+          <section class="practice-panel">
+            <p class="practice-eyebrow">Export</p>
+            <h2>匯出與備份</h2>
+            <div class="practice-export-actions">
+              <button id="practice-export-feedback" class="btn primary full" type="button">下載給 ChatGPT 的回饋檔</button>
+              <button id="practice-export-csv" class="btn ghost full" type="button">下載 CSV</button>
+              <button id="practice-export-json" class="btn ghost full" type="button">下載完整備份 JSON</button>
+              <label class="practice-import-label">匯入 JSON 備份<input id="practice-import-json" type="file" accept="application/json,.json" /></label>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </section>
+
+    <section id="practice-records" class="section">
+      <div class="container">
+        <div class="practice-records-heading">
+          <div>
+            <p class="practice-eyebrow">Practice History</p>
+            <h2>練習紀錄</h2>
+          </div>
+          <button id="practice-delete-all" class="practice-danger-button" type="button">刪除全部紀錄</button>
+        </div>
+        <div id="practice-record-list" class="practice-record-list"></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>Evan Tarot ｜修煉紀錄</p>
+      <p class="footer-sub">每一次都保留原始狀態，後續才有辦法依真實回饋滾動修正。</p>
+    </div>
+  </footer>
+
+  <script src="JS/utils.js?v=20260629-stability-v1"></script>
+  <script src="JS/ripple-effect.js?v=20260624-copy-cleanup-v1"></script>
+  <script src="JS/main.js?v=20260702-podcast-nav-v2"></script>
+  <script src="JS/practice.js?v=20260703-practice-v1"></script>
+</body>
+</html>
