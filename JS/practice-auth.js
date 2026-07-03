@@ -3,6 +3,7 @@
   const URL_KEY = "evanPracticeWebAppUrl.v1";
   const REMEMBERED_KEY = "evanPracticeAccessKey.v1";
   const SESSION_KEY = "evanPracticeSessionKey.v1";
+  const MIN_ACCESS_KEY_LENGTH = 8;
 
   const lockScreen = document.getElementById("practice-lock-screen");
   const privateContent = document.getElementById("practice-private-content");
@@ -14,6 +15,9 @@
   const submitButton = document.getElementById("practice-auth-submit");
 
   if (!lockScreen || !privateContent || !authForm || !urlInput || !keyInput) return;
+
+  keyInput.minLength = MIN_ACCESS_KEY_LENGTH;
+  keyInput.placeholder = `至少 ${MIN_ACCESS_KEY_LENGTH} 個字元`;
 
   let unlocked = false;
   let activeConfig = null;
@@ -80,7 +84,9 @@
     setMessage("正在驗證私人連線…");
     try {
       const normalizedUrl = normalizeWebAppUrl(url);
-      if (String(accessKey || "").length < 12) throw new Error("私人接收金鑰至少需要 12 個字元。");
+      if (String(accessKey || "").length < MIN_ACCESS_KEY_LENGTH) {
+        throw new Error(`私人接收金鑰至少需要 ${MIN_ACCESS_KEY_LENGTH} 個字元。`);
+      }
       await postJson(normalizedUrl, { action: "ping", accessKey });
       saveConfig(normalizedUrl, accessKey, remember);
       setMessage("驗證成功。");
