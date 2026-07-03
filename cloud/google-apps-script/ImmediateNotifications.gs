@@ -7,7 +7,6 @@
 // 1. 將本檔加入綁定 Google Sheet 的 Apps Script 專案。
 // 2. 在「專案設定 → 指令碼屬性」新增：
 //      NOTIFY_EMAILS = 你的 Gmail
-//    多個收件者以逗號分隔。
 // 3. 手動執行一次 setupImmediateNotifications() 並完成授權。
 // 4. 設定後只處理新增加的資料，不補寄既有紀錄。
 //
@@ -18,13 +17,13 @@
 //
 // 主要函式複雜度：
 // - setupImmediateNotifications：時間 O(s + t)，空間 O(1)
-// - sendImmediateWebsiteNotifications：時間 O(k)，空間 O(k)
-//   s = 監看的工作表數（固定 2），t = 既有觸發器數，k = 本次新增列數。
+// - sendImmediateWebsiteNotifications：時間 O(k + h)，空間 O(k + h)
+//   s = 監看工作表數（固定 2），t = 既有觸發器數，k = 新增列數，h = 標題欄數。
 //
 // 更快替代方案比較：
-// - 直接在各 doPost 寫入後寄信：單筆 O(1)、真正即時，但要同時修改留言與預約兩套接收端。
-// - 本試行版：以每分鐘觸發器只讀「上次列號之後」的新列，不重掃完整工作表；
-//   最慢約等候一個觸發週期，優點是不動現有表單接收流程，較適合先測試通知需求。
+// - 直接在各 doPost 寫入後寄信：單筆 O(1)、真正即時，但要修改留言與預約兩套接收端。
+// - 本試行版：每分鐘只讀上次游標後的新列，並以標題名稱對應欄位；不重掃完整表格，
+//   同時相容舊版與新版預約欄位順序。
 // ==============================
 
 const IMMEDIATE_NOTIFICATION_CONFIG = Object.freeze({
@@ -34,36 +33,17 @@ const IMMEDIATE_NOTIFICATION_CONFIG = Object.freeze({
   timeZone: "Asia/Taipei",
   websiteBaseUrl: "https://ldream-l.github.io/Evan-tarot-lab/",
   sources: Object.freeze([
-    Object.freeze({
-      sheetName: "Comments",
-      type: "comment",
-      minimumColumns: 8,
-    }),
-    Object.freeze({
-      sheetName: "占卜預約",
-      type: "booking",
-      minimumColumns: 7,
-    }),
+    Object.freeze({ sheetName: "Comments", type: "comment" }),
+    Object.freeze({ sheetName: "占卜預約", type: "booking" }),
   ]),
 });
 
-/**
- * 建立每分鐘觸發器，並把現有最後一列設為基準線。
- * 不會寄送設定前已存在的舊資料。
- *
- * 時間複雜度：O(s + t)
- * 空間複雜度：O(1)
- */
 function setupImmediateNotifications() {
   const recipients = getImmediateNotificationRecipients_();
-  if (!recipients) {
-    throw new Error("請先在指令碼屬性設定 NOTIFY_EMAILS。");
-  }
+  if (!recipients) throw new Error("請先在指令碼屬性設定 NOTIFY_EMAILS。");
 
   const spreadsheet = SpreadsheetApp.getActiveSpreadsheet();
-  if (!spreadsheet) {
-    throw new Error("此 Apps Script 必須綁定在 Google 試算表內。");
-  }
+  if (!spreadsheet) throw new Error("此 Apps Script 必須綁定在 Google 試算表內。");
 
   const properties = PropertiesService.getScriptProperties();
   IMMEDIATE_NOTIFICATION_CONFIG.sources.forEach((source) => {
@@ -94,19 +74,9 @@ function setupImmediateNotifications() {
     ].join("\n")
   );
 
-  return {
-    success: true,
-    recipients,
-    message: "新預約與新留言的近即時 Gmail 通知已啟用。",
-  };
+  return { success: true, recipients };
 }
 
-/**
- * 每分鐘執行，只讀取上次成功通知後新增的列。
- *
- * 時間複雜度：O(k)
- * 空間複雜度：O(k)
- */
 function sendImmediateWebsiteNotifications() {
   const lock = LockService.getScriptLock();
   if (!lock.tryLock(20000)) return;
@@ -126,12 +96,6 @@ function sendImmediateWebsiteNotifications() {
   }
 }
 
-/**
- * 手動寄一封測試信，不改變任何工作表游標。
- *
- * 時間複雜度：O(1)
- * 空間複雜度：O(1)
- */
 function testImmediateNotificationEmail() {
   const recipients = getImmediateNotificationRecipients_();
   if (!recipients) throw new Error("請先設定 NOTIFY_EMAILS。");
@@ -145,16 +109,8 @@ function testImmediateNotificationEmail() {
       `當日剩餘寄信額度：${MailApp.getRemainingDailyQuota()}`,
     ].join("\n")
   );
-
-  return { success: true, recipients };
 }
 
-/**
- * 停用本通知模組建立的觸發器。
- *
- * 時間複雜度：O(t)
- * 空間複雜度：O(1)
- */
 function stopImmediateNotifications() {
   let removed = 0;
   ScriptApp.getProjectTriggers().forEach((trigger) => {
@@ -166,12 +122,7 @@ function stopImmediateNotifications() {
   return { success: true, removed };
 }
 
-/**
- * 處理單一來源工作表，成功寄出一列後立即更新游標，避免重複寄信。
- *
- * 時間複雜度：O(k)
- * 空間複雜度：O(k)
- */
+// 時間 O(k + h)，空間 O(k + h)。只讀新增列與單一標題列。
 function processImmediateNotificationSource_(spreadsheet, source, recipients) {
   const sheet = spreadsheet.getSheetByName(source.sheetName);
   if (!sheet) return;
@@ -182,48 +133,41 @@ function processImmediateNotificationSource_(spreadsheet, source, recipients) {
   let cursor = Math.max(1, Number(properties.getProperty(cursorKey) || 1));
 
   if (lastRow < cursor) {
-    cursor = lastRow;
-    properties.setProperty(cursorKey, String(Math.max(1, cursor)));
+    properties.setProperty(cursorKey, String(Math.max(1, lastRow)));
     return;
   }
   if (lastRow <= cursor) return;
 
+  const columnCount = Math.max(1, sheet.getLastColumn());
+  const headers = sheet.getRange(1, 1, 1, columnCount).getDisplayValues()[0];
+  const headerMap = buildHeaderIndexMap_(headers);
   const rowCount = lastRow - cursor;
-  const columnCount = Math.max(source.minimumColumns, sheet.getLastColumn());
   const values = sheet.getRange(cursor + 1, 1, rowCount, columnCount).getDisplayValues();
 
   values.forEach((row, index) => {
     const rowNumber = cursor + index + 1;
-    const notification = buildImmediateNotification_(source, row, rowNumber);
-
+    const notification = buildImmediateNotification_(source, row, headerMap, rowNumber);
     if (notification) {
       sendImmediateNotificationEmail_(recipients, notification.subject, notification.body);
     }
-
     properties.setProperty(cursorKey, String(rowNumber));
   });
 }
 
-/**
- * 依來源建立信件。
- *
- * 時間複雜度：O(m)
- * 空間複雜度：O(m)，m 為本列文字總長度。
- */
-function buildImmediateNotification_(source, row, rowNumber) {
-  if (source.type === "comment") return buildCommentNotification_(row, rowNumber);
-  if (source.type === "booking") return buildBookingNotification_(row, rowNumber);
+function buildImmediateNotification_(source, row, headerMap, rowNumber) {
+  if (source.type === "comment") return buildCommentNotification_(row, headerMap, rowNumber);
+  if (source.type === "booking") return buildBookingNotification_(row, headerMap, rowNumber);
   return null;
 }
 
-function buildCommentNotification_(row, rowNumber) {
-  const id = cleanNotificationText_(row[0], 120);
-  const createdAt = cleanNotificationText_(row[1], 120);
-  const name = cleanNotificationText_(row[2], 80) || "未填暱稱";
-  const title = cleanNotificationText_(row[3], 160) || "無標題";
-  const text = cleanNotificationText_(row[4], 3000);
-  const status = cleanNotificationText_(row[5], 40).toLowerCase();
-  const account = cleanNotificationText_(row[7], 320);
+function buildCommentNotification_(row, headerMap, rowNumber) {
+  const id = valueByHeader_(row, headerMap, ["id", "留言編號"]);
+  const createdAt = valueByHeader_(row, headerMap, ["createdat", "建立時間", "時間戳記"]);
+  const name = valueByHeader_(row, headerMap, ["name", "暱稱"]) || "未填暱稱";
+  const title = valueByHeader_(row, headerMap, ["title", "標題"]) || "無標題";
+  const text = valueByHeader_(row, headerMap, ["text", "留言內容", "內容"]);
+  const status = valueByHeader_(row, headerMap, ["status", "狀態"]).toLowerCase();
+  const account = valueByHeader_(row, headerMap, ["source", "email", "帳號", "來源"]);
 
   if (!text || (status && status !== "visible")) return null;
 
@@ -247,22 +191,24 @@ function buildCommentNotification_(row, rowNumber) {
   };
 }
 
-function buildBookingNotification_(row, rowNumber) {
-  const createdAt = cleanNotificationText_(row[0], 120);
-  const name = cleanNotificationText_(row[1], 80) || "未填暱稱";
-  const contact = cleanNotificationText_(row[2], 500) || "未填聯絡方式";
-  const topic = cleanNotificationText_(row[3], 160) || "未分類";
-  const mode = cleanNotificationText_(row[4], 160) || "未填形式";
-  const message = cleanNotificationText_(row[5], 4000);
-  const availability = cleanNotificationText_(row[6], 2000);
+function buildBookingNotification_(row, headerMap, rowNumber) {
+  const bookingId = valueByHeader_(row, headerMap, ["預約編號", "bookingid", "id"]);
+  const createdAt = valueByHeader_(row, headerMap, ["建立時間", "時間戳記", "createdat"]);
+  const name = valueByHeader_(row, headerMap, ["暱稱", "name"]) || "未填暱稱";
+  const contact = valueByHeader_(row, headerMap, ["聯絡方式", "contact"]) || "未填聯絡方式";
+  const topic = valueByHeader_(row, headerMap, ["占卜主題", "想占卜的主題", "topic"]) || "未分類";
+  const mode = valueByHeader_(row, headerMap, ["希望形式", "希望的形式", "mode"]) || "未填形式";
+  const availability = valueByHeader_(row, headerMap, ["可配合時間", "availability"]);
+  const message = valueByHeader_(row, headerMap, ["想說的話", "訊息", "備註", "message"]);
 
-  if (!createdAt && !contact && !message) return null;
+  if (!bookingId && !createdAt && !contact && !message) return null;
 
   return {
     subject: oneLineNotificationText_(`【Evan Tarot 新預約】${name}｜${topic}｜${mode}`, 180),
     body: [
       "網站收到一筆新預約。",
       "",
+      `預約編號：${bookingId || "未記錄"}`,
       `時間：${createdAt || "未記錄"}`,
       `暱稱：${name}`,
       `聯絡方式：${contact}`,
@@ -279,6 +225,34 @@ function buildBookingNotification_(row, rowNumber) {
   };
 }
 
+// 時間 O(h)，空間 O(h)。欄位名稱先正規化成查表，之後每個欄位查詢為 O(1)。
+function buildHeaderIndexMap_(headers) {
+  const map = Object.create(null);
+  headers.forEach((header, index) => {
+    const key = normalizeHeader_(header);
+    if (key && map[key] === undefined) map[key] = index;
+  });
+  return map;
+}
+
+function valueByHeader_(row, headerMap, aliases) {
+  for (let index = 0; index < aliases.length; index += 1) {
+    const key = normalizeHeader_(aliases[index]);
+    const columnIndex = headerMap[key];
+    if (columnIndex !== undefined) {
+      return cleanNotificationText_(row[columnIndex], 4000);
+    }
+  }
+  return "";
+}
+
+function normalizeHeader_(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_／/()（）｜|：:－-]+/g, "");
+}
+
 function getImmediateNotificationRecipients_() {
   const raw = PropertiesService.getScriptProperties()
     .getProperty(IMMEDIATE_NOTIFICATION_CONFIG.recipientProperty) || "";
@@ -291,8 +265,7 @@ function getImmediateNotificationRecipients_() {
 }
 
 function getImmediateNotificationCursorKey_(spreadsheet, source) {
-  const spreadsheetId = spreadsheet.getId();
-  const sourceKey = `${spreadsheetId}:${source.sheetName}`;
+  const sourceKey = `${spreadsheet.getId()}:${source.sheetName}`;
   const digest = Utilities.computeDigest(
     Utilities.DigestAlgorithm.SHA_256,
     sourceKey,
