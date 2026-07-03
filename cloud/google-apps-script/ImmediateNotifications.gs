@@ -38,6 +38,30 @@ const IMMEDIATE_NOTIFICATION_CONFIG = Object.freeze({
   ]),
 });
 
+const BOOKING_NOTIFICATION_FIELDS = Object.freeze([
+  Object.freeze({ key: "bookingId", label: "預約編號", aliases: ["預約編號", "bookingid", "id"], primary: true }),
+  Object.freeze({ key: "createdAt", label: "建立時間", aliases: ["建立時間", "時間戳記", "createdat"], primary: true }),
+  Object.freeze({ key: "name", label: "暱稱", aliases: ["暱稱", "name"], primary: true }),
+  Object.freeze({ key: "contact", label: "聯絡方式", aliases: ["聯絡方式", "contact"], primary: true }),
+  Object.freeze({ key: "topic", label: "占卜主題", aliases: ["占卜主題", "想占卜的主題", "topic"], primary: true }),
+  Object.freeze({ key: "mode", label: "希望形式", aliases: ["希望形式", "希望的形式", "mode"], primary: true }),
+  Object.freeze({ key: "availability", label: "可配合時間", aliases: ["可配合時間", "availability"], primary: true }),
+  Object.freeze({ key: "message", label: "想說的話", aliases: ["想說的話", "訊息", "message"], primary: true }),
+  Object.freeze({ key: "bookingStatus", label: "預約狀態", aliases: ["預約狀態"] }),
+  Object.freeze({ key: "scheduledAt", label: "預定占卜時間", aliases: ["預定占卜時間"] }),
+  Object.freeze({ key: "deck", label: "使用牌卡", aliases: ["使用牌卡"] }),
+  Object.freeze({ key: "spread", label: "牌陣／抽牌類型", aliases: ["牌陣／抽牌類型", "牌陣抽牌類型"] }),
+  Object.freeze({ key: "drawRecord", label: "抽牌紀錄", aliases: ["抽牌紀錄"] }),
+  Object.freeze({ key: "originalAmount", label: "原定金額", aliases: ["原定金額"] }),
+  Object.freeze({ key: "receivedAmount", label: "實收金額", aliases: ["實收金額"] }),
+  Object.freeze({ key: "paymentStatus", label: "付款狀態", aliases: ["付款狀態"] }),
+  Object.freeze({ key: "followupFeedback", label: "後續回饋", aliases: ["後續回饋"] }),
+  Object.freeze({ key: "verificationResult", label: "驗證結果", aliases: ["驗證結果"] }),
+  Object.freeze({ key: "reviewAnalysis", label: "回顧與分析", aliases: ["回顧與分析"] }),
+  Object.freeze({ key: "internalNote", label: "內部備註", aliases: ["內部備註", "備註"] }),
+  Object.freeze({ key: "source", label: "來源", aliases: ["來源", "source"] }),
+]);
+
 function setupImmediateNotifications() {
   const recipients = getImmediateNotificationRecipients_();
   if (!recipients) throw new Error("請先在指令碼屬性設定 NOTIFY_EMAILS。");
@@ -191,37 +215,45 @@ function buildCommentNotification_(row, headerMap, rowNumber) {
   };
 }
 
+// 時間 O(f)，空間 O(f)，f 為固定的預約欄位數（目前 21）。
 function buildBookingNotification_(row, headerMap, rowNumber) {
-  const bookingId = valueByHeader_(row, headerMap, ["預約編號", "bookingid", "id"]);
-  const createdAt = valueByHeader_(row, headerMap, ["建立時間", "時間戳記", "createdat"]);
-  const name = valueByHeader_(row, headerMap, ["暱稱", "name"]) || "未填暱稱";
-  const contact = valueByHeader_(row, headerMap, ["聯絡方式", "contact"]) || "未填聯絡方式";
-  const topic = valueByHeader_(row, headerMap, ["占卜主題", "想占卜的主題", "topic"]) || "未分類";
-  const mode = valueByHeader_(row, headerMap, ["希望形式", "希望的形式", "mode"]) || "未填形式";
-  const availability = valueByHeader_(row, headerMap, ["可配合時間", "availability"]);
-  const message = valueByHeader_(row, headerMap, ["想說的話", "訊息", "備註", "message"]);
+  const booking = Object.create(null);
+  BOOKING_NOTIFICATION_FIELDS.forEach((field) => {
+    booking[field.key] = valueByHeader_(row, headerMap, field.aliases);
+  });
 
-  if (!bookingId && !createdAt && !contact && !message) return null;
+  if (!booking.bookingId && !booking.createdAt && !booking.contact && !booking.message) return null;
+
+  const primaryLines = BOOKING_NOTIFICATION_FIELDS
+    .filter((field) => field.primary)
+    .map((field) => `${field.label}：${booking[field.key] || "未填"}`);
+
+  const managementLines = BOOKING_NOTIFICATION_FIELDS
+    .filter((field) => !field.primary && booking[field.key])
+    .map((field) => `${field.label}：${booking[field.key]}`);
+
+  const bodyLines = [
+    "網站收到一筆新預約。",
+    "",
+    ...primaryLines,
+  ];
+
+  if (managementLines.length) {
+    bodyLines.push("", "後續管理欄位：", ...managementLines);
+  }
+
+  bodyLines.push(
+    "",
+    `工作表：占卜預約 第 ${rowNumber} 列`,
+    `回到預約頁：${IMMEDIATE_NOTIFICATION_CONFIG.websiteBaseUrl}services.html#booking`
+  );
 
   return {
-    subject: oneLineNotificationText_(`【Evan Tarot 新預約】${name}｜${topic}｜${mode}`, 180),
-    body: [
-      "網站收到一筆新預約。",
-      "",
-      `預約編號：${bookingId || "未記錄"}`,
-      `時間：${createdAt || "未記錄"}`,
-      `暱稱：${name}`,
-      `聯絡方式：${contact}`,
-      `主題：${topic}`,
-      `形式：${mode}`,
-      `可配合時間：${availability || "未填／文字占卜"}`,
-      "",
-      "想說的話：",
-      message || "未填",
-      "",
-      `工作表：占卜預約 第 ${rowNumber} 列`,
-      `回到預約頁：${IMMEDIATE_NOTIFICATION_CONFIG.websiteBaseUrl}services.html#booking`,
-    ].join("\n"),
+    subject: oneLineNotificationText_(
+      `【Evan Tarot 新預約】${booking.name || "未填暱稱"}｜${booking.topic || "未分類"}｜${booking.mode || "未填形式"}`,
+      180
+    ),
+    body: bodyLines.join("\n"),
   };
 }
 
