@@ -1,0 +1,116 @@
+[hidden] {
+  display: none !important;
+}
+
+.practice-lock-section {
+  min-height: calc(100vh - 160px);
+  display: grid;
+  align-items: center;
+  padding-top: 110px;
+  padding-bottom: 72px;
+}
+
+.practice-lock-wrap {
+  display: grid;
+  place-items: center;
+}
+
+.practice-lock-card {
+  width: min(100%, 680px);
+  padding: 30px;
+  border: 1px solid rgba(139, 123, 255, 0.36);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(180deg, rgba(21, 22, 55, 0.98), rgba(8, 9, 28, 0.98));
+  box-shadow: var(--shadow-subtle);
+}
+
+.practice-lock-card h1 {
+  margin: 0 0 12px;
+}
+
+.practice-lock-lead {
+  margin: 0 0 22px;
+  color: var(--text-muted);
+}
+
+.practice-auth-form {
+  display: grid;
+  gap: 16px;
+}
+
+.practice-auth-form > label:not(.practice-remember) {
+  display: grid;
+  gap: 8px;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.practice-auth-form input[type="url"],
+.practice-auth-form input[type="password"] {
+  width: 100%;
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid rgba(140, 140, 210, 0.42);
+  border-radius: 10px;
+  color: var(--text-main);
+  background: rgba(3, 4, 19, 0.92);
+}
+
+.practice-auth-form input:focus {
+  outline: 2px solid rgba(139, 123, 255, 0.5);
+  outline-offset: 1px;
+  border-color: var(--accent);
+}
+
+.practice-remember {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-muted);
+}
+
+.practice-remember input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
+}
+
+.practice-lock-notes {
+  margin-top: 22px;
+  padding-top: 18px;
+  border-top: 1px solid rgba(120, 120, 180, 0.24);
+  color: var(--text-muted);
+  font-size: 0.88rem;
+}
+
+.practice-lock-notes p {
+  margin: 0;
+}
+
+.practice-lock-notes p + p {
+  margin-top: 8px;
+}
+
+.practice-cloud-status {
+  margin: 0 0 14px;
+  color: var(--success);
+}
+
+.practice-cloud-status.is-error {
+  color: var(--danger);
+}
+
+.full {
+  width: 100%;
+}
+
+@media (max-width: 720px) {
+  .practice-lock-section {
+    padding-top: 88px;
+    padding-bottom: 48px;
+  }
+
+  .practice-lock-card {
+    padding: 22px 18px;
+  }
+}
