@@ -104,6 +104,75 @@
   width: 100%;
 }
 
+.practice-week-overview {
+  padding: 18px;
+  border: 1px solid rgba(139, 123, 255, 0.38);
+  border-radius: var(--radius-md);
+  background: linear-gradient(135deg, rgba(139, 123, 255, 0.14), rgba(4, 5, 22, 0.7));
+}
+
+.practice-week-overview-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.practice-week-overview h3 {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.practice-week-objective {
+  margin: 12px 0 16px;
+  color: var(--text-main);
+  line-height: 1.7;
+}
+
+.practice-week-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.practice-week-facts > div,
+.practice-week-criteria {
+  padding: 12px;
+  border-radius: 10px;
+  background: rgba(3, 4, 19, 0.52);
+}
+
+.practice-week-facts small,
+.practice-week-criteria small {
+  display: block;
+  color: var(--text-muted);
+}
+
+.practice-week-facts strong {
+  display: block;
+  margin-top: 4px;
+  line-height: 1.45;
+}
+
+.practice-week-criteria {
+  margin-top: 10px;
+}
+
+.practice-week-criteria ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+  color: var(--text-main);
+}
+
+.practice-week-criteria li + li {
+  margin-top: 5px;
+}
+
+.practice-week-specific-fieldset {
+  border-color: rgba(139, 123, 255, 0.52) !important;
+  background: rgba(16, 13, 48, 0.62) !important;
+}
+
 @media (max-width: 720px) {
   .practice-lock-section {
     padding-top: 88px;
@@ -112,5 +181,14 @@
 
   .practice-lock-card {
     padding: 22px 18px;
+  }
+
+  .practice-week-overview-head {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .practice-week-facts {
+    grid-template-columns: 1fr;
   }
 }
