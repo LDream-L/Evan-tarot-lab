@@ -9,7 +9,7 @@
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260624-copy-cleanup-v1" />
   <link rel="stylesheet" href="practice.css?v=20260703-practice-v1" />
-  <link rel="stylesheet" href="practice-private.css?v=20260703-private-v1" />
+  <link rel="stylesheet" href="practice-private.css?v=20260703-week-driven-v2" />
 </head>
 <body>
   <header class="site-header">
@@ -44,7 +44,7 @@
             </label>
             <label>
               私人接收金鑰
-              <input id="practice-access-key" type="password" autocomplete="current-password" minlength="12" placeholder="至少 12 個字元" required />
+              <input id="practice-access-key" type="password" autocomplete="current-password" minlength="8" placeholder="至少 8 個字元" required />
             </label>
             <label class="practice-remember">
               <input id="practice-remember-device" type="checkbox" />
@@ -72,13 +72,13 @@
           <div class="hero-text">
             <a class="practice-breadcrumb" href="lab.html#projects">← 塔羅實驗室 / 私人修煉紀錄</a>
             <h1>修煉紀錄。</h1>
-            <p>每次只填實際感受。紀錄會先保存在這台裝置，再同步到你的私人 Google Sheet。</p>
+            <p>固定欄位用來比較長期趨勢；每週專屬問題會依當週修煉目標自動切換。</p>
             <div class="hero-cta">
               <a href="#practice-form-section" class="btn primary">開始填寫</a>
               <a href="#practice-records" class="btn ghost">查看紀錄</a>
             </div>
             <div class="hero-meta">
-              <span class="pill pill-soft">私人金鑰驗證</span>
+              <span class="pill pill-soft">週次驅動介面</span>
               <span class="pill pill-outline">本機＋Google Sheet</span>
             </div>
           </div>
@@ -88,7 +88,7 @@
               <ul>
                 <li>本機先保存，雲端同步失敗時不會遺失本次輸入</li>
                 <li>Google Sheet 不開放公開讀取</li>
-                <li>可匯出 JSON、CSV 與文字摘要</li>
+                <li>每週專屬答案獨立保存，不會混入其他週次</li>
               </ul>
             </div>
           </aside>
@@ -114,21 +114,34 @@
                 <div class="practice-grid practice-grid-4">
                   <label>日期<input id="practice-date" type="date" required /></label>
                   <label>時間<input id="practice-time" type="time" /></label>
-                  <label>訓練週期
-                    <select id="practice-week" required>
-                      <option value="第1週｜V8 基礎訓練">第1週｜V8 基礎訓練</option>
-                      <option value="第2週｜V9 節奏校準與思維辨識" selected>第2週｜V9 節奏校準與思維辨識</option>
-                      <option value="其他週期">其他週期</option>
-                    </select>
-                  </label>
+                  <label>訓練週期<select id="practice-week" required></select></label>
                   <label>本週第幾次<input id="practice-session-number" type="number" min="1" max="20" step="1" inputmode="numeric" /></label>
                   <label>實際完成時間（分鐘）<input id="practice-duration" type="number" min="0" max="120" step="0.5" inputmode="decimal" /></label>
                   <label>實際音檔長度（分鐘）<input id="practice-audio-duration" type="number" min="0" max="120" step="0.5" inputmode="decimal" /></label>
                 </div>
               </fieldset>
 
+              <section class="practice-week-overview" aria-live="polite">
+                <div class="practice-week-overview-head">
+                  <div>
+                    <p class="practice-eyebrow">Current Training</p>
+                    <h3 id="practice-week-title">載入中</h3>
+                  </div>
+                  <span id="practice-week-version" class="practice-version">—</span>
+                </div>
+                <p id="practice-week-objective" class="practice-week-objective"></p>
+                <div class="practice-week-facts">
+                  <div><small>使用音檔</small><strong id="practice-week-audio">—</strong></div>
+                  <div><small>本週安排</small><strong id="practice-week-frequency">—</strong></div>
+                </div>
+                <div class="practice-week-criteria">
+                  <small>進入下一階段前要確認</small>
+                  <ul id="practice-week-next-criteria"></ul>
+                </div>
+              </section>
+
               <fieldset>
-                <legend>開始前狀態</legend>
+                <legend>開始前狀態｜每週固定</legend>
                 <div class="practice-score-grid">
                   <label>願意開始 <output id="practice-willingness-output">10</output><input id="practice-willingness" type="range" min="0" max="10" value="10" /></label>
                   <label>精神狀態 <output id="practice-mental-output">5</output><input id="practice-mental" type="range" min="0" max="10" value="5" /></label>
@@ -138,7 +151,7 @@
               </fieldset>
 
               <fieldset>
-                <legend>過程與節奏</legend>
+                <legend>過程與節奏｜每週固定</legend>
                 <div class="practice-grid">
                   <label>注意力最常跑去哪裡
                     <select id="practice-distraction">
@@ -158,32 +171,18 @@
                       <option value="太慢">太慢</option>
                     </select>
                   </label>
-                  <label>用「想法」標記後是否比較容易回來
-                    <select id="practice-thought-label">
-                      <option value="">請選擇</option>
-                      <option value="是">是</option>
-                      <option value="否">否</option>
-                      <option value="不確定">不確定</option>
-                      <option value="本次未使用">本次未使用</option>
-                    </select>
-                  </label>
-                  <label>腳底是否能成為穩定錨點
-                    <select id="practice-grounding">
-                      <option value="">請選擇</option>
-                      <option value="是">是</option>
-                      <option value="否">否</option>
-                      <option value="不確定">不確定</option>
-                    </select>
-                  </label>
                   <label class="practice-span-2">哪一句最有幫助<input id="practice-helpful-line" type="text" maxlength="240" /></label>
                   <label class="practice-span-2">哪一句讓你出戲<input id="practice-awkward-line" type="text" maxlength="240" /></label>
-                  <label>覺得重複的地方<textarea id="practice-repeated" rows="3" maxlength="500"></textarea></label>
-                  <label>太快／太慢的地方<textarea id="practice-speed-notes" rows="3" maxlength="500"></textarea></label>
                 </div>
               </fieldset>
 
+              <fieldset class="practice-week-specific-fieldset">
+                <legend id="practice-week-specific-title">本週專屬回饋</legend>
+                <div id="practice-week-fields" class="practice-grid"></div>
+              </fieldset>
+
               <fieldset>
-                <legend>身體反應</legend>
+                <legend>身體反應｜每週固定</legend>
                 <div class="practice-grid">
                   <label>眉心感覺<input id="practice-brow" type="text" maxlength="240" placeholder="例如：脹、溫、跳動、無感" /></label>
                   <label>其他身體感<input id="practice-body-sensation" type="text" maxlength="240" /></label>
@@ -194,20 +193,11 @@
                   <label>飄忽或不真實感<select id="practice-floating" data-severity></select></label>
                   <label>焦慮升高<select id="practice-anxiety-rise" data-severity></select></label>
                   <label class="practice-span-2">其他不舒服<textarea id="practice-discomfort" rows="3" maxlength="500"></textarea></label>
-                  <label class="practice-span-2">保留腳底注意力是否有幫助
-                    <select id="practice-grounding-help">
-                      <option value="">請選擇</option>
-                      <option value="有">有</option>
-                      <option value="沒有">沒有</option>
-                      <option value="不確定">不確定</option>
-                      <option value="本次未使用">本次未使用</option>
-                    </select>
-                  </label>
                 </div>
               </fieldset>
 
               <fieldset>
-                <legend>出現的內容</legend>
+                <legend>出現的內容｜每週固定</legend>
                 <div class="practice-grid">
                   <label>第一個字詞<input id="practice-first-word" type="text" maxlength="180" /></label>
                   <label>第一個畫面<input id="practice-first-image" type="text" maxlength="240" /></label>
@@ -219,7 +209,7 @@
               </fieldset>
 
               <fieldset>
-                <legend>回神</legend>
+                <legend>回神｜每週固定</legend>
                 <div class="practice-grid">
                   <label>睜眼後是否清楚
                     <select id="practice-clear-after">
@@ -259,7 +249,7 @@
               </fieldset>
 
               <fieldset>
-                <legend>練習後</legend>
+                <legend>練習後｜每週固定</legend>
                 <div class="practice-grid">
                   <label>30 分鐘後的狀態<textarea id="practice-after-30" rows="3" maxlength="500"></textarea></label>
                   <label>當天晚上睡眠<textarea id="practice-sleep" rows="3" maxlength="500"></textarea></label>
@@ -331,14 +321,15 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <p>Evan Tarot ｜私人修煉紀錄</p>
-      <p class="footer-sub">每一次都保留原始狀態，後續才有辦法依真實回饋滾動修正。</p>
+      <p class="footer-sub">固定欄位用來比較趨勢；每週專屬題目依實際修煉結果滾動調整。</p>
     </div>
   </footer>
 
   <script src="JS/utils.js?v=20260629-stability-v1"></script>
   <script src="JS/ripple-effect.js?v=20260624-copy-cleanup-v1"></script>
   <script src="JS/main.js?v=20260702-podcast-nav-v2"></script>
-  <script src="JS/practice-auth.js?v=20260703-private-v1"></script>
-  <script src="JS/practice-private.js?v=20260703-private-v2"></script>
+  <script src="JS/practice-weeks.js?v=20260703-week-driven-v1"></script>
+  <script src="JS/practice-auth.js?v=20260703-private-v2"></script>
+  <script src="JS/practice-private.js?v=20260703-week-driven-v3"></script>
 </body>
 </html>
