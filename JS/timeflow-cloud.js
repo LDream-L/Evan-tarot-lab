@@ -1,17 +1,16 @@
 // ==============================
 // timeflow-cloud.js
-// 占卜時間流 Google Sheets 同步
+// 主題時間流 Google Sheets 同步 v5
 // ==============================
 //
-// 主要函式複雜度：
-// - initialize：O(n log n)
-// - saveCloud：O(n log n)
-// - watchLocal：O(n)，只在本機快照變更時解析
-// 空間複雜度：O(n)
+// 主要函式時間複雜度／空間複雜度：
+// - normalizeStateForCompare / stateHash：O(n log n)，O(n)
+// - initialize / saveCloud：O(n log n)，O(n)
+// - watchLocal：每次 O(1) 比較字串；只有內容改變時才進行 O(n log n) 雜湊。
 //
 // 更快替代方案比較：
-// - 直接比較原始 JSON 字串：快，但欄位順序、null / 空字串與自動置中都會造成假衝突。
-// - 本版：先正規化再建立穩定雜湊，並以 revision 判斷雲端是否真的變更。
+// - 直接比較整份原始 JSON：速度快，但縮放、平移與選取節點會造成無意義同步。
+// - 本版先移除短暫 UI 狀態，再穩定排序欄位建立雜湊；只同步真正的資料與檢視設定。
 // ==============================
 
 (function initTimeflowCloud() {
@@ -55,7 +54,6 @@
   function stableNormalize(value) {
     if (Array.isArray(value)) return value.map(stableNormalize);
     if (!value || typeof value !== "object") return value;
-
     const normalized = {};
     Object.keys(value).sort().forEach((key) => {
       normalized[key] = stableNormalize(value[key]);
@@ -63,13 +61,19 @@
     return normalized;
   }
 
+  /** 時間複雜度 O(n log n)，空間複雜度 O(n)。 */
   function normalizeStateForCompare(state) {
     if (!state || typeof state !== "object") return null;
     const normalized = JSON.parse(JSON.stringify(state));
-    normalized.ui = normalized.ui && typeof normalized.ui === "object"
-      ? normalized.ui
-      : {};
-    normalized.ui.selectedId = String(normalized.ui.selectedId || "");
+    const ui = normalized.ui && typeof normalized.ui === "object" ? normalized.ui : {};
+    normalized.ui = {
+      activeTopicId: String(ui.activeTopicId || ui.activeThemeId || ""),
+      activeTimelineId: String(ui.activeTimelineId || ""),
+      viewMode: String(ui.viewMode || "single"),
+      filterStatus: String(ui.filterStatus || "all"),
+      filterCategory: String(ui.filterCategory || "all"),
+      search: String(ui.search || ""),
+    };
     return stableNormalize(normalized);
   }
 
@@ -125,9 +129,29 @@
 
   function meaningful(state) {
     if (!state) return false;
+
+    if (Number(state.version || 0) >= 5 || Array.isArray(state.topics)) {
+      const activeNodes = (state.nodes || []).filter((item) => !item.deletedAt);
+      const activeTimelines = (state.timelines || []).filter((item) => !item.deletedAt);
+      const activeTopics = (state.topics || []).filter((item) => !item.deletedAt);
+      const activeLinks = (state.links || []).filter((item) => !item.deletedAt);
+      if (activeNodes.length || activeLinks.length || activeTimelines.length > 1 || activeTopics.length > 1) return true;
+      const topic = activeTopics[0] || {};
+      const timeline = activeTimelines[0] || {};
+      const defaultTopic = !String(topic.title || "").trim() || topic.title === "第一主題";
+      const defaultTimeline = !String(timeline.title || "").trim() || timeline.title === "第一案例時間線";
+      const topicDescription = String(topic.description || "").trim();
+      const timelineDescription = String(timeline.description || "").trim();
+      const defaultDescriptions = (
+        !topicDescription || topicDescription === "可用於人物、關係、專案、研究或事物。"
+      ) && (
+        !timelineDescription || timelineDescription === "同一脈絡下的事件、占卜與驗證。"
+      );
+      return !(defaultTopic && defaultTimeline && defaultDescriptions);
+    }
+
     if (state.readings?.length || state.events?.length) return true;
     if ((state.themes?.length || 0) > 1) return true;
-
     const theme = state.themes?.[0] || {};
     const title = String(theme.title || "").trim();
     const description = String(theme.description || "").trim();
@@ -161,9 +185,9 @@
     }
   }
 
-  function loadStateIntoPage(state, nextRevision, nextUserKey) {
-    const raw = JSON.stringify(state);
-    writeMeta(nextRevision, stateHash(state), nextUserKey);
+  function loadStateIntoPage(nextState, nextRevision, nextUserKey) {
+    const raw = JSON.stringify(nextState);
+    writeMeta(nextRevision, stateHash(nextState), nextUserKey);
     lastRaw = raw;
     if (String(localStorage.getItem(STATE_KEY) || "") === raw) return false;
     localStorage.setItem(STATE_KEY, raw);
@@ -195,7 +219,7 @@
 
     saving = true;
     pending = false;
-    status("時間流正在同步到 Google Sheets…", false);
+    status("主題時間流正在同步到 Google Sheets…", false);
     try {
       const result = await saveSnapshot(local, revision);
       if (result?.conflict) {
@@ -233,7 +257,7 @@
     conflictPromptOpen = true;
     try {
       return window.confirm(
-        "本機與 Google Sheets 都有時間流資料。\n\n按「確定」載入雲端版本；按「取消」保留本機並暫停同步。"
+        "本機與 Google Sheets 都有主題時間流資料。\n\n按「確定」載入雲端版本；按「取消」保留本機並暫停同步。"
       );
     } finally {
       conflictPromptOpen = false;
@@ -249,7 +273,7 @@
     if (!token()) return;
 
     ready = true;
-    status("正在讀取 Google Sheets 時間流…", false);
+    status("正在讀取 Google Sheets 主題時間流…", false);
     try {
       const cloud = await request("timeflowLoad");
       if (!cloud?.success) throw new Error(cloud?.error || "讀取失敗");
@@ -258,9 +282,7 @@
       const meta = readMeta();
       const cloudHash = stateHash(cloud.state);
       const cloudUserKey = String(cloud.user?.userKey || "");
-      const sameUserMeta = Boolean(
-        meta?.userKey && cloudUserKey && meta.userKey === cloudUserKey
-      );
+      const sameUserMeta = Boolean(meta?.userKey && cloudUserKey && meta.userKey === cloudUserKey);
       revision = Number(cloud.revision || 0);
       userKey = cloudUserKey;
 
@@ -279,8 +301,6 @@
         return;
       }
 
-      // 同一使用者且雲端 revision 沒變：差異一定來自本機尚未同步的變更，
-      // 包含頁面自動置中造成的 zoom / pan 更新；直接上傳，不再誤判成雙版本衝突。
       if (sameUserMeta && Number(meta.revision || 0) === Number(cloud.revision || 0)) {
         if (!local.state) {
           loadStateIntoPage(cloud.state, cloud.revision, cloudUserKey);
@@ -296,7 +316,6 @@
         return;
       }
 
-      // 雲端 revision 已更新，而本機仍停在上次同步內容：直接載入新雲端版本。
       if (
         sameUserMeta &&
         local.hash === String(meta.lastSavedHash || "") &&
