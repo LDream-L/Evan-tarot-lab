@@ -1,15 +1,15 @@
 // ==============================
 // football-record-card-controls.js
-// 世足賽事驗證：精簡紀錄牌面文字並提供明確的比分修改入口
+// 世足賽事驗證：精簡牌面並將紀錄表改成可閱讀的卡片網格
 // ==============================
 // 主要函式複雜度：
 // - decorateRows：O(r * c)，r 為紀錄數、c 為每場牌數，固定上限 5。
 // - simplifyBoard：O(c)，c 為單場牌數。
-// - addScoreButton：O(1) 時間／O(1) 空間。
+// 空間複雜度：O(1) 額外空間。
 //
 // 更快替代方案比較：
-// - 直接重寫紀錄渲染器：會和淘汰賽、能量模型及其他 UX 模組重複處理 DOM。
-// - 本版：只在最終渲染後移除註記並補上比分修改按鈕，避免干擾既有資料流程。
+// - 保留寬表格並依賴橫向捲動：改動較少，但預測與實際結果會長期落在畫面外。
+// - 本版：沿用既有七個儲存格，以 CSS Grid 重排成單筆卡片；不搬移資料節點，避免重建事件。
 // ==============================
 
 (function initFootballRecordCardControls() {
@@ -46,11 +46,98 @@
     const style = document.createElement("style");
     style.id = "football-record-card-controls-style";
     style.textContent = `
+      #football-records .football-table-wrap {
+        overflow: visible;
+      }
+      #football-records .football-table {
+        display: block;
+        width: 100%;
+        min-width: 0 !important;
+        border: 0;
+        background: transparent;
+      }
+      #football-records .football-table thead {
+        display: none;
+      }
+      #football-records .football-table tbody {
+        display: grid;
+        gap: 1rem;
+      }
+      #football-records .football-table tbody tr {
+        display: grid;
+        grid-template-columns: 138px minmax(0, 1fr) minmax(270px, 320px);
+        grid-template-areas:
+          "time match prediction"
+          "status match actual"
+          "actions match hit";
+        gap: 0.75rem;
+        align-items: start;
+        padding: 0.85rem;
+        border: 1px solid rgba(176, 145, 255, 0.28);
+        border-radius: 18px;
+        background: rgba(5, 5, 24, 0.54);
+      }
+      #football-records .football-table tbody td {
+        display: grid;
+        gap: 0.45rem;
+        min-width: 0 !important;
+        width: auto !important;
+        padding: 0.72rem;
+        border: 1px solid rgba(176, 145, 255, 0.14);
+        border-radius: 13px;
+        background: rgba(255, 255, 255, 0.018);
+        vertical-align: top;
+        overflow: visible;
+      }
+      #football-records .football-table tbody td::before {
+        display: block;
+        color: rgba(218, 209, 255, 0.64);
+        font-size: 0.69rem;
+        font-weight: 850;
+        letter-spacing: 0.04em;
+      }
+      #football-records .football-table tbody td:nth-child(1) { grid-area: time; }
+      #football-records .football-table tbody td:nth-child(1)::before { content: "開賽時間"; }
+      #football-records .football-table tbody td:nth-child(2) { grid-area: match; padding: 0; border: 0; background: transparent; }
+      #football-records .football-table tbody td:nth-child(2)::before { content: none; }
+      #football-records .football-table tbody td:nth-child(3) { grid-area: prediction; }
+      #football-records .football-table tbody td:nth-child(3)::before { content: "分階段預測"; }
+      #football-records .football-table tbody td:nth-child(4) { grid-area: actual; }
+      #football-records .football-table tbody td:nth-child(4)::before { content: "分階段實際"; }
+      #football-records .football-table tbody td:nth-child(5) { grid-area: hit; }
+      #football-records .football-table tbody td:nth-child(5)::before { content: "命中結果"; }
+      #football-records .football-table tbody td:nth-child(6) { grid-area: status; }
+      #football-records .football-table tbody td:nth-child(6)::before { content: "紀錄狀態"; }
+      #football-records .football-table tbody td:nth-child(7) { grid-area: actions; }
+      #football-records .football-table tbody td:nth-child(7)::before { content: "操作"; }
+      #football-records .football-table tbody td > small {
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+      }
+      #football-records .football-row-actions {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 0.45rem;
+      }
+      #football-records .football-row-actions .football-small-button {
+        width: 100%;
+      }
+      .football-record-match {
+        min-width: 0 !important;
+        width: 100%;
+      }
       .football-record-card-board .football-card-group-heading p {
         display: none;
       }
       .football-record-card-board .football-card-group-heading {
         padding: 0.65rem 0.8rem;
+      }
+      .football-record-card-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      }
+      .football-record-card-grid.is-single {
+        grid-template-columns: minmax(150px, 220px) !important;
+        max-width: none !important;
       }
       .football-record-card {
         min-height: 0 !important;
@@ -64,18 +151,53 @@
       .football-record-card .football-card-name {
         font-size: 0.98rem;
       }
-      .football-record-score-edit-bar {
-        display: flex;
-        justify-content: flex-end;
-        align-items: center;
-        margin-bottom: 0.1rem;
+      .football-stage-card,
+      .football-outcome-card {
+        min-width: 0 !important;
+        width: 100%;
+        box-sizing: border-box;
       }
+      .football-stage-final-main,
+      .football-stage-model-line,
+      .football-prediction-line {
+        min-width: 0;
+      }
+      .football-stage-final-team,
+      .football-stage-model-value,
+      .football-prediction-value {
+        overflow-wrap: anywhere;
+      }
+      .football-record-score-edit-bar,
       .football-score-edit-button {
-        white-space: nowrap;
-        text-decoration: none;
+        display: none !important;
       }
-      #football-edit-score-fieldset {
-        scroll-margin-top: 1rem;
+      @media (max-width: 980px) {
+        #football-records .football-table tbody tr {
+          grid-template-columns: 120px minmax(0, 1fr);
+          grid-template-areas:
+            "time status"
+            "match match"
+            "prediction actual"
+            "hit actions";
+        }
+      }
+      @media (max-width: 680px) {
+        #football-records .football-table tbody tr {
+          grid-template-columns: 1fr;
+          grid-template-areas:
+            "time"
+            "match"
+            "prediction"
+            "actual"
+            "hit"
+            "status"
+            "actions";
+          padding: 0.65rem;
+        }
+        .football-record-card-grid,
+        .football-record-card-grid.is-single {
+          grid-template-columns: 1fr !important;
+        }
       }
     `;
     document.head.appendChild(style);
@@ -94,40 +216,9 @@
     });
   }
 
-  /** 單筆紀錄補上比分修改入口：O(1) 時間／O(1) 空間。 */
-  function addScoreButton(row, record) {
-    if (!row || !record || !core.modeIncludesStructure(core.getMode(record))) return;
-
-    const predictionCell = row.children[2];
-    if (!predictionCell) return;
-
-    const predictionCard = predictionCell.querySelector(
-      ".football-stage-card.is-prediction, .football-outcome-card.is-prediction"
-    );
-    if (!predictionCard) return;
-
-    let bar = predictionCard.querySelector(":scope > .football-record-score-edit-bar");
-    if (!bar) {
-      bar = document.createElement("div");
-      bar.className = "football-record-score-edit-bar";
-      predictionCard.prepend(bar);
-    }
-
-    let button = bar.querySelector('button[data-action="edit-score"]');
-    if (!button) {
-      button = document.createElement("button");
-      button.type = "button";
-      button.className = "football-small-button football-score-edit-button";
-      button.dataset.action = "edit-score";
-      button.textContent = "修改比分";
-      bar.appendChild(button);
-    }
-
-    button.dataset.id = record.id;
-    button.setAttribute(
-      "aria-label",
-      `修改 ${record.match?.homeTeam || "主隊"} 對 ${record.match?.awayTeam || "客隊"} 的預測比分`
-    );
+  /** 移除先前版本建立的第二個比分編輯入口：O(1) 時間／O(1) 空間。 */
+  function removeDuplicateScoreButton(row) {
+    row?.querySelectorAll('.football-record-score-edit-bar, button[data-action="edit-score"]').forEach((element) => element.remove());
   }
 
   /** 掃描紀錄列並套用最終顯示：O(r * c) 時間／O(1) 額外空間。 */
@@ -141,15 +232,9 @@
     applying = true;
     observer?.disconnect();
     try {
-      const records = core
-        .getRecords()
-        .sort((a, b) => String(b.match?.kickoff || "").localeCompare(String(a.match?.kickoff || "")));
-
-      Array.from(body.children).forEach((row, index) => {
-        const record = records[index];
-        if (!record) return;
+      Array.from(body.children).forEach((row) => {
         simplifyBoard(row.children[1]?.querySelector(".football-record-card-board"));
-        addScoreButton(row, record);
+        removeDuplicateScoreButton(row);
       });
     } finally {
       applying = false;
@@ -163,35 +248,8 @@
     window.requestAnimationFrame(() => window.requestAnimationFrame(decorateRows));
   }
 
-  function openScoreEditor(recordId) {
-    const record = core.getRecord(recordId);
-    if (!record) return;
-
-    window.FootballLabRecordEdit?.open?.(recordId);
-    window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        const fieldset = byId("football-edit-score-fieldset");
-        if (!fieldset) return;
-        fieldset.classList.remove("football-hidden");
-        fieldset.scrollIntoView({ behavior: "smooth", block: "center" });
-        byId("football-edit-structure-home-goals")?.focus();
-      });
-    });
-  }
-
-  function bindEvents() {
-    byId("football-records-body")?.addEventListener("click", (event) => {
-      const button = event.target.closest('button[data-action="edit-score"]');
-      if (!button) return;
-      event.preventDefault();
-      event.stopPropagation();
-      openScoreEditor(String(button.dataset.id || ""));
-    });
-  }
-
   function init() {
     injectStyles();
-    bindEvents();
 
     const body = byId("football-records-body");
     if (!body) return;
