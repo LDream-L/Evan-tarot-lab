@@ -1,9 +1,9 @@
-// 世足賽事驗證 v1.7.2｜相容載入器
-// 依序載入雲端設定、帳戶、資料、核心、比分規則、渲染、淘汰賽流程、單張能量、事件、雲端同步、紀錄介面、統一卡片、單一編輯、紀錄版面與後續牌組輸入保留。時間 O(m)，空間 O(1)，m=26。
+// 世足賽事驗證 v1.7.3｜相容載入器
+// 依序載入雲端設定、帳戶、資料、核心、比分規則、渲染、淘汰賽流程、單張能量、事件、雲端同步、紀錄介面、統一卡片、單一編輯、紀錄版面、後續牌組輸入保留與狀態分頁修正。時間 O(m)，空間 O(1)，m=27。
 (function loadFootballLabModules() {
   "use strict";
 
-  const version = "20260705-football-v172-record-layout-c";
+  const version = "20260705-football-v173-status-filter-fix-a";
   const modules = [
     "JS/cloud-config.js",
     "JS/site-account.js",
@@ -31,6 +31,7 @@
     "JS/football-record-card-controls.js",
     "JS/football-record-knockout-edit.js",
     "JS/football-record-knockout-input-guard.js",
+    "JS/football-record-status-visibility-fix.js",
   ];
 
   function loadNext(index) {
