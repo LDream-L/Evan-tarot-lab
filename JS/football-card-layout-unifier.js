@@ -8,8 +8,8 @@
 // - createRecordBoard：O(c log c) 時間／O(c) DOM 空間；c <= 5，排序成本為固定小量。
 //
 // 更快替代方案比較：
-// - 重寫抽牌與紀錄渲染核心：會重複處理驗證、事件與雲端同步，改動風險高。
-// - 本版：沿用既有資料與表單節點，只統一卡片 DOM 與版型，避免重建選牌事件。
+// - 只替換首次出現的精簡牌面：DOM 操作較少，但後續 UX 重繪會把卡片蓋回文字版。
+// - 本版：監聽列內重繪並以資料簽章補回統一卡片；只有內容變更才重建，兼顧穩定與效能。
 // ==============================
 
 (function initFootballCardLayoutUnifier() {
@@ -69,6 +69,7 @@
   let recordObserver = null;
   let knockoutObserver = null;
   let renderToken = 0;
+  let applyingRecords = false;
 
   function byId(id) {
     return document.getElementById(id);
@@ -296,9 +297,21 @@
     return article;
   }
 
+  function cardSignature(record) {
+    return JSON.stringify((record?.cards || []).map((card) => [
+      card.position,
+      card.positionTitle,
+      card.positionNote,
+      card.name,
+      card.orientation,
+    ]));
+  }
+
   /** 主牌固定最多五張：O(c log c) 時間／O(c) DOM 空間。 */
   function createRecordBoard(record) {
     const board = createElement("div", "football-record-card-board");
+    board.dataset.cardSignature = cardSignature(record);
+
     const cards = Array.isArray(record?.cards)
       ? record.cards.slice().sort((a, b) => getCardMeta(a).order - getCardMeta(b).order)
       : [];
@@ -328,23 +341,36 @@
 
   /** 依紀錄排序一對一更新列：O(r * c) 時間／O(r * c) DOM 空間。 */
   function renderRecordBoards() {
+    if (applyingRecords) return;
     const body = byId("football-records-body");
     if (!body) return;
 
-    const records = core
-      .getRecords()
-      .sort((a, b) => String(b.match?.kickoff || "").localeCompare(String(a.match?.kickoff || "")));
+    applyingRecords = true;
+    recordObserver?.disconnect();
+    try {
+      const records = core
+        .getRecords()
+        .sort((a, b) => String(b.match?.kickoff || "").localeCompare(String(a.match?.kickoff || "")));
 
-    Array.from(body.children).forEach((row, index) => {
-      const record = records[index];
-      const match = row.children[1]?.querySelector(".football-record-match");
-      if (!record || !match || match.querySelector(".football-record-card-board")) return;
+      Array.from(body.children).forEach((row, index) => {
+        const record = records[index];
+        const match = row.children[1]?.querySelector(".football-record-match");
+        if (!record || !match) return;
 
-      const compact = match.querySelector(".football-compact-cards");
-      const board = createRecordBoard(record);
-      if (compact) compact.replaceWith(board);
-      else match.appendChild(board);
-    });
+        const signature = cardSignature(record);
+        const existingBoard = match.querySelector(":scope > .football-record-card-board");
+        const compact = match.querySelector(":scope > .football-compact-cards");
+        const staleBoard = existingBoard?.dataset.cardSignature !== signature;
+        if (existingBoard && !compact && !staleBoard) return;
+
+        compact?.remove();
+        existingBoard?.remove();
+        match.appendChild(createRecordBoard(record));
+      });
+    } finally {
+      applyingRecords = false;
+      recordObserver?.observe(body, { childList: true, subtree: true });
+    }
   }
 
   function scheduleRender() {
@@ -371,11 +397,12 @@
     const body = byId("football-records-body");
     if (body) {
       recordObserver = new MutationObserver(scheduleRender);
-      recordObserver.observe(body, { childList: true });
+      recordObserver.observe(body, { childList: true, subtree: true });
     }
 
     window.addEventListener("football-energy-render", scheduleRender);
     byId("football-evaluation-form")?.addEventListener("submit", scheduleRender);
+    byId("football-edit-form")?.addEventListener("submit", scheduleRender);
     scheduleRender();
   }
 
