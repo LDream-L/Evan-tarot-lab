@@ -1,9 +1,9 @@
-// 世足賽事驗證 v1.6.2｜相容載入器
+// 世足賽事驗證 v1.6.3｜相容載入器
 // 依序載入雲端設定、帳戶、資料、核心、比分規則、渲染、淘汰賽流程、單張能量、事件、雲端同步、紀錄介面、賽事編輯與統一卡片版型。時間 O(m)，空間 O(1)，m=23。
 (function loadFootballLabModules() {
   "use strict";
 
-  const version = "20260704-football-v162-card-layout-a";
+  const version = "20260705-football-v163-card-edit-b";
   const modules = [
     "JS/cloud-config.js",
     "JS/site-account.js",
