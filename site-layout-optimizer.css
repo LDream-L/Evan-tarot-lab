@@ -168,6 +168,73 @@
   min-height: 38px;
 }
 
+/* 尋物頁：卡片、摘要與事件區同步縮減空白，但保留資料表完整欄位。 */
+.layout-density-balanced .lost-v47-form {
+  margin-bottom: 1.3rem;
+}
+
+.layout-density-balanced .lost-v47-grid,
+.layout-density-balanced .lost-v47-result,
+.layout-density-balanced .lost-v47-card-grid,
+.layout-density-balanced .lost-v50-spatial-grid {
+  gap: 0.75rem;
+}
+
+.layout-density-balanced .lost-v47-zero-step,
+.layout-density-balanced .lost-v50-layer-note,
+.layout-density-balanced .lost-v47-card,
+.layout-density-balanced .lost-v50-spatial-card,
+.layout-density-balanced .lost-v47-events {
+  padding: 0.78rem 0.85rem;
+  border-radius: 13px;
+}
+
+.layout-density-balanced .lost-v47-summary {
+  gap: 0.55rem;
+}
+
+.layout-density-balanced .lost-v47-summary-item {
+  min-width: 132px;
+  flex-basis: 132px;
+  padding: 0.62rem 0.7rem;
+}
+
+.layout-density-balanced .lost-v47-table th,
+.layout-density-balanced .lost-v47-table td {
+  padding: 0.62rem;
+}
+
+.layout-density-balanced .lost-v47-event {
+  padding: 0.68rem 0;
+}
+
+/* 文章後台：保留三欄與長文編輯區，只收斂英雄區、面板與清單留白。 */
+.layout-density-balanced .article-admin-hero .hero-inner {
+  min-height: 240px;
+}
+
+.layout-density-balanced .article-admin-workspace {
+  gap: 14px;
+}
+
+.layout-density-balanced .article-admin-gate,
+.layout-density-balanced .article-admin-sidebar,
+.layout-density-balanced .article-admin-editor {
+  padding: 14px;
+  border-radius: 15px;
+}
+
+.layout-density-balanced .article-admin-filters,
+.layout-density-balanced #article-admin-form {
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.layout-density-balanced .article-admin-list-item {
+  padding: 10px;
+  border-radius: 11px;
+}
+
 /* 表單與工具頁：減少不必要留白，但保留可點擊尺寸。 */
 .layout-density-balanced .map-toolbar,
 .layout-density-balanced .map-canvas-shell,
