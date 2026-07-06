@@ -1,0 +1,289 @@
+/* 全站閱讀密度平衡層：只覆蓋視覺尺寸與響應式呈現，不改功能狀態或資料欄位。 */
+
+.layout-density-balanced {
+  --layout-card-radius: 15px;
+  --layout-panel-padding: clamp(0.9rem, 1.7vw, 1.1rem);
+  --layout-grid-gap: clamp(0.72rem, 1.5vw, 0.95rem);
+  --layout-reading-width: 72ch;
+}
+
+.layout-density-balanced body {
+  line-height: 1.6;
+}
+
+.layout-density-balanced .container {
+  max-width: 1120px;
+}
+
+.layout-density-balanced .hero {
+  padding: clamp(1.8rem, 4vw, 2.55rem) 0;
+}
+
+.layout-density-balanced .hero-inner {
+  gap: clamp(1.25rem, 3vw, 2rem);
+}
+
+.layout-density-balanced .hero h1 {
+  font-size: clamp(1.75rem, 2vw + 1rem, 2.45rem);
+}
+
+.layout-density-balanced .hero-text > p,
+.layout-density-balanced .section-lead,
+.layout-density-balanced .tool-header > p,
+.layout-density-balanced .lab-project-summary {
+  max-width: var(--layout-reading-width);
+}
+
+.layout-density-balanced .hero-card-inner {
+  width: min(100%, 390px);
+  padding: 0.95rem 1rem;
+  border-radius: 18px;
+  font-size: 0.88rem;
+}
+
+.layout-density-balanced .section {
+  padding: clamp(2rem, 4vw, 2.75rem) 0;
+}
+
+.layout-density-balanced .intro-grid,
+.layout-density-balanced .card-grid,
+.layout-density-balanced .tool-grid,
+.layout-density-balanced .form-row {
+  gap: var(--layout-grid-gap);
+}
+
+.layout-density-balanced .card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 238px), 1fr));
+}
+
+.layout-density-balanced .intro-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+}
+
+.layout-density-balanced .intro-block,
+.layout-density-balanced .card,
+.layout-density-balanced .tool-card,
+.layout-density-balanced .booking-form,
+.layout-density-balanced .comments-block {
+  padding: var(--layout-panel-padding);
+  border-radius: var(--layout-card-radius);
+}
+
+.layout-density-balanced .intro-block h3,
+.layout-density-balanced .card h3,
+.layout-density-balanced .tool-header h3,
+.layout-density-balanced .comments-block h3 {
+  margin-bottom: 0.45rem;
+  font-size: clamp(1rem, 1.2vw, 1.15rem);
+}
+
+.layout-density-balanced .intro-block p,
+.layout-density-balanced .card p,
+.layout-density-balanced .card-list,
+.layout-density-balanced .article-excerpt,
+.layout-density-balanced .tool-header p,
+.layout-density-balanced .tool-disclaimer,
+.layout-density-balanced .booking-note {
+  line-height: 1.58;
+}
+
+.layout-density-balanced .btn {
+  min-height: 39px;
+  padding: 0.55rem 0.95rem;
+}
+
+.layout-density-balanced input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="file"]),
+.layout-density-balanced select,
+.layout-density-balanced textarea {
+  min-height: 40px;
+}
+
+.layout-density-balanced textarea {
+  min-height: auto;
+}
+
+/* 實驗室目錄：資訊完整保留，但取消過度放大的卡片。 */
+.layout-density-balanced .lab-projects-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  align-items: stretch;
+  gap: 0.9rem;
+}
+
+.layout-density-balanced .lab-project-card {
+  min-width: 0;
+  min-height: 0;
+  padding: 1rem;
+  border-radius: 17px;
+  gap: 0.72rem;
+}
+
+.layout-density-balanced .lab-project-card h3 {
+  font-size: clamp(1.08rem, 1.55vw, 1.32rem);
+}
+
+.layout-density-balanced .lab-project-heading {
+  gap: 0.68rem;
+}
+
+.layout-density-balanced .lab-project-number {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 10px;
+}
+
+.layout-density-balanced .lab-project-summary,
+.layout-density-balanced .lab-project-points {
+  line-height: 1.55;
+}
+
+.layout-density-balanced .lab-project-meta,
+.layout-density-balanced .lab-project-actions,
+.layout-density-balanced .lab-project-topline {
+  gap: 0.48rem;
+}
+
+.layout-density-balanced .lab-project-meta span {
+  padding: 0.24rem 0.52rem;
+  font-size: 0.76rem;
+}
+
+.layout-density-balanced .lab-project-points {
+  gap: 0.34rem;
+  padding-left: 1.05rem;
+  font-size: 0.88rem;
+}
+
+.layout-density-balanced .lab-project-actions .btn {
+  min-height: 38px;
+}
+
+/* 表單與工具頁：減少不必要留白，但保留可點擊尺寸。 */
+.layout-density-balanced .map-toolbar,
+.layout-density-balanced .map-canvas-shell,
+.layout-density-balanced .map-sidebar,
+.layout-density-balanced .map-timeline-block,
+.layout-density-balanced .practice-panel,
+.layout-density-balanced .practice-lock-card,
+.layout-density-balanced .practice-week-overview,
+.layout-density-balanced .practice-record-card {
+  border-radius: 16px;
+}
+
+.layout-density-balanced .map-toolbar {
+  gap: 0.65rem;
+  padding: 0.78rem;
+}
+
+.layout-density-balanced .map-toolbar-group {
+  gap: 0.52rem;
+}
+
+.layout-density-balanced .map-toolbar .btn,
+.layout-density-balanced .map-icon-btn {
+  min-height: 38px;
+}
+
+.layout-density-balanced .practice-panel,
+.layout-density-balanced .practice-lock-card {
+  padding: clamp(0.95rem, 2vw, 1.2rem);
+}
+
+.layout-density-balanced .practice-panel fieldset {
+  padding: 0.85rem;
+  border-radius: 14px;
+}
+
+.layout-density-balanced .practice-grid,
+.layout-density-balanced .practice-score-grid,
+.layout-density-balanced .practice-week-facts,
+.layout-density-balanced .practice-record-list {
+  gap: 0.72rem;
+}
+
+/* 一般資料表在窄螢幕改為標籤列，避免只能左右捲動。世足表另由專屬版面處理。 */
+@media (max-width: 760px) {
+  .layout-density-balanced .header-inner {
+    gap: 0.6rem;
+  }
+
+  .layout-density-balanced .nav {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 0.35rem;
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+    scrollbar-width: thin;
+  }
+
+  .layout-density-balanced .nav a {
+    flex: 0 0 auto;
+    padding: 0.42rem 0.68rem;
+  }
+
+  .layout-density-balanced .hero-card-inner {
+    width: 100%;
+    max-width: none;
+  }
+
+  .layout-density-balanced table[data-layout-responsive="true"] {
+    min-width: 0 !important;
+  }
+
+  .layout-density-balanced table[data-layout-responsive="true"] thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .layout-density-balanced table[data-layout-responsive="true"],
+  .layout-density-balanced table[data-layout-responsive="true"] tbody,
+  .layout-density-balanced table[data-layout-responsive="true"] tr,
+  .layout-density-balanced table[data-layout-responsive="true"] td {
+    display: block;
+    width: 100%;
+  }
+
+  .layout-density-balanced table[data-layout-responsive="true"] tr {
+    margin-bottom: 0.72rem;
+    padding: 0.72rem;
+    border: 1px solid rgba(171, 151, 255, 0.25);
+    border-radius: 14px;
+    background: rgba(13, 12, 39, 0.74);
+  }
+
+  .layout-density-balanced table[data-layout-responsive="true"] td {
+    display: grid;
+    grid-template-columns: minmax(6.5rem, 0.42fr) minmax(0, 1fr);
+    gap: 0.65rem;
+    padding: 0.38rem 0 !important;
+    border: 0 !important;
+  }
+
+  .layout-density-balanced table[data-layout-responsive="true"] td::before {
+    content: attr(data-label);
+    color: var(--text-muted, #a2a6c3);
+    font-size: 0.74rem;
+    font-weight: 700;
+  }
+}
+
+@media (max-width: 560px) {
+  .layout-density-balanced .section {
+    padding: 1.75rem 0;
+  }
+
+  .layout-density-balanced .lab-project-heading {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .layout-density-balanced .lab-project-topline {
+    align-items: center;
+    flex-direction: row;
+  }
+}
