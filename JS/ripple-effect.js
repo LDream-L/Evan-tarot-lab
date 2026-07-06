@@ -128,7 +128,7 @@
   if (document.querySelector('script[data-site-layout-optimizer="1"]')) return;
 
   const script = document.createElement('script');
-  script.src = 'JS/site-layout-optimizer.js?v=20260706-layout-density-v1';
+  script.src = 'JS/site-layout-optimizer.js?v=20260706-layout-density-v2';
   script.async = false;
   script.dataset.siteLayoutOptimizer = '1';
   script.onerror = () => console.warn('[site-layout-optimizer] 全站閱讀版面載入失敗，已保留原版面。');
