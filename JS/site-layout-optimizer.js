@@ -19,7 +19,7 @@
   "use strict";
 
   const STYLE_ID = "site-layout-optimizer-style";
-  const STYLE_HREF = "site-layout-optimizer.css?v=20260706-layout-density-v1";
+  const STYLE_HREF = "site-layout-optimizer.css?v=20260706-layout-density-v2";
   const HEADER_CACHE = new WeakMap();
   const dirtyTables = new Set();
   let frameId = 0;
