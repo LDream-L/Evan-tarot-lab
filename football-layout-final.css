@@ -1,0 +1,239 @@
+/*
+ * 世足動態元件最終樣式層 v1
+ * 此檔在所有 JS 模組完成後載入，用來統一由模組動態注入的工作流、紀錄、命中與編輯元件。
+ */
+
+/* 紀錄頁：覆蓋動態模組的超寬設定，但保留桌面橫向資訊量。 */
+#football-records .football-record-match {
+  min-width: 0 !important;
+}
+
+#football-records .football-table {
+  min-width: 1160px !important;
+}
+
+#football-records .football-table th:nth-child(2),
+#football-records .football-table td:nth-child(2) {
+  width: 460px !important;
+  min-width: 460px !important;
+}
+
+/* 預測中／待驗證／已驗證：改成緊湊狀態切換，不用三張大型卡片。 */
+#football-records .football-workflow-nav {
+  gap: 0.52rem !important;
+  margin: 0.82rem 0 0.68rem !important;
+}
+
+#football-records .football-workflow-tabs {
+  gap: 0.42rem !important;
+}
+
+#football-records .football-workflow-tab {
+  min-height: 42px;
+  gap: 0.5rem !important;
+  padding: 0.5rem 0.66rem !important;
+  border-radius: 10px !important;
+  font-size: 0.86rem;
+}
+
+#football-records .football-workflow-count {
+  min-width: 1.65rem !important;
+  height: 1.65rem !important;
+  padding: 0 0.38rem !important;
+  font-size: 0.76rem;
+}
+
+#football-records .football-workflow-note {
+  padding: 0.48rem 0.62rem !important;
+  font-size: 0.82rem;
+  line-height: 1.5 !important;
+}
+
+#football-records .football-workflow-empty {
+  margin: 0.66rem 0 !important;
+  padding: 0.7rem !important;
+  border-radius: 10px !important;
+  font-size: 0.84rem;
+}
+
+/* 預測／實際結果：保留辨識色，但不再撐成大卡。 */
+#football-records .football-outcome-card {
+  min-width: 0 !important;
+  gap: 0.34rem !important;
+  padding: 0.52rem 0.58rem !important;
+  border-radius: 10px !important;
+}
+
+#football-records .football-outcome-eyebrow {
+  padding: 0.12rem 0.4rem !important;
+  font-size: 0.68rem !important;
+}
+
+#football-records .football-outcome-score {
+  font-size: 1.12rem !important;
+}
+
+#football-records .football-outcome-result,
+#football-records .football-prediction-value {
+  font-size: 0.82rem !important;
+}
+
+#football-records .football-prediction-lines {
+  gap: 0.32rem !important;
+}
+
+#football-records .football-compact-cards {
+  gap: 0.28rem 0.52rem !important;
+}
+
+#football-records .football-compact-card {
+  gap: 0.28rem !important;
+  font-size: 0.76rem !important;
+}
+
+/* 完整牌面紀錄：取消動態模組的 190px 最低高度與 1840px 桌面寬度。 */
+#football-records .football-record-card-board,
+#football-records .football-knockout-card-sections {
+  gap: 0.55rem !important;
+}
+
+#football-records .football-record-card-grid,
+#football-records .football-knockout-card-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.58rem !important;
+  max-width: none !important;
+}
+
+#football-records .football-record-card-grid.is-single,
+#football-records .football-knockout-card-grid.is-single {
+  grid-template-columns: minmax(0, 390px) !important;
+  max-width: none !important;
+}
+
+#football-records .football-record-card-grid .football-card,
+#football-records .football-knockout-card-grid .football-card {
+  min-height: 0 !important;
+}
+
+/* 命中結果：以小型標籤顯示，不另形成大型資訊卡。 */
+#football-records .football-hit-visual {
+  min-width: 0 !important;
+  gap: 0.36rem !important;
+}
+
+#football-records .football-hit-summary {
+  padding: 0.18rem 0.46rem !important;
+  font-size: 0.76rem !important;
+}
+
+#football-records .football-hit-badges {
+  gap: 0.26rem !important;
+}
+
+#football-records .football-hit-badge {
+  padding: 0.16rem 0.38rem !important;
+  border-radius: 7px !important;
+  font-size: 0.73rem !important;
+}
+
+#football-records .football-hit-detail,
+#football-records .football-review-excerpt {
+  font-size: 0.74rem !important;
+  line-height: 1.42 !important;
+}
+
+/* 編輯、回顧與賽後核對：降低外框與留白，不更動任何欄位或事件。 */
+#football-records .football-review-fields {
+  padding: 0.68rem !important;
+  border-radius: 10px !important;
+}
+
+#football-records .football-edit-warning {
+  margin-bottom: 0.66rem !important;
+  padding: 0.56rem 0.66rem !important;
+  border-radius: 10px !important;
+  font-size: 0.8rem !important;
+  line-height: 1.52 !important;
+}
+
+#football-records .football-edit-score-preview {
+  min-height: 0 !important;
+  padding: 0.56rem 0.64rem !important;
+  border-radius: 10px !important;
+}
+
+#football-evaluation-panel .football-scorecard {
+  padding: 0.72rem !important;
+  border-radius: 13px !important;
+}
+
+#football-evaluation-panel .football-score-grid {
+  grid-template-columns: repeat(auto-fit, minmax(135px, 1fr)) !important;
+  gap: 0.48rem !important;
+}
+
+#football-evaluation-panel .football-score-item {
+  padding: 0.52rem !important;
+  border-radius: 10px !important;
+}
+
+/* 滾動績效：模組自身樣式較晚建立，因此在此再次收斂。 */
+#football-performance-observer.football-trend-panel {
+  gap: 0.62rem !important;
+  padding: 0.68rem !important;
+  border-radius: 13px !important;
+}
+
+#football-performance-observer .football-trend-controls {
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)) !important;
+  gap: 0.48rem !important;
+}
+
+#football-performance-observer .football-trend-card,
+#football-performance-observer .football-trend-summary,
+#football-performance-observer .football-trend-comparison {
+  padding: 0.58rem !important;
+  border-radius: 10px !important;
+}
+
+@media (max-width: 900px) {
+  #football-records .football-table {
+    min-width: 0 !important;
+  }
+
+  #football-records .football-table th:nth-child(2),
+  #football-records .football-table td:nth-child(2) {
+    width: 100% !important;
+    min-width: 0 !important;
+  }
+
+  #football-records .football-record-card-grid,
+  #football-records .football-knockout-card-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 680px) {
+  #football-records .football-workflow-tabs,
+  #football-records .football-record-card-grid,
+  #football-records .football-knockout-card-grid,
+  #football-records .football-record-card-grid.is-single,
+  #football-records .football-knockout-card-grid.is-single,
+  #football-performance-observer .football-trend-controls {
+    grid-template-columns: 1fr !important;
+  }
+
+  #football-records .football-workflow-tab {
+    width: 100%;
+  }
+
+  #football-evaluation-panel .football-score-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 430px) {
+  #football-evaluation-panel .football-score-grid {
+    grid-template-columns: 1fr !important;
+  }
+}
