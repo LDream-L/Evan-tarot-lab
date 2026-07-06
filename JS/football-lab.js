@@ -1,5 +1,5 @@
 // 世足賽事驗證 v1.7.6｜相容載入器
-// 先平行預載模組，再依既有相依順序執行；同時提前載入語意排版樣式，避免版面跳動。
+// 先平行預載模組，再依既有相依順序執行；所有動態模組完成後才套用最終樣式層。
 // 時間複雜度：O(m)，空間複雜度：O(m)，m = 模組數（目前 29）。
 // 更快替代方案比較：
 // - 原作法：29 個模組逐一下載、逐一執行，網路等待時間相加。
@@ -7,8 +7,9 @@
 (function loadFootballLabModules() {
   "use strict";
 
-  const version = "20260706-football-v176-layout-density-b";
+  const version = "20260706-football-v176-layout-density-c";
   const layoutStyleHref = `football-layout-optimizer.css?v=${version}`;
+  const finalStyleHref = `football-layout-final.css?v=${version}`;
   const modules = [
     "JS/cloud-config.js",
     "JS/site-account.js",
@@ -42,13 +43,23 @@
   ];
 
   /** 時間 O(1)，空間 O(1)。 */
-  function ensureLayoutStylesheet() {
-    if (document.querySelector('link[href*="football-layout-optimizer.css"]')) return;
+  function ensureStylesheet({ id, href }) {
+    if (document.getElementById(id) || document.querySelector(`link[href^="${href.split("?")[0]}"]`)) return;
     const link = document.createElement("link");
-    link.id = "football-layout-optimizer-style";
+    link.id = id;
     link.rel = "stylesheet";
-    link.href = layoutStyleHref;
+    link.href = href;
     document.head.appendChild(link);
+  }
+
+  /** 時間 O(1)，空間 O(1)。 */
+  function ensureLayoutStylesheet() {
+    ensureStylesheet({ id: "football-layout-optimizer-style", href: layoutStyleHref });
+  }
+
+  /** 動態模組全部注入樣式後再載入，確保最終密度規則不被蓋回。時間 O(1)，空間 O(1)。 */
+  function ensureFinalStylesheet() {
+    ensureStylesheet({ id: "football-layout-final-style", href: finalStyleHref });
   }
 
   /** 平行發出下載請求；執行順序仍由 loadNext 控制。時間 O(m)，空間 O(m)。 */
@@ -78,7 +89,10 @@
 
   /** 依序執行以保留全域模組相依關係。時間 O(m)，空間 O(m)（事件回呼鏈）。 */
   function loadNext(index) {
-    if (index >= modules.length) return;
+    if (index >= modules.length) {
+      ensureFinalStylesheet();
+      return;
+    }
     const path = modules[index];
     const script = document.createElement("script");
     script.src = `${path}?v=${version}`;
