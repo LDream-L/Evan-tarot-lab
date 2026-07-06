@@ -15,6 +15,15 @@
   max-width: 1120px;
 }
 
+/* 工具型寬版頁面保留原本工作區，避免畫布與三欄編輯器被一般閱讀寬度壓縮。 */
+.layout-density-balanced .timeflow-container {
+  max-width: 1480px;
+}
+
+.layout-density-balanced .article-admin-container {
+  max-width: 1680px;
+}
+
 .layout-density-balanced .hero {
   padding: clamp(1.8rem, 4vw, 2.55rem) 0;
 }
