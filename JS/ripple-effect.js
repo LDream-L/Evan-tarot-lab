@@ -9,6 +9,7 @@
 // - spawnRipple：O(1) / O(1)
 // - loadLostItemUx：O(1) / O(1)
 // - loadLostItemFormUx：O(1) / O(1)
+// - loadSiteLayoutOptimizer：O(1) / O(1)
 //
 // 更快的替代方案比較：
 // - 暴力法：每次 pointermove 都直接建立 DOM 動畫，事件頻率高時容易造成掉幀。
@@ -120,5 +121,16 @@
   script.async = false;
   script.onload = () => window.EvanLostItemUx?.init();
   script.onerror = () => console.warn('[lost-item-ux] 搜尋指令介面載入失敗。');
+  document.head.appendChild(script);
+})();
+
+(function loadSiteLayoutOptimizer() {
+  if (document.querySelector('script[data-site-layout-optimizer="1"]')) return;
+
+  const script = document.createElement('script');
+  script.src = 'JS/site-layout-optimizer.js?v=20260706-layout-density-v1';
+  script.async = false;
+  script.dataset.siteLayoutOptimizer = '1';
+  script.onerror = () => console.warn('[site-layout-optimizer] 全站閱讀版面載入失敗，已保留原版面。');
   document.head.appendChild(script);
 })();
