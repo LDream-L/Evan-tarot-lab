@@ -7,7 +7,7 @@
 (function loadFootballLabModules() {
   "use strict";
 
-  const version = "20260707-football-v176-record-grid-d";
+  const version = "20260707-football-v176-workflow-card-e";
   const layoutStyleHref = `football-layout-optimizer.css?v=${version}`;
   const finalStyleHref = `football-layout-final.css?v=${version}`;
   const modules = [
