@@ -1,21 +1,45 @@
 /*
- * 世足動態元件最終樣式層 v1
+ * 世足動態元件最終樣式層 v2
  * 此檔在所有 JS 模組完成後載入，用來統一由模組動態注入的工作流、紀錄、命中與編輯元件。
  */
 
-/* 紀錄頁：覆蓋動態模組的超寬設定，但保留桌面橫向資訊量。 */
+/*
+ * 紀錄卡外層版型：
+ * 原本仍沿用表格版的第二欄 460px 固定寬度，會讓 Grid 主欄無法撐滿，形成中央大面積空白。
+ * 改為主內容彈性填滿＋固定範圍側欄；單列處理，時間與空間複雜度皆為 O(1)。
+ * 更快替代方案：只縮 gap 無法消除固定欄寬造成的空白，因此直接解除舊表格寬度限制。
+ */
 #football-records .football-record-match {
   min-width: 0 !important;
+  width: 100% !important;
 }
 
 #football-records .football-table {
-  min-width: 1160px !important;
+  min-width: 0 !important;
 }
 
 #football-records .football-table th:nth-child(2),
 #football-records .football-table td:nth-child(2) {
-  width: 460px !important;
-  min-width: 460px !important;
+  width: auto !important;
+  min-width: 0 !important;
+}
+
+#football-records .football-table tbody tr {
+  grid-template-columns: minmax(0, 1fr) minmax(290px, 325px) !important;
+  column-gap: 0.72rem !important;
+  row-gap: 0.62rem !important;
+}
+
+#football-records .football-table tbody tr > td:nth-child(2) {
+  width: 100% !important;
+  min-width: 0 !important;
+  align-self: stretch;
+}
+
+#football-records .football-record-card-board,
+#football-records .football-record-card-grid {
+  width: 100%;
+  min-width: 0;
 }
 
 /* 預測中／待驗證／已驗證：改成緊湊狀態切換，不用三張大型卡片。 */
@@ -91,16 +115,16 @@
   font-size: 0.76rem !important;
 }
 
-/* 完整牌面紀錄：取消動態模組的 190px 最低高度與 1840px 桌面寬度。 */
+/* 完整牌面紀錄：取消動態模組的最低高度，讓主欄依可用寬度填滿。 */
 #football-records .football-record-card-board,
 #football-records .football-knockout-card-sections {
-  gap: 0.55rem !important;
+  gap: 0.48rem !important;
 }
 
 #football-records .football-record-card-grid,
 #football-records .football-knockout-card-grid {
   grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  gap: 0.58rem !important;
+  gap: 0.52rem !important;
   max-width: none !important;
 }
 
@@ -113,6 +137,10 @@
 #football-records .football-record-card-grid .football-card,
 #football-records .football-knockout-card-grid .football-card {
   min-height: 0 !important;
+}
+
+#football-records .football-record-card-board .football-card-group-heading {
+  margin: 0 !important;
 }
 
 /* 命中結果：以小型標籤顯示，不另形成大型資訊卡。 */
@@ -196,6 +224,13 @@
   border-radius: 10px !important;
 }
 
+@media (max-width: 1080px) {
+  #football-records .football-table tbody tr {
+    grid-template-columns: minmax(0, 1fr) minmax(260px, 295px) !important;
+    column-gap: 0.62rem !important;
+  }
+}
+
 @media (max-width: 900px) {
   #football-records .football-table {
     min-width: 0 !important;
@@ -210,6 +245,20 @@
   #football-records .football-record-card-grid,
   #football-records .football-knockout-card-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 820px) {
+  #football-records .football-table tbody tr {
+    grid-template-columns: 1fr !important;
+    grid-template-areas:
+      "match"
+      "prediction"
+      "actual"
+      "hit"
+      "time"
+      "status"
+      "actions" !important;
   }
 }
 
