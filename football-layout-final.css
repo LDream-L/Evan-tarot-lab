@@ -1,13 +1,12 @@
 /*
- * 世足動態元件最終樣式層 v2
+ * 世足動態元件最終樣式層 v3
  * 此檔在所有 JS 模組完成後載入，用來統一由模組動態注入的工作流、紀錄、命中與編輯元件。
  */
 
 /*
  * 紀錄卡外層版型：
- * 原本仍沿用表格版的第二欄 460px 固定寬度，會讓 Grid 主欄無法撐滿，形成中央大面積空白。
- * 改為主內容彈性填滿＋固定範圍側欄；單列處理，時間與空間複雜度皆為 O(1)。
- * 更快替代方案：只縮 gap 無法消除固定欄寬造成的空白，因此直接解除舊表格寬度限制。
+ * 主內容彈性填滿＋固定範圍側欄；解除舊表格欄寬限制。
+ * 單列樣式計算為 O(1)；不重建 DOM，不影響既有事件與資料。
  */
 #football-records .football-record-match {
   min-width: 0 !important;
@@ -33,7 +32,7 @@
 #football-records .football-table tbody tr > td:nth-child(2) {
   width: 100% !important;
   min-width: 0 !important;
-  align-self: stretch;
+  align-self: start;
 }
 
 #football-records .football-record-card-board,
@@ -42,7 +41,87 @@
   min-width: 0;
 }
 
-/* 預測中／待驗證／已驗證：改成緊湊狀態切換，不用三張大型卡片。 */
+/*
+ * 工作流狀態採不同版型，避免預測中的空卡把整列高度撐大。
+ * 更快替代方案比較：只縮 padding 仍會保留兩個無內容區塊；
+ * 直接依既有 data-workflow-status 重新配置 Grid，不需新增迴圈或重建節點。
+ */
+#football-records .football-table tbody tr[data-workflow-status="forecast"] {
+  grid-template-areas:
+    "match prediction"
+    "time status"
+    "actions actions" !important;
+}
+
+#football-records .football-table tbody tr[data-workflow-status="forecast"] > td:nth-child(4),
+#football-records .football-table tbody tr[data-workflow-status="forecast"] > td:nth-child(5) {
+  display: none !important;
+}
+
+#football-records .football-table tbody tr[data-workflow-status="pending"] {
+  grid-template-areas:
+    "match prediction"
+    "actual actual"
+    "time status"
+    "actions actions" !important;
+}
+
+#football-records .football-table tbody tr[data-workflow-status="pending"] > td:nth-child(5) {
+  display: none !important;
+}
+
+#football-records .football-table tbody tr[data-workflow-status="verified"] {
+  grid-template-areas:
+    "match prediction"
+    "actual hit"
+    "time status"
+    "actions actions" !important;
+}
+
+/*
+ * 精簡牌面摘要：90 分鐘獨立；主攻 × 客防、客攻 × 主防成對。
+ * DOM 順序為：結果、主攻、主防、客攻、客防；以固定 nth-child 查表重排，O(1)。
+ */
+#football-records .football-compact-cards {
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 0.42rem 0.58rem !important;
+  padding: 0.62rem 0.68rem;
+  border: 1px solid rgba(171, 151, 255, 0.2);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.018);
+}
+
+#football-records .football-compact-card {
+  gap: 0.28rem !important;
+  min-width: 0;
+  padding: 0.28rem 0.34rem;
+  border-radius: 7px;
+  font-size: 0.78rem !important;
+}
+
+#football-records .football-compact-card:first-child {
+  order: 0;
+  grid-column: 1 / -1;
+  padding-bottom: 0.48rem;
+  border-bottom: 1px solid rgba(171, 151, 255, 0.16);
+}
+
+#football-records .football-compact-card:nth-child(2) { order: 10; }
+#football-records .football-compact-card:nth-child(5) { order: 11; }
+#football-records .football-compact-card:nth-child(4) { order: 20; }
+#football-records .football-compact-card:nth-child(3) { order: 21; }
+
+#football-records .football-compact-card-label {
+  color: rgba(224, 217, 255, 0.76);
+}
+
+#football-records .football-compact-card-value {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-weight: 750;
+}
+
+/* 預測中／待驗證／已驗證：緊湊狀態切換。 */
 #football-records .football-workflow-nav {
   gap: 0.52rem !important;
   margin: 0.82rem 0 0.68rem !important;
@@ -80,12 +159,15 @@
   font-size: 0.84rem;
 }
 
-/* 預測／實際結果：保留辨識色，但不再撐成大卡。 */
-#football-records .football-outcome-card {
+/* 預測／實際結果：保留辨識色，但不撐成大型卡片。 */
+#football-records .football-outcome-card,
+#football-records .football-stage-card {
   min-width: 0 !important;
+  width: 100%;
   gap: 0.34rem !important;
   padding: 0.52rem 0.58rem !important;
   border-radius: 10px !important;
+  box-sizing: border-box;
 }
 
 #football-records .football-outcome-eyebrow {
@@ -106,16 +188,7 @@
   gap: 0.32rem !important;
 }
 
-#football-records .football-compact-cards {
-  gap: 0.28rem 0.52rem !important;
-}
-
-#football-records .football-compact-card {
-  gap: 0.28rem !important;
-  font-size: 0.76rem !important;
-}
-
-/* 完整牌面紀錄：取消動態模組的最低高度，讓主欄依可用寬度填滿。 */
+/* 完整牌面紀錄。 */
 #football-records .football-record-card-board,
 #football-records .football-knockout-card-sections {
   gap: 0.48rem !important;
@@ -143,7 +216,7 @@
   margin: 0 !important;
 }
 
-/* 命中結果：以小型標籤顯示，不另形成大型資訊卡。 */
+/* 命中結果：小型標籤，不另形成大型資訊卡。 */
 #football-records .football-hit-visual {
   min-width: 0 !important;
   gap: 0.36rem !important;
@@ -170,7 +243,7 @@
   line-height: 1.42 !important;
 }
 
-/* 編輯、回顧與賽後核對：降低外框與留白，不更動任何欄位或事件。 */
+/* 編輯、回顧與賽後核對。 */
 #football-records .football-review-fields {
   padding: 0.68rem !important;
   border-radius: 10px !important;
@@ -205,7 +278,7 @@
   border-radius: 10px !important;
 }
 
-/* 滾動績效：模組自身樣式較晚建立，因此在此再次收斂。 */
+/* 滾動績效。 */
 #football-performance-observer.football-trend-panel {
   gap: 0.62rem !important;
   padding: 0.68rem !important;
@@ -231,25 +304,9 @@
   }
 }
 
-@media (max-width: 900px) {
-  #football-records .football-table {
-    min-width: 0 !important;
-  }
-
-  #football-records .football-table th:nth-child(2),
-  #football-records .football-table td:nth-child(2) {
-    width: 100% !important;
-    min-width: 0 !important;
-  }
-
-  #football-records .football-record-card-grid,
-  #football-records .football-knockout-card-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
-  }
-}
-
 @media (max-width: 820px) {
-  #football-records .football-table tbody tr {
+  #football-records .football-table tbody tr,
+  #football-records .football-table tbody tr[data-workflow-status] {
     grid-template-columns: 1fr !important;
     grid-template-areas:
       "match"
@@ -260,6 +317,12 @@
       "status"
       "actions" !important;
   }
+
+  #football-records .football-table tbody tr[data-workflow-status="forecast"] > td:nth-child(4),
+  #football-records .football-table tbody tr[data-workflow-status="forecast"] > td:nth-child(5),
+  #football-records .football-table tbody tr[data-workflow-status="pending"] > td:nth-child(5) {
+    display: none !important;
+  }
 }
 
 @media (max-width: 680px) {
@@ -268,8 +331,13 @@
   #football-records .football-knockout-card-grid,
   #football-records .football-record-card-grid.is-single,
   #football-records .football-knockout-card-grid.is-single,
-  #football-performance-observer .football-trend-controls {
+  #football-performance-observer .football-trend-controls,
+  #football-records .football-compact-cards {
     grid-template-columns: 1fr !important;
+  }
+
+  #football-records .football-compact-card {
+    grid-column: 1 !important;
   }
 
   #football-records .football-workflow-tab {
