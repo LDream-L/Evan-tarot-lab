@@ -154,3 +154,13 @@
     init();
   }
 })();
+
+(function loadTimeflowAstrologyBackground() {
+  "use strict";
+  if (document.querySelector('script[data-timeflow-astrology="true"]')) return;
+  const script = document.createElement("script");
+  script.src = "JS/timeflow-astrology.js?v=20260708-astro-v1";
+  script.async = true;
+  script.dataset.timeflowAstrology = "true";
+  document.head.appendChild(script);
+})();
