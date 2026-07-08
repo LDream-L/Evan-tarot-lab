@@ -162,5 +162,37 @@
   script.src = "JS/timeflow-astrology.js?v=20260708-astro-v1";
   script.async = true;
   script.dataset.timeflowAstrology = "true";
+
+  /**
+   * 原 UI 內部部分操作會直接重畫畫布；以單一觀察器在占星層被清除時恢復。
+   * 每次 DOM 變更檢查時間 O(1)、空間 O(1)；只有確認占星層遺失才重新 render。
+   * 更快替代方案：逐一改寫所有 UI 事件，但耦合較高且後續新增事件容易漏接。
+   */
+  function installAstrologyRenderRecovery() {
+    const TF = window.EvanTimeflowV5;
+    if (!TF?.astrology?.installed || !TF?.ui?.render || !TF?.app?.refs?.canvas) {
+      window.setTimeout(installAstrologyRenderRecovery, 80);
+      return;
+    }
+    if (TF.astrology.recoveryObserver) return;
+
+    const canvas = TF.app.refs.canvas;
+    let scheduled = false;
+    const observer = new MutationObserver(() => {
+      if (scheduled) return;
+      scheduled = true;
+      window.requestAnimationFrame(() => {
+        scheduled = false;
+        const astro = TF.astrology;
+        if (!astro?.prefs?.visible || astro.lastVisibleCount <= 0) return;
+        if (canvas.querySelector(".map-astro-lane-label")) return;
+        TF.ui.render(false);
+      });
+    });
+    observer.observe(canvas, { childList: true, subtree: true });
+    TF.astrology.recoveryObserver = observer;
+  }
+
+  script.addEventListener("load", installAstrologyRenderRecovery, { once: true });
   document.head.appendChild(script);
 })();
