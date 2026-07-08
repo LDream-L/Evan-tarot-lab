@@ -4,30 +4,59 @@
 // ==============================
 //
 // 主要函式複雜度：
-// - loadArticles：O(n)
-// - getArticleById：O(n)
-// - filterArticles：O(n)
-// - renderArticles：O(n)
-// - renderArticleCategories：O(c)
-// 空間複雜度：O(n + c)
+// - normalizeArticle：時間 O(m)，空間 O(m)，m = 單篇文章文字長度
+// - rebuildArticleIndexes：時間 O(n + c)，空間 O(n + c)
+// - getArticleById：時間 O(1)，空間 O(1)
+// - renderArticleCategories：時間 O(c)，空間 O(c)
+// - renderArticles：全部分類為 O(n + c)，單一分類為 O(k)
+//   n = 文章總數、c = 分類數、k = 該分類文章數
 //
 // 更快替代方案比較：
-// - 暴力法：每篇文章直接寫入 GitHub，新增與修改都要重新部署網站。
-// - 本實作：公開頁只讀取 Apps Script 回傳的已發布文章；GitHub 內建資料僅作後端未部署時的備援。
+// - 暴力法：渲染每個分類時都重新掃描完整文章陣列，成本為 O(c × n)。
+// - 本實作：文章載入後先建立分類 Map 與文章 ID Map，分類查詢與單篇查詢直接查表；
+//   「全部」頁只依索引取每類前 3 篇，避免重複篩選與重複運算。
 // ==============================
 
 (function initArticleData() {
   "use strict";
 
   const REQUEST_TIMEOUT_MS = 12000;
+  const ARTICLE_SECTION_LIMIT = 3;
   const ARTICLE_CATEGORIES = Object.freeze([
-    { id: "all", label: "全部" },
-    { id: "experiment", label: "實驗紀錄" },
-    { id: "system", label: "系統思維" },
-    { id: "case", label: "匿名案例" },
-    { id: "guide", label: "占卜教學" },
-    { id: "reflection", label: "思考短文" },
+    Object.freeze({
+      id: "all",
+      label: "全部",
+      description: "依分類瀏覽所有已發布文章。",
+    }),
+    Object.freeze({
+      id: "system",
+      label: "系統思維",
+      description: "占卜方法、判讀框架與底層邏輯。",
+    }),
+    Object.freeze({
+      id: "experiment",
+      label: "實驗紀錄",
+      description: "實際測試、後續驗證與復盤紀錄。",
+    }),
+    Object.freeze({
+      id: "case",
+      label: "匿名案例",
+      description: "保留問題結構與判讀過程的真實案例。",
+    }),
+    Object.freeze({
+      id: "guide",
+      label: "占卜教學",
+      description: "從入門觀念到實際操作的方法整理。",
+    }),
+    Object.freeze({
+      id: "reflection",
+      label: "思考短文",
+      description: "從塔羅延伸到選擇、生活與自我觀察。",
+    }),
   ]);
+  const ARTICLE_CATEGORY_IDS = new Set(
+    ARTICLE_CATEGORIES.map((category) => category.id)
+  );
 
   const FALLBACK_ARTICLES = Object.freeze([
     {
@@ -93,14 +122,16 @@
   ]);
 
   let activeCategory = "all";
-  let articleData = FALLBACK_ARTICLES.slice();
+  let articleData = FALLBACK_ARTICLES.map(normalizeArticle).filter(Boolean);
+  let articleById = new Map();
+  let articlesByCategory = new Map();
   let dataSource = "fallback";
 
   function getApiUrl() {
     return String(
       window.EVAN_CLOUD_CONFIG?.articlesApiUrl ||
-      window.EVAN_CLOUD_CONFIG?.commentsApiUrl ||
-      ""
+        window.EVAN_CLOUD_CONFIG?.commentsApiUrl ||
+        ""
     ).trim();
   }
 
@@ -114,20 +145,31 @@
       .replace(/'/g, "&#39;");
   }
 
+  function normalizeCaseCode(input) {
+    return String(input || "").replace(/\bp-(\d{4})\b/gi, "P-$1");
+  }
+
   function normalizeArticle(raw) {
     const id = String(raw?.id || "").trim().toLowerCase();
-    const title = String(raw?.title || "").trim();
+    const title = normalizeCaseCode(String(raw?.title || "").trim());
     const excerpt = String(raw?.excerpt || "").trim();
     if (!/^[a-z0-9][a-z0-9_-]{1,79}$/.test(id) || !title) return null;
 
+    const rawCategory = String(raw?.category || "reflection").trim();
+    const category =
+      rawCategory !== "all" && ARTICLE_CATEGORY_IDS.has(rawCategory)
+        ? rawCategory
+        : "reflection";
     const content = Array.isArray(raw?.content)
-      ? raw.content.map((paragraph) => String(paragraph || "").trim()).filter(Boolean)
+      ? raw.content
+          .map((paragraph) => String(paragraph || "").trim())
+          .filter(Boolean)
       : [String(raw?.content || excerpt).trim()].filter(Boolean);
 
     return Object.freeze({
       id,
-      category: String(raw?.category || "reflection").trim(),
-      tag: String(raw?.tag || "文章").trim(),
+      category,
+      tag: String(raw?.tag || getCategoryLabel(category)).trim(),
       title,
       date: String(raw?.date || "").trim(),
       author: String(raw?.author || "Evan").trim(),
@@ -136,6 +178,27 @@
       relatedLink: String(raw?.relatedLink || "").trim(),
       relatedLabel: String(raw?.relatedLabel || "").trim(),
     });
+  }
+
+  function rebuildArticleIndexes() {
+    articleById = new Map();
+    articlesByCategory = new Map(
+      ARTICLE_CATEGORIES.filter((category) => category.id !== "all").map(
+        (category) => [category.id, []]
+      )
+    );
+
+    for (const article of articleData) {
+      articleById.set(article.id, article);
+      articlesByCategory.get(article.category)?.push(article);
+    }
+  }
+
+  function setArticleData(nextArticles, nextSource) {
+    articleData = nextArticles.map(normalizeArticle).filter(Boolean);
+    dataSource = nextSource;
+    rebuildArticleIndexes();
+    return articleData;
   }
 
   async function fetchWithTimeout(url) {
@@ -171,31 +234,25 @@
         throw new Error(payload?.error || "文章 API 格式不正確");
       }
 
-      articleData = payload.articles.map(normalizeArticle).filter(Boolean);
-      dataSource = "cloud";
-      return articleData;
+      return setArticleData(payload.articles, "cloud");
     } catch (error) {
       console.warn("[articles] 雲端文章讀取失敗，使用內建備援：", error);
-      articleData = FALLBACK_ARTICLES.slice();
-      dataSource = "fallback";
-      return articleData;
+      return setArticleData(FALLBACK_ARTICLES, "fallback");
     }
   }
 
-  const ready = loadArticles();
-
   function getArticleById(articleId) {
-    return articleData.find((article) => article.id === articleId) || null;
+    return articleById.get(String(articleId || "").trim().toLowerCase()) || null;
+  }
+
+  function getCategory(categoryId) {
+    return (
+      ARTICLE_CATEGORIES.find((category) => category.id === categoryId) || null
+    );
   }
 
   function getCategoryLabel(categoryId) {
-    const category = ARTICLE_CATEGORIES.find((item) => item.id === categoryId);
-    return category ? category.label : "其他";
-  }
-
-  function filterArticles() {
-    if (activeCategory === "all") return articleData;
-    return articleData.filter((article) => article.category === activeCategory);
+    return getCategory(categoryId)?.label || "其他";
   }
 
   function renderArticleCategories() {
@@ -209,46 +266,144 @@
           class="article-category-pill${isActive ? " is-active" : ""}"
           type="button"
           data-category="${escapeHtml(category.id)}"
+          aria-pressed="${isActive}"
         >
           ${escapeHtml(category.label)}
         </button>
       `;
     }).join("");
+  }
 
-    bar.querySelectorAll("[data-category]").forEach((button) => {
-      button.addEventListener("click", () => {
-        activeCategory = button.dataset.category || "all";
-        renderArticleCategories();
-        renderArticles();
-      });
-    });
+  function renderArticleCard(article) {
+    const detailUrl = `article.html?id=${encodeURIComponent(article.id)}`;
+    return `
+      <article class="card article-card article-card-horizontal" data-article-id="${escapeHtml(article.id)}" data-category="${escapeHtml(article.category)}">
+        <div class="article-card-copy">
+          <div class="article-card-eyebrow">
+            <span class="article-tag">${escapeHtml(article.tag || getCategoryLabel(article.category))}</span>
+            <span class="article-meta">${escapeHtml(article.date)} · ${escapeHtml(article.author)}</span>
+          </div>
+          <h3><a class="article-title-link" href="${detailUrl}">${escapeHtml(article.title)}</a></h3>
+          <p class="article-excerpt">${escapeHtml(article.excerpt)}</p>
+        </div>
+        <div class="article-card-action">
+          <a class="btn ghost article-open-button" href="${detailUrl}">閱讀文章與留言 <span aria-hidden="true">→</span></a>
+        </div>
+      </article>
+    `;
+  }
+
+  function renderCategorySection(category, articles, isOverview) {
+    const visibleArticles = isOverview
+      ? articles.slice(0, ARTICLE_SECTION_LIMIT)
+      : articles;
+    const hiddenCount = Math.max(articles.length - visibleArticles.length, 0);
+    const actionCategory = isOverview ? category.id : "all";
+    const actionLabel = isOverview ? "查看全部" : "返回全部分類";
+    const cardsHtml = visibleArticles.length
+      ? visibleArticles.map(renderArticleCard).join("")
+      : '<p class="article-empty">此分類目前沒有已發布文章。</p>';
+
+    return `
+      <section class="article-category-section" data-category-section="${escapeHtml(category.id)}">
+        <header class="article-category-section-header">
+          <div class="article-category-heading">
+            <div class="article-category-title-row">
+              <h3>${escapeHtml(category.label)}</h3>
+              <span class="article-category-count">${articles.length} 篇</span>
+            </div>
+            <p>${escapeHtml(category.description || "")}</p>
+          </div>
+          <button class="article-section-action" type="button" data-view-category="${escapeHtml(actionCategory)}">
+            ${escapeHtml(actionLabel)} <span aria-hidden="true">→</span>
+          </button>
+        </header>
+        <div class="article-section-list">${cardsHtml}</div>
+        ${
+          hiddenCount
+            ? `<p class="article-section-more">尚有 ${hiddenCount} 篇文章，點選「查看全部」展開此分類。</p>`
+            : ""
+        }
+      </section>
+    `;
+  }
+
+  function renderOverview() {
+    const sections = ARTICLE_CATEGORIES.filter(
+      (category) => category.id !== "all"
+    )
+      .map((category) => {
+        const articles = articlesByCategory.get(category.id) || [];
+        return articles.length
+          ? renderCategorySection(category, articles, true)
+          : "";
+      })
+      .join("");
+
+    return (
+      sections || '<p class="article-empty">目前沒有已發布文章。</p>'
+    );
   }
 
   function renderArticles() {
     const list = document.getElementById("article-list");
     if (!list) return;
 
-    const articles = filterArticles();
-    if (!articles.length) {
-      list.innerHTML = '<p class="article-empty">此分類目前沒有已發布文章。</p>';
+    const selectedCategory = getCategory(activeCategory) || getCategory("all");
+    list.classList.toggle("is-category-overview", activeCategory === "all");
+    list.classList.toggle("is-single-category", activeCategory !== "all");
+    list.setAttribute("aria-busy", "false");
+
+    if (activeCategory === "all") {
+      list.innerHTML = renderOverview();
       return;
     }
 
-    list.innerHTML = articles.map((article) => {
-      const detailUrl = `article.html?id=${encodeURIComponent(article.id)}`;
-      return `
-        <article class="card article-card" data-article-id="${escapeHtml(article.id)}" data-category="${escapeHtml(article.category)}">
-          <span class="article-tag">${escapeHtml(article.tag || getCategoryLabel(article.category))}</span>
-          <h3><a class="article-title-link" href="${detailUrl}">${escapeHtml(article.title)}</a></h3>
-          <p class="article-meta">${escapeHtml(article.date)} · ${escapeHtml(article.author)}</p>
-          <p class="article-excerpt">${escapeHtml(article.excerpt)}</p>
-          <a class="btn ghost article-open-button" href="${detailUrl}">閱讀文章與留言</a>
-        </article>
-      `;
-    }).join("");
+    const articles = articlesByCategory.get(activeCategory) || [];
+    list.innerHTML = renderCategorySection(
+      selectedCategory,
+      articles,
+      false
+    );
   }
 
+  function selectCategory(categoryId, shouldScrollToFilters) {
+    const nextCategory = ARTICLE_CATEGORY_IDS.has(categoryId)
+      ? categoryId
+      : "all";
+    activeCategory = nextCategory;
+    renderArticleCategories();
+    renderArticles();
+
+    if (shouldScrollToFilters) {
+      document
+        .getElementById("article-category-bar")
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
+  function bindArticleInteractions() {
+    const bar = document.getElementById("article-category-bar");
+    const list = document.getElementById("article-list");
+
+    bar?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-category]");
+      if (!button || !bar.contains(button)) return;
+      selectCategory(button.dataset.category || "all", false);
+    });
+
+    list?.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-view-category]");
+      if (!button || !list.contains(button)) return;
+      selectCategory(button.dataset.viewCategory || "all", true);
+    });
+  }
+
+  rebuildArticleIndexes();
+  const ready = loadArticles();
+
   document.addEventListener("DOMContentLoaded", async () => {
+    bindArticleInteractions();
     await ready;
     renderArticleCategories();
     renderArticles();
