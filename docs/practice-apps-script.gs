@@ -15,16 +15,16 @@ const PRACTICE_FIELDS = [
   ['practice-dizziness', '頭暈'], ['practice-head-pressure', '頭脹'], ['practice-chest-tightness', '胸悶'],
   ['practice-nausea', '噁心'], ['practice-floating', '飄忽或不真實感'], ['practice-anxiety-rise', '焦慮升高'],
   ['practice-discomfort', '其他不舒服'], ['practice-grounding-help', '腳底注意力是否有幫助'],
-  ['practice-first-word', '第一個字詞'], ['practice-first-image', '第一個畫面'],
+  ['practice-first-word', '第一個字'], ['practice-first-image', '第一個畫面'],
   ['practice-first-emotion', '第一個情緒'], ['practice-first-body', '第一個身體感'],
   ['practice-interpretation', '後來自己補上的解釋'], ['practice-no-content', '本次沒有明顯內容'],
   ['practice-clear-after', '睜眼後是否清楚'], ['practice-recovery-seconds', '回到正常狀態（秒）'],
   ['practice-best-reorientation', '最有效的回神步驟'], ['practice-sudden-step', '仍然太突然的步驟'],
   ['practice-card', '抽到的牌'], ['practice-card-orientation', '正逆位'],
-  ['practice-awake-for-tarot', '抽牌時是否完全清醒'], ['practice-tarot-match', '冥想與牌面一致處'],
-  ['practice-tarot-mismatch', '冥想與牌面不一致處'], ['practice-followup-event', '後續實際事件'],
+  ['practice-awake-for-tarot', '抽牌前是否已完全清醒'], ['practice-tarot-match', '共同點'],
+  ['practice-tarot-mismatch', '不同點'], ['practice-followup-event', '後續實際事件'],
   ['practice-after-30', '30 分鐘後狀態'], ['practice-sleep', '當晚睡眠'],
-  ['practice-next-day', '隔天狀態'], ['practice-willing-next', '下次是否願意再做'],
+  ['practice-next-day', '隔天狀態'], ['practice-willing-next', '下一次是否願意再做'],
   ['practice-next-change', '最希望下一版修改的地方']
 ];
 
@@ -71,7 +71,7 @@ const PRACTICE_EMAIL_SECTIONS = Object.freeze([
   Object.freeze({
     title: '出現的內容',
     fields: [
-      ['practice-first-word', '第一個字詞'], ['practice-first-image', '第一個畫面'],
+      ['practice-first-word', '第一個字'], ['practice-first-image', '第一個畫面'],
       ['practice-first-emotion', '第一個情緒'], ['practice-first-body', '第一個身體感'],
       ['practice-interpretation', '後來自己補上的解釋'],
       ['practice-no-content', '本次沒有明顯內容']
@@ -91,9 +91,9 @@ const PRACTICE_EMAIL_SECTIONS = Object.freeze([
     optional: true,
     fields: [
       ['practice-card', '抽到的牌'], ['practice-card-orientation', '正逆位'],
-      ['practice-awake-for-tarot', '抽牌時是否完全清醒'],
-      ['practice-tarot-match', '冥想與牌面一致處'],
-      ['practice-tarot-mismatch', '冥想與牌面不一致處'],
+      ['practice-awake-for-tarot', '抽牌前是否已完全清醒'],
+      ['practice-tarot-match', '共同點'],
+      ['practice-tarot-mismatch', '不同點'],
       ['practice-followup-event', '後續實際事件']
     ]
   }),
@@ -124,6 +124,27 @@ const PRACTICE_WEEK_DETAIL_LABELS = Object.freeze({
     browChange: '眉心感覺與第一週相比',
     rawFeeling: '練習中最先出現的原始感受',
     laterInterpretation: '後來才加上的解釋或推論'
+  }),
+  'week-3-v10': Object.freeze({
+    openingGoalClear: '開頭是否清楚知道今天要練什麼',
+    electronicToneImpact: '電子音是否影響進入狀態',
+    tooFastSection: '哪一段仍然太快',
+    tooSlowSection: '哪一段太慢',
+    thoughtStage: '思緒最常在哪個階段出現',
+    thoughtPhraseReturn: '說「我正在想」後，是否比較容易回到呼吸',
+    thoughtPhraseAddsThoughts: '「我正在想」這句話本身會不會讓思緒更多',
+    recurringThoughtType: '最常反覆出現的想法類型',
+    footContactClarity: '腳底接觸感',
+    browPressure: '眉心脹感',
+    browThrobbing: '眉心跳動',
+    alternatingAnchorEasier: '交替觀察腳底與眉心是否比同時注意兩者容易',
+    firstContentType: '哪一項是最先出現的',
+    pauseBeforeOpenHelpful: '睜眼前停十秒是否有幫助',
+    sitAfterOpenHelpful: '睜眼後坐二十秒是否有幫助',
+    shuffleDrawTimeEnough: '洗牌與抽牌時間是否足夠',
+    meditationRawContent: '冥想原始內容',
+    cardFirstReaction: '看牌第一反應',
+    basicCardMeaning: '基本牌義'
   })
 });
 
@@ -162,6 +183,7 @@ function verifyAccessKey_(candidate) {
   if (!timingSafeEqual_(String(candidate || ''), expected)) throw new Error('私人接收金鑰錯誤。');
 }
 
+// 時間複雜度 O(k)，空間複雜度 O(1)，k 為較長字串長度。
 function timingSafeEqual_(left, right) {
   const maxLength = Math.max(left.length, right.length);
   let diff = left.length ^ right.length;
@@ -216,6 +238,7 @@ function upsertPracticeRecord_(record) {
   }
 }
 
+// 時間複雜度 O(f)，空間複雜度 O(f)，f 為固定欄位數。
 function buildRow_(record) {
   const data = record.data || {};
   return [new Date(), record.id, record.createdAt || '', record.updatedAt || '']
@@ -228,6 +251,7 @@ function buildRow_(record) {
     ]);
 }
 
+// 時間複雜度 O(1)，空間複雜度 O(1)。
 function normalizeCell_(value) {
   if (value === true) return '是';
   if (value === false) return '否';
@@ -294,6 +318,7 @@ function notify_(record, updated) {
   });
 }
 
+// 時間複雜度 O(f)，空間複雜度 O(f)，f 為該區段欄位數。
 function buildPracticeSectionLines_(fields, data) {
   const lines = [];
   fields.forEach(([key, label, suffix]) => {
@@ -304,6 +329,7 @@ function buildPracticeSectionLines_(fields, data) {
   return lines;
 }
 
+// 時間複雜度 O(w)，空間複雜度 O(w)，w 為當週專屬欄位數。
 function buildWeekDetailLines_(weekKey, details) {
   const labels = PRACTICE_WEEK_DETAIL_LABELS[weekKey] || {};
   const preferredKeys = Object.keys(labels);
@@ -313,16 +339,19 @@ function buildWeekDetailLines_(weekKey, details) {
     .map((key) => `${labels[key] || key}：${formatPracticeEmailValue_(details[key])}`);
 }
 
+// 時間複雜度 O(1)，空間複雜度 O(1)。
 function hasPracticeValue_(value) {
   if (value === true || value === false || value === 0) return true;
   return value !== null && value !== undefined && String(value).trim() !== '';
 }
 
+// 時間複雜度 O(v)，空間複雜度 O(v)，v 為值轉字串後長度。
 function formatPracticeEmailValue_(value, suffix) {
   const normalized = normalizeCell_(value);
   return suffix ? `${normalized}${suffix}` : normalized;
 }
 
+// 時間複雜度 O(v)，空間複雜度 O(v)，v 為 JSON 輸出長度。
 function json_(value) {
   return ContentService.createTextOutput(JSON.stringify(value))
     .setMimeType(ContentService.MimeType.JSON);
