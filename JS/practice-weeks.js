@@ -120,7 +120,150 @@ window.EvanPracticeWeekConfigs = Object.freeze({
         span: 2
       }
     ]
+  },
+  "week-3-v10": {
+    key: "week-3-v10",
+    weekNumber: 3,
+    version: "V10",
+    label: "第3週｜V10 原始感受與思緒分流",
+    title: "原始感受、思緒分流與安全回神",
+    objective: "練習辨認『我正在想』後回到呼吸，並把最先出現的字、畫面、情緒或身體感，和後來補上的解釋分開記錄。",
+    audio: "V10 原始感受與思緒分流",
+    frequency: "本週共 3 次；音檔 12 分 30 秒至 13 分 30 秒；塔羅校準最多 1 次。",
+    nextCriteria: [
+      "說『我正在想』後，能回到呼吸而不明顯增加思緒",
+      "能分辨最先出現的原始內容與後來補上的解釋",
+      "交替觀察腳底與眉心時，沒有讓飄忽或不適明顯增加",
+      "完成睜眼前停十秒與睜眼後坐二十秒，並清楚回到正常狀態"
+    ],
+    fields: [
+      {
+        key: "openingGoalClear",
+        label: "開頭是否清楚知道今天要練什麼",
+        type: "select",
+        options: ["是", "否"]
+      },
+      {
+        key: "electronicToneImpact",
+        label: "電子音是否影響進入狀態",
+        type: "select",
+        options: ["沒有", "輕微", "明顯"]
+      },
+      {
+        key: "tooFastSection",
+        label: "哪一段仍然太快",
+        type: "textarea",
+        rows: 3,
+        maxLength: 500
+      },
+      {
+        key: "tooSlowSection",
+        label: "哪一段太慢",
+        type: "textarea",
+        rows: 3,
+        maxLength: 500
+      },
+      {
+        key: "thoughtStage",
+        label: "思緒最常在哪個階段出現",
+        type: "text",
+        maxLength: 240,
+        span: 2
+      },
+      {
+        key: "thoughtPhraseReturn",
+        label: "說『我正在想』後，是否比較容易回到呼吸",
+        type: "select",
+        options: ["是", "否", "不確定"]
+      },
+      {
+        key: "thoughtPhraseAddsThoughts",
+        label: "『我正在想』這句話本身會不會讓思緒更多",
+        type: "select",
+        options: ["會", "不會", "不確定"]
+      },
+      {
+        key: "recurringThoughtType",
+        label: "最常反覆出現的想法類型",
+        type: "textarea",
+        rows: 3,
+        maxLength: 600,
+        span: 2
+      },
+      {
+        key: "footContactClarity",
+        label: "腳底接觸感",
+        type: "select",
+        options: ["清楚", "普通", "不清楚"]
+      },
+      {
+        key: "browPressure",
+        label: "眉心脹感",
+        type: "select",
+        options: ["無", "輕微", "明顯"]
+      },
+      {
+        key: "browThrobbing",
+        label: "眉心跳動",
+        type: "select",
+        options: ["無", "輕微", "明顯"]
+      },
+      {
+        key: "alternatingAnchorEasier",
+        label: "交替觀察腳底與眉心是否比同時注意兩者容易",
+        type: "select",
+        options: ["是", "否", "不確定"]
+      },
+      {
+        key: "firstContentType",
+        label: "哪一項是最先出現的",
+        type: "select",
+        options: ["第一個字", "第一個畫面", "第一個情緒", "第一個身體感", "同時出現", "不確定"]
+      },
+      {
+        key: "pauseBeforeOpenHelpful",
+        label: "睜眼前停十秒是否有幫助",
+        type: "select",
+        options: ["是", "否", "不確定"]
+      },
+      {
+        key: "sitAfterOpenHelpful",
+        label: "睜眼後坐二十秒是否有幫助",
+        type: "select",
+        options: ["是", "否", "不確定"]
+      },
+      {
+        key: "shuffleDrawTimeEnough",
+        label: "洗牌與抽牌時間是否足夠（有做塔羅校準才填）",
+        type: "select",
+        options: ["是", "否"]
+      },
+      {
+        key: "meditationRawContent",
+        label: "冥想原始內容（有做塔羅校準才填）",
+        type: "textarea",
+        rows: 3,
+        maxLength: 800,
+        span: 2
+      },
+      {
+        key: "cardFirstReaction",
+        label: "看牌第一反應（有做塔羅校準才填）",
+        type: "textarea",
+        rows: 3,
+        maxLength: 600,
+        span: 2
+      },
+      {
+        key: "basicCardMeaning",
+        label: "基本牌義（有做塔羅校準才填）",
+        type: "textarea",
+        rows: 3,
+        maxLength: 600,
+        span: 2
+      }
+    ]
   }
 });
 
-window.EvanPracticeDefaultWeekKey = "week-2-v9";
+window.EvanPracticeDefaultWeekKey = "week-3-v10";
