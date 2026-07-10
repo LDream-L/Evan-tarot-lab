@@ -72,43 +72,61 @@ test("驗證方法與隱私頁互相連結且保留核心界線", async ({ page 
   await expect(page.locator('a[href="methodology.html"]').last()).toBeVisible();
 });
 
-test("世足 30 個元件完整啟動且 Render 與能量 UI 分層", async ({ page }) => {
+test("世足 31 個元件完整啟動且流程事件使用具名依賴", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
-  expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(30);
-  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(6);
+  expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(31);
+  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(8);
   expect(await page.evaluate(() => window.FootballLabBundle.modelVersion)).toBe("1.6.0");
   expect(await page.evaluate(() => window.FootballLabBundle.interfaceVersion)).toBe("1.7.6");
   expect(await page.evaluate(() => window.FootballLabBundle.scoringPolicy)).toBe("individual-goals-plus-exact-score");
   expect(await page.evaluate(() => window.FootballLabBundle.energyModelKey)).toBe("energy-v1");
+  expect(await page.evaluate(() => window.FootballLabBundle.workflowStage)).toBe("knockout-ready");
+  expect(await page.evaluate(() => window.FootballLabBundle.eventLayer)).toBe("esm-factory");
+  expect(await page.evaluate(() => window.FootballLabBundle.coreLayerCount)).toBe(5);
   expect(await page.evaluate(() => window.FootballLabBundle.renderLayer)).toBe("esm");
-  expect(await page.evaluate(() => window.FootballLabBundle.renderLayerCount)).toBe(3);
+  expect(await page.evaluate(() => window.FootballLabBundle.renderLayerCount)).toBe(4);
 
   expect(await page.evaluate(() => Boolean(
     window.FOOTBALL_LAB_DATA
     && window.FootballLabCore
     && window.FootballStrictScoring
     && window.FootballRenderModule
+    && window.FootballCoreLineage
     && window.FootballRenderLineage
     && window.FootballEnergyModel
     && window.FootballDirectEnergy
+    && window.FootballWorkflowRuntime
+    && window.FootballLabEvents
     && window.FootballLabRender
   ))).toBe(true);
 
   expect(await page.evaluate(() => {
-    const lineage = window.FootballRenderLineage;
+    const coreLineage = window.FootballCoreLineage;
+    const renderLineage = window.FootballRenderLineage;
+    const workflow = window.FootballWorkflowRuntime;
+    const events = window.FootballLabEvents;
     return Boolean(
-      lineage.base === window.FootballRenderModule
-      && lineage.energy === window.FootballDirectEnergy.ui
-      && lineage.final === window.FootballLabRender
-      && lineage.base.core === window.FootballStrictScoring.core
-      && lineage.base !== lineage.energy
-      && typeof lineage.energy.renderDraft === "function"
-      && typeof lineage.energy.renderRecords === "function"
-      && typeof lineage.final.renderDraft === "function"
-      && typeof lineage.final.renderRecords === "function"
-      && typeof lineage.final.renderScorecard === "function"
-      && typeof lineage.final.openEvaluation === "function"
+      coreLineage.base === window.FootballStrictScoring.baseCore
+      && coreLineage.scored === window.FootballStrictScoring.core
+      && coreLineage.energy === window.FootballDirectEnergy.core
+      && coreLineage.workflow === workflow.core
+      && coreLineage.final === window.FootballLabCore
+      && renderLineage.base === window.FootballRenderModule
+      && renderLineage.energy === window.FootballDirectEnergy.ui
+      && renderLineage.workflow === workflow.render
+      && renderLineage.final === window.FootballLabRender
+      && renderLineage.base.core === window.FootballStrictScoring.core
+      && renderLineage.base !== renderLineage.energy
+      && renderLineage.energy !== renderLineage.workflow
+      && workflow.events === events
+      && events.core === workflow.core
+      && events.ui === workflow.render
+      && events.isBound()
+      && typeof renderLineage.final.renderDraft === "function"
+      && typeof renderLineage.final.renderRecords === "function"
+      && typeof renderLineage.final.renderScorecard === "function"
+      && typeof renderLineage.final.openEvaluation === "function"
     );
   })).toBe(true);
 
@@ -125,10 +143,6 @@ test("世足 30 個元件完整啟動且 Render 與能量 UI 分層", async ({ p
       && runtimeData.positionSets === baseData.positionSets
     );
   })).toBe(true);
-  expect(await page.evaluate(() => (
-    window.FootballStrictScoring.baseCore.data === window.FOOTBALL_LAB_DATA
-    && window.FootballStrictScoring.core.data === window.FOOTBALL_LAB_DATA
-  ))).toBe(true);
 
   const energyEvaluation = await page.evaluate(() => window.FootballLabCore.calculateEvaluation({
     match: { mode: "dual" },
@@ -152,6 +166,16 @@ test("世足 30 個元件完整啟動且 Render 與能量 UI 分層", async ({ p
   expect(energyEvaluation.directActualDrawTendency).toBe("decisive");
   expect(energyEvaluation.directDrawTendencyHit).toBe(true);
   expect(energyEvaluation.directEnergyHitCount).toBe(2);
+
+  await page.evaluate(() => {
+    const home = document.getElementById("football-structure-home-goals");
+    const away = document.getElementById("football-structure-away-goals");
+    home.value = "2";
+    away.value = "1";
+    home.dispatchEvent(new Event("input", { bubbles: true }));
+    away.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await expect(page.locator("#football-structure-result-preview")).toHaveText("2：1｜主隊勝");
 
   expect(await page.evaluate(() => window.FootballEnergyModel.getActualGoalBand(4))).toBe("high");
   expect(await page.evaluate(() => window.FootballEnergyModel.getActualDrawTendency(1, 1))).toBe("draw");
