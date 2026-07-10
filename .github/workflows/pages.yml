@@ -35,12 +35,15 @@ jobs:
             articles.html
             lab.html
             timeflow.html
+            package.json
+            playwright.config.cjs
             JS/main.js
             JS/utils.js
             JS/site-hardening.js
             JS/booking-verified.js
             JS/timeflow-v5-core.js
             JS/timeflow-v5-layout.js
+            tests/e2e/site.spec.js
             tests/main-loader.test.cjs
             tests/timeflow-core.test.cjs
             tests/timeflow-layout.test.cjs
@@ -54,6 +57,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --check playwright.config.cjs
           node --check JS/main.js
           node --check JS/utils.js
           node --check JS/site-hardening.js
@@ -62,6 +66,7 @@ jobs:
           node --check JS/practice-auth.js
           node --check JS/timeflow-v5-core.js
           node --check JS/timeflow-v5-layout.js
+          node --check tests/e2e/site.spec.js
           node --check tests/main-loader.test.cjs
           node --check tests/timeflow-core.test.cjs
           node --check tests/timeflow-layout.test.cjs
@@ -98,13 +103,47 @@ jobs:
           SMOKE_MAX_ATTEMPTS=3 SMOKE_SLEEP_SECONDS=1 \
             bash tests/site-smoke.sh http://127.0.0.1:4173/
 
+  e2e:
+    runs-on: ubuntu-latest
+    needs: validate
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright test package
+        run: npm install --no-audit --no-fund
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E
+        run: npm run test:e2e
+
+      - name: Upload Playwright failure report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-${{ github.run_id }}
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
+
   deploy:
     if: github.event_name != 'pull_request'
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs: validate
+    needs:
+      - validate
+      - e2e
     steps:
       - name: Checkout
         uses: actions/checkout@v4
