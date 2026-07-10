@@ -1,15 +1,15 @@
 // 世足賽事驗證｜ES Module 正式入口
 //
 // 主要流程複雜度：
-// - 模組解析與執行：時間 O(M)、空間 O(M)，M = 29 個相依模組。
+// - 模組解析與執行：時間 O(M)、空間 O(M)，M = 30 個相依元件。
 // - 啟動完整性檢查：時間 O(G)、空間 O(G)，G = 必要核心 API 數。
 // - 版本文案同步：時間／空間 O(1)。
 //
 // 更快替代方案比較：
-// - 舊版：瀏覽器動態建立 29 個 script，並以 window 全域傳遞資料與核心函式。
-// - 本階段：資料、基礎核心與嚴格評分層使用具名 ES imports；其餘 26 個模組仍由 side-effect imports 相容載入。
-// - 一次改完全部模組：可立即消除全域，但 UI、編輯與雲端同步同時變更，回歸風險過高。
-// - 分層轉換：先建立資料／核心／評分 exports，再依能量、呈現、編輯與雲端層逐批遷移。
+// - 舊版：瀏覽器動態建立多個 script，並以 window 全域傳遞資料與核心函式。
+// - 本階段：資料、核心、評分、能量純模型與能量轉接層使用具名 ES imports；其餘 25 個模組相容載入。
+// - 一次改完全部模組：可立即消除全域，但呈現、編輯與雲端同步同時變更，回歸風險過高。
+// - 分層轉換：先固定模型與運算邊界，再依呈現、編輯及雲端層逐批遷移。
 
 import "../../JS/cloud-config.js";
 import "../../JS/site-account.js";
@@ -17,10 +17,14 @@ import { footballData } from "./data.js";
 import { footballCore } from "./core.js";
 import { footballScoring, scoredFootballCore } from "./scoring.js";
 import "../../JS/football-render.js";
+import { footballEnergyModel } from "./energy-model.js";
+import {
+  footballEnergyAdapter,
+  energyFootballCore,
+} from "./energy-adapter.js";
 import "../../JS/football-advance-visibility.js";
 import "../../JS/football-datetime-fix.js";
 import "../../JS/football-knockout-flow.js";
-import "../../JS/football-direct-energy.js";
 import "../../JS/football-direct-energy-form.js";
 import "../../JS/football-events.js";
 import "../../JS/football-cloud.js";
@@ -41,12 +45,12 @@ import "../../JS/football-record-status-visibility-fix.js";
 import "../../JS/football-performance-trends.js";
 import "../../JS/football-layout-optimizer.js";
 
-const MODULE_COUNT = 29;
-const NAMED_MODULE_COUNT = 3;
+const MODULE_COUNT = 30;
+const NAMED_MODULE_COUNT = 5;
 const INTERFACE_VERSION = "1.7.6";
 
 /**
- * 後續模型層可建立新的不可變文案外殼，但不得分叉核心牌組、牌位與儲存契約。
+ * 後續層可建立新的不可變文案外殼，但不得分叉核心牌組、牌位與儲存契約。
  * 時間／空間複雜度 O(1)。
  */
 function sharesCoreDataContract(runtimeData) {
@@ -62,12 +66,20 @@ function sharesCoreDataContract(runtimeData) {
 }
 
 /**
- * 確認具名模組、評分包裝與最終相容核心共用同一份核心資料契約。
+ * 確認具名模型、轉接層與最終相容核心共用同一份核心資料契約。
  * 時間／空間複雜度 O(1)。
  */
 function assertCoreContracts() {
-  if (!footballData || !footballCore || !footballScoring || !scoredFootballCore) {
-    throw new Error("世足資料層、核心或評分模組尚未載入。");
+  if (
+    !footballData
+    || !footballCore
+    || !footballScoring
+    || !scoredFootballCore
+    || !footballEnergyModel
+    || !footballEnergyAdapter
+    || !energyFootballCore
+  ) {
+    throw new Error("世足資料、核心、評分或能量模組尚未載入。");
   }
   if (window.FOOTBALL_LAB_DATA !== footballData) {
     throw new Error("世足資料相容介面與 ES Module export 不一致。");
@@ -80,6 +92,15 @@ function assertCoreContracts() {
   }
   if (window.FootballStrictScoring !== footballScoring) {
     throw new Error("世足嚴格評分相容介面與 ES Module export 不一致。");
+  }
+  if (
+    window.FootballEnergyModel !== footballEnergyModel
+    || window.FootballDirectEnergy !== footballEnergyAdapter
+    || footballEnergyAdapter.model !== footballEnergyModel
+    || footballEnergyAdapter.core !== energyFootballCore
+    || !sharesCoreDataContract(energyFootballCore.data)
+  ) {
+    throw new Error("世足單張能量模型、轉接層或核心資料契約不一致。");
   }
 
   const runtimeCore = window.FootballLabCore;
@@ -117,6 +138,7 @@ window.FootballLabBundle = Object.freeze({
   modelVersion: footballData.modelVersion,
   interfaceVersion: INTERFACE_VERSION,
   scoringPolicy: footballScoring.policy,
+  energyModelKey: footballEnergyModel.modelKey,
   loadedAt: new Date().toISOString(),
 });
 

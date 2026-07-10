@@ -72,19 +72,28 @@ test("驗證方法與隱私頁互相連結且保留核心界線", async ({ page 
   await expect(page.locator('a[href="methodology.html"]').last()).toBeVisible();
 });
 
-test("世足 29 個模組完整啟動且資料、核心、評分使用具名 imports", async ({ page }) => {
+test("世足 30 個元件完整啟動且能量規則與 UI 分層", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
-  expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(29);
-  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(3);
+  expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(30);
+  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(5);
   expect(await page.evaluate(() => window.FootballLabBundle.modelVersion)).toBe("1.6.0");
   expect(await page.evaluate(() => window.FootballLabBundle.interfaceVersion)).toBe("1.7.6");
   expect(await page.evaluate(() => window.FootballLabBundle.scoringPolicy)).toBe("individual-goals-plus-exact-score");
+  expect(await page.evaluate(() => window.FootballLabBundle.energyModelKey)).toBe("energy-v1");
+
   expect(await page.evaluate(() => Boolean(
     window.FOOTBALL_LAB_DATA
     && window.FootballLabCore
     && window.FootballStrictScoring
+    && window.FootballEnergyModel
+    && window.FootballDirectEnergy
   ))).toBe(true);
+  expect(await page.evaluate(() => (
+    window.FootballDirectEnergy.model === window.FootballEnergyModel
+    && window.FootballDirectEnergy.core.data === window.FootballLabCore.data
+  ))).toBe(true);
+
   expect(await page.evaluate(() => {
     const baseData = window.FOOTBALL_LAB_DATA;
     const runtimeData = window.FootballLabCore.data;
@@ -103,16 +112,34 @@ test("世足 29 個模組完整啟動且資料、核心、評分使用具名 imp
     && window.FootballStrictScoring.core.data === window.FOOTBALL_LAB_DATA
   ))).toBe(true);
 
-  const strictEvaluation = await page.evaluate(() => window.FootballLabCore.calculateEvaluation({
-    match: { mode: "structure" },
-    prediction: { structureHomeGoals: 0, structureAwayGoals: 1, advance: "" },
-    actual: { homeGoals: 0, awayGoals: 2, advance: "" },
+  const energyEvaluation = await page.evaluate(() => window.FootballLabCore.calculateEvaluation({
+    match: { mode: "dual" },
+    prediction: {
+      directModel: "energy-v1",
+      directGoalBand: "medium",
+      directDrawTendency: "decisive",
+      structureHomeGoals: 2,
+      structureAwayGoals: 1,
+      advance: "",
+    },
+    actual: { homeGoals: 2, awayGoals: 1, advance: "" },
   }));
-  expect(strictEvaluation.scoringPolicy).toBe("individual-goals-plus-exact-score");
-  expect(strictEvaluation.structureHomeGoalMatched).toBe(true);
-  expect(strictEvaluation.structureAwayGoalMatched).toBe(false);
-  expect(strictEvaluation.structureExactHit).toBe(false);
+  expect(energyEvaluation.scoringPolicy).toBe("individual-goals-plus-exact-score");
+  expect(energyEvaluation.structureHomeGoalMatched).toBe(true);
+  expect(energyEvaluation.structureAwayGoalMatched).toBe(true);
+  expect(energyEvaluation.structureExactHit).toBe(true);
+  expect(energyEvaluation.directActualTotalGoals).toBe(3);
+  expect(energyEvaluation.directActualGoalBand).toBe("medium");
+  expect(energyEvaluation.directGoalBandHit).toBe(true);
+  expect(energyEvaluation.directActualDrawTendency).toBe("decisive");
+  expect(energyEvaluation.directDrawTendencyHit).toBe(true);
+  expect(energyEvaluation.directEnergyHitCount).toBe(2);
 
+  expect(await page.evaluate(() => window.FootballEnergyModel.getActualGoalBand(4))).toBe("high");
+  expect(await page.evaluate(() => window.FootballEnergyModel.getActualDrawTendency(1, 1))).toBe("draw");
+
+  await expect(page.locator("#football-direct-goal-band")).toHaveCount(1);
+  await expect(page.locator("#football-direct-draw-tendency")).toHaveCount(1);
   await expect(page.locator(".subpage-hero .hero-text h1")).toHaveText("世足賽事驗證。");
   await expect(page.locator("#football-match-form .football-version")).toHaveText("模型 v1.6.0｜介面 v1.7.6");
   await expect(page.locator('script[src*="JS/football-lab.js"]')).toHaveCount(1);
