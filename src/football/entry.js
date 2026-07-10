@@ -6,17 +6,17 @@
 // - 版本文案同步：時間／空間 O(1)。
 //
 // 更快替代方案比較：
-// - 舊版：瀏覽器動態建立多個 script，並以 window 全域傳遞資料與核心函式。
-// - 本階段：資料、核心、評分、能量純模型與能量轉接層使用具名 ES imports；其餘 25 個模組相容載入。
-// - 一次改完全部模組：可立即消除全域，但呈現、編輯與雲端同步同時變更，回歸風險過高。
-// - 分層轉換：先固定模型與運算邊界，再依呈現、編輯及雲端層逐批遷移。
+// - 舊版：瀏覽器動態建立多個 script，並以 window 全域傳遞資料、核心與 Render。
+// - 本階段：資料、核心、評分、基礎 Render、能量純模型與能量轉接層使用具名 ES imports；其餘 24 個模組相容載入。
+// - 一次改完全部模組：可立即消除全域，但事件、編輯與雲端同步同時變更，回歸風險過高。
+// - 分層轉換：先固定模型、運算與呈現邊界，再依事件、編輯及雲端層逐批遷移。
 
 import "../../JS/cloud-config.js";
 import "../../JS/site-account.js";
 import { footballData } from "./data.js";
 import { footballCore } from "./core.js";
 import { footballScoring, scoredFootballCore } from "./scoring.js";
-import "../../JS/football-render.js";
+import { footballRender } from "./render.js";
 import { footballEnergyModel } from "./energy-model.js";
 import {
   footballEnergyAdapter,
@@ -46,7 +46,7 @@ import "../../JS/football-performance-trends.js";
 import "../../JS/football-layout-optimizer.js";
 
 const MODULE_COUNT = 30;
-const NAMED_MODULE_COUNT = 5;
+const NAMED_MODULE_COUNT = 6;
 const INTERFACE_VERSION = "1.7.6";
 
 /**
@@ -66,7 +66,7 @@ function sharesCoreDataContract(runtimeData) {
 }
 
 /**
- * 確認具名模型、轉接層與最終相容核心共用同一份核心資料契約。
+ * 確認具名模型、Render、轉接層與最終相容核心共用同一份契約。
  * 時間／空間複雜度 O(1)。
  */
 function assertCoreContracts() {
@@ -75,11 +75,12 @@ function assertCoreContracts() {
     || !footballCore
     || !footballScoring
     || !scoredFootballCore
+    || !footballRender
     || !footballEnergyModel
     || !footballEnergyAdapter
     || !energyFootballCore
   ) {
-    throw new Error("世足資料、核心、評分或能量模組尚未載入。");
+    throw new Error("世足資料、核心、評分、Render 或能量模組尚未載入。");
   }
   if (window.FOOTBALL_LAB_DATA !== footballData) {
     throw new Error("世足資料相容介面與 ES Module export 不一致。");
@@ -94,6 +95,14 @@ function assertCoreContracts() {
     throw new Error("世足嚴格評分相容介面與 ES Module export 不一致。");
   }
   if (
+    footballRender.core !== scoredFootballCore
+    || typeof footballRender.renderDraft !== "function"
+    || typeof footballRender.renderRecords !== "function"
+    || typeof footballRender.openEvaluation !== "function"
+  ) {
+    throw new Error("世足基礎 Render 與具名評分核心連結不一致。");
+  }
+  if (
     window.FootballEnergyModel !== footballEnergyModel
     || window.FootballDirectEnergy !== footballEnergyAdapter
     || footballEnergyAdapter.model !== footballEnergyModel
@@ -104,13 +113,17 @@ function assertCoreContracts() {
   }
 
   const runtimeCore = window.FootballLabCore;
+  const runtimeRender = window.FootballLabRender;
   if (
     !runtimeCore
     || !sharesCoreDataContract(runtimeCore.data)
     || typeof runtimeCore.calculateEvaluation !== "function"
     || typeof runtimeCore.calculateStats !== "function"
+    || !runtimeRender
+    || typeof runtimeRender.renderDraft !== "function"
+    || typeof runtimeRender.renderRecords !== "function"
   ) {
-    throw new Error("世足最終相容核心缺少必要 API 或核心資料契約不一致。");
+    throw new Error("世足最終相容核心或 Render 缺少必要 API。");
   }
 }
 
@@ -128,6 +141,9 @@ function synchronizeVersionCopy() {
   if (versionBadge) versionBadge.textContent = combinedLabel;
 }
 
+// 僅供相容層與瀏覽器測試確認基礎 Render；正式畫面仍使用能量包裝後的 FootballLabRender。
+window.FootballRenderModule = footballRender;
+
 assertCoreContracts();
 synchronizeVersionCopy();
 
@@ -139,6 +155,7 @@ window.FootballLabBundle = Object.freeze({
   interfaceVersion: INTERFACE_VERSION,
   scoringPolicy: footballScoring.policy,
   energyModelKey: footballEnergyModel.modelKey,
+  renderLayer: "esm",
   loadedAt: new Date().toISOString(),
 });
 
