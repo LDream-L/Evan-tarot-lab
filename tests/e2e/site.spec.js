@@ -72,26 +72,32 @@ test("驗證方法與隱私頁互相連結且保留核心界線", async ({ page 
   await expect(page.locator('a[href="methodology.html"]').last()).toBeVisible();
 });
 
-test("世足 30 個元件完整啟動且能量規則與 UI 分層", async ({ page }) => {
+test("世足 30 個元件完整啟動且 Render 與能量 UI 分層", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
   expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(30);
-  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(5);
+  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(6);
   expect(await page.evaluate(() => window.FootballLabBundle.modelVersion)).toBe("1.6.0");
   expect(await page.evaluate(() => window.FootballLabBundle.interfaceVersion)).toBe("1.7.6");
   expect(await page.evaluate(() => window.FootballLabBundle.scoringPolicy)).toBe("individual-goals-plus-exact-score");
   expect(await page.evaluate(() => window.FootballLabBundle.energyModelKey)).toBe("energy-v1");
+  expect(await page.evaluate(() => window.FootballLabBundle.renderLayer)).toBe("esm");
 
   expect(await page.evaluate(() => Boolean(
     window.FOOTBALL_LAB_DATA
     && window.FootballLabCore
     && window.FootballStrictScoring
+    && window.FootballRenderModule
     && window.FootballEnergyModel
     && window.FootballDirectEnergy
+    && window.FootballLabRender
   ))).toBe(true);
   expect(await page.evaluate(() => (
-    window.FootballDirectEnergy.model === window.FootballEnergyModel
+    window.FootballRenderModule.core === window.FootballStrictScoring.core
+    && window.FootballDirectEnergy.model === window.FootballEnergyModel
     && window.FootballDirectEnergy.core.data === window.FootballLabCore.data
+    && window.FootballDirectEnergy.ui === window.FootballLabRender
+    && window.FootballRenderModule !== window.FootballLabRender
   ))).toBe(true);
 
   expect(await page.evaluate(() => {
