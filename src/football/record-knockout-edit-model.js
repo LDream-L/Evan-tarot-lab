@@ -95,10 +95,14 @@ export function stageCardsFromRecord(record, stage) {
 }
 
 /** 同階段牌面查表驗證：時間／空間 O(p)。 */
-export function validateStageCards(deck, cards, stageLabel) {
+export function validateStageCards(deck, cards, stageLabel, expectedCount = null) {
+  const list = Array.isArray(cards) ? cards : [];
+  if (Number.isInteger(expectedCount) && list.length !== expectedCount) {
+    throw new Error(`${stageLabel}牌組應有 ${expectedCount} 張，目前為 ${list.length} 張。`);
+  }
   const deckSet = deck instanceof Set ? deck : new Set(deck || []);
   const used = new Set();
-  for (const card of cards || []) {
+  for (const card of list) {
     if (!deckSet.has(card?.name)) throw new Error(`請完整記錄「${card?.title || "牌面"}」。`);
     if (card.orientation !== "正位" && card.orientation !== "逆位") {
       throw new Error(`請選擇「${card.title}」正逆位。`);
@@ -141,7 +145,12 @@ export function isKnockoutEligible(match, prediction) {
 /** 建立延長賽階段：時間／空間 O(p)。 */
 export function buildExtraStage(core, mode, input) {
   const cards = cloneValue(input.cards || []);
-  validateStageCards(core.data.deck, cards, "延長賽");
+  validateStageCards(
+    core.data.deck,
+    cards,
+    "延長賽",
+    specsFor(core, mode, "extra").length
+  );
   const extra = { cards };
 
   if (core.modeIncludesDirect(mode)) {
@@ -163,7 +172,7 @@ export function buildExtraStage(core, mode, input) {
 /** 建立 PK 階段：時間／空間 O(p)。 */
 export function buildPenaltyStage(core, input) {
   const cards = cloneValue(input.cards || []);
-  validateStageCards(core.data.deck, cards, "PK");
+  validateStageCards(core.data.deck, cards, "PK", PENALTY_SPECS.length);
   const winner = String(input.winner || "").trim();
   const notes = String(input.notes || "").trim();
   if (!VALID_WINNERS.has(winner) || !notes) {
