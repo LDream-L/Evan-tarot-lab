@@ -39,7 +39,9 @@ jobs:
             JS/site-hardening.js
             JS/booking-verified.js
             JS/timeflow-v5-core.js
+            JS/timeflow-v5-layout.js
             tests/timeflow-core.test.cjs
+            tests/timeflow-layout.test.cjs
           )
           for file in "${required[@]}"; do
             test -f "$file" || { echo "Missing required file: $file"; exit 1; }
@@ -55,10 +57,15 @@ jobs:
           node --check JS/booking-verified.js
           node --check JS/practice-auth.js
           node --check JS/timeflow-v5-core.js
+          node --check JS/timeflow-v5-layout.js
           node --check tests/timeflow-core.test.cjs
+          node --check tests/timeflow-layout.test.cjs
 
       - name: Run timeflow core tests
         run: node tests/timeflow-core.test.cjs
+
+      - name: Run timeflow layout tests
+        run: node tests/timeflow-layout.test.cjs
 
   deploy:
     if: github.event_name != 'pull_request'

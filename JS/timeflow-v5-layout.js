@@ -2,9 +2,15 @@
 // timeflow-v5-layout.js
 // 主題時間流 v5：共用絕對時間、單線縮放與事件卡碰撞避讓
 // ==============================
-// buildLayout：時間 O(N log N + L log L)，空間 O(N+L)。
-// 快速方案：依日期排序後只檢查「每層最後終點」，避免逐節點互相比較的 O(N²)。
-// 修正重點：卡片實際高度與排版高度共用同一組常數，避免文字換行後跨層遮擋。
+// 主要函式複雜度：
+// - allocate：時間 O(n log k)，空間 O(k)，k 為同時重疊層數
+// - buildLayout：時間 O(N log N + L log L)，空間 O(N+L)
+//
+// 更快替代方案比較：
+// - 暴力法：每個項目由第 0 層開始逐層找空位，最壞 O(n²)。
+// - 本實作：active min-heap 釋放已結束層級，available min-heap 重用最低層級，降為 O(n log k)。
+// - 只提高 z-index 不會消除遮擋；固定卡片高度搭配一次排版，可避免二次 DOM 量測。
+// ==============================
 (function initTimeflowLayout(TF) {
   "use strict";
 
@@ -40,12 +46,7 @@
 
   /**
    * 將卡片視覺高度鎖定為排版引擎使用的 CARD_H。
-   * 時間複雜度 O(1)，空間複雜度 O(1)。
-   *
-   * 替代方案比較：
-   * - 只提高 z-index：卡片仍互相遮擋，只是改變誰蓋住誰。
-   * - 每次 render 後量測 DOM 再重排：精確但需二次渲染，且 SVG 連線也要重算。
-   * - 本方案：卡片內容做合理行數收斂，CSS 與排版常數共用固定高度；一次排版即可完成。
+   * 時間／空間複雜度 O(1)。
    */
   function injectCollisionStyles() {
     if (document.getElementById("timeflow-collision-layout-style")) return;
@@ -232,24 +233,73 @@
     return output;
   }
 
+  /** 二元 min-heap push：時間 O(log n)，空間 O(1)。 */
+  function heapPush(heap, value, compare) {
+    heap.push(value);
+    let index = heap.length - 1;
+
+    while (index > 0) {
+      const parent = Math.floor((index - 1) / 2);
+      if (compare(heap[parent], value) <= 0) break;
+      heap[index] = heap[parent];
+      index = parent;
+    }
+    heap[index] = value;
+  }
+
+  /** 二元 min-heap pop：時間 O(log n)，空間 O(1)。 */
+  function heapPop(heap, compare) {
+    if (!heap.length) return undefined;
+    const first = heap[0];
+    const last = heap.pop();
+    if (!heap.length) return first;
+
+    let index = 0;
+    while (true) {
+      const left = index * 2 + 1;
+      if (left >= heap.length) break;
+      const right = left + 1;
+      let child = left;
+      if (right < heap.length && compare(heap[right], heap[left]) < 0) child = right;
+      if (compare(heap[child], last) >= 0) break;
+      heap[index] = heap[child];
+      index = child;
+    }
+    heap[index] = last;
+    return first;
+  }
+
   /**
-   * 依每層最後終點配置項目。
-   * 時間複雜度 O(n * k)，k 為實際層數；通常遠小於 n。
-   * 空間複雜度 O(k)。
+   * 依區間開始位置配置重疊層級。
+   * 前提：items 已依 startKey 由小到大排序。
+   * 時間複雜度 O(n log k)，空間複雜度 O(k)，k 為同時重疊層數。
    */
   function allocate(items, startKey, endKey, gap) {
-    const levelEnds = [];
-    return items.map((item) => {
-      let level = 0;
-      while (level < levelEnds.length && item[startKey] <= levelEnds[level] + gap) {
-        level += 1;
+    const active = [];
+    const availableLevels = [];
+    const activeCompare = (a, b) => a.end - b.end || a.level - b.level;
+    const levelCompare = (a, b) => a - b;
+    const output = [];
+    let nextLevel = 0;
+
+    items.forEach((item) => {
+      const start = Number(item[startKey]);
+      const end = Number(item[endKey]);
+
+      while (active.length && start > active[0].end + gap) {
+        const released = heapPop(active, activeCompare);
+        heapPush(availableLevels, released.level, levelCompare);
       }
 
-      if (level === levelEnds.length) levelEnds.push(item[endKey]);
-      else levelEnds[level] = item[endKey];
+      const level = availableLevels.length
+        ? heapPop(availableLevels, levelCompare)
+        : nextLevel++;
 
-      return { ...item, level };
+      heapPush(active, { end, level }, activeCompare);
+      output.push({ ...item, level });
     });
+
+    return output;
   }
 
   function clusters(items) {
@@ -393,15 +443,15 @@
           rows.push(row);
 
           bands.forEach((item) => {
-            const width = Math.max(88, item.endX - item.startX);
+            const itemWidth = Math.max(88, item.endX - item.startX);
             const placement = {
               kind: "band",
               node: item.node,
               x: item.startX,
               y: y + item.level * 48,
-              width,
+              width: itemWidth,
               height: G.BAND_H,
-              centerX: item.startX + width / 2,
+              centerX: item.startX + itemWidth / 2,
               centerY: y + item.level * 48 + G.BAND_H / 2,
               axisY,
               range: item.range,
@@ -489,5 +539,12 @@
   }
 
   injectCollisionStyles();
-  Object.assign(TF, { orderTimelines, visibleData, buildLayout });
+  Object.assign(TF, {
+    orderTimelines,
+    visibleData,
+    buildLayout,
+    allocateLevels: allocate,
+    heapPush,
+    heapPop,
+  });
 })(window.EvanTimeflowV5 = window.EvanTimeflowV5 || {});
