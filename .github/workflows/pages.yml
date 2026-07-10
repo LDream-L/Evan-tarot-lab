@@ -35,11 +35,13 @@ jobs:
             articles.html
             lab.html
             timeflow.html
+            JS/main.js
             JS/utils.js
             JS/site-hardening.js
             JS/booking-verified.js
             JS/timeflow-v5-core.js
             JS/timeflow-v5-layout.js
+            tests/main-loader.test.cjs
             tests/timeflow-core.test.cjs
             tests/timeflow-layout.test.cjs
             tests/site-smoke.sh
@@ -52,6 +54,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
+          node --check JS/main.js
           node --check JS/utils.js
           node --check JS/site-hardening.js
           node --check JS/booking.js
@@ -59,9 +62,13 @@ jobs:
           node --check JS/practice-auth.js
           node --check JS/timeflow-v5-core.js
           node --check JS/timeflow-v5-layout.js
+          node --check tests/main-loader.test.cjs
           node --check tests/timeflow-core.test.cjs
           node --check tests/timeflow-layout.test.cjs
           bash -n tests/site-smoke.sh
+
+      - name: Run main loader tests
+        run: node tests/main-loader.test.cjs
 
       - name: Run timeflow core tests
         run: node tests/timeflow-core.test.cjs
