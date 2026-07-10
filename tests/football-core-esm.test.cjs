@@ -78,15 +78,16 @@ function run() {
   const api = runtime.exports;
 
   try {
-    assert.ok(api.footballData, "缺少 footballData named export");
     assert.ok(api.footballCore, "缺少 footballCore named export");
-    assert.strictEqual(runtime.window.FOOTBALL_LAB_DATA, api.footballData);
+    const footballData = api.footballCore.data;
+    assert.ok(footballData, "footballCore 缺少資料層參照");
+    assert.strictEqual(runtime.window.FOOTBALL_LAB_DATA, footballData);
     assert.strictEqual(runtime.window.FootballLabCore, api.footballCore);
 
-    assert.equal(api.footballData.modelVersion, "1.6.0");
-    assert.equal(api.footballData.deck.length, 78);
-    assert.equal(api.footballData.positionMap.directResult.key, "directResult");
-    assert.equal(Object.isFrozen(api.footballData), true);
+    assert.equal(footballData.modelVersion, "1.6.0");
+    assert.equal(footballData.deck.length, 78);
+    assert.equal(footballData.positionMap.directResult.key, "directResult");
+    assert.equal(Object.isFrozen(footballData), true);
     assert.equal(Object.isFrozen(api.footballCore), true);
 
     assert.equal(api.getResult(2, 1), "H");
@@ -130,7 +131,7 @@ function run() {
 
     assert.deepEqual(api.getRecords(), []);
     assert.equal(api.calculateStats().total, 0);
-    assert.equal(runtime.storage.has(api.footballData.storageKey), false);
+    assert.equal(runtime.storage.has(footballData.storageKey), false);
 
     console.log("football-core ESM tests passed");
   } finally {
