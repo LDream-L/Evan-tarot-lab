@@ -1,15 +1,15 @@
 // 世足賽事驗證｜ES Module 正式入口
 //
 // 主要流程複雜度：
-// - 模組解析與執行：時間 O(M)、空間 O(M)，M = 30 個相依元件。
+// - 模組解析與執行：時間 O(M)、空間 O(M)，M = 31 個相依元件。
 // - 啟動完整性檢查：時間 O(G)、空間 O(G)，G = 必要核心 API 數。
 // - 版本文案同步：時間／空間 O(1)。
 //
 // 更快替代方案比較：
-// - 舊版：瀏覽器動態建立多個 script，並以 window 全域傳遞資料、核心與 Render。
-// - 本階段：資料、核心、評分、基礎 Render、能量純模型與能量轉接層使用具名 ES imports；其餘 24 個模組相容載入。
-// - 一次改完全部模組：可立即消除全域，但事件、編輯與雲端同步同時變更，回歸風險過高。
-// - 分層轉換：先固定模型、運算與呈現邊界，再依事件、編輯及雲端層逐批遷移。
+// - 舊版：事件模組於載入時自行讀取 window 核心與 Render，依賴隱性順序。
+// - 本階段：淘汰賽後 workflow runtime 固定核心與 Render，再注入具名事件工廠。
+// - 一次改完全部模組：可立即消除全域，但編輯與雲端同步同時變更，回歸風險過高。
+// - 分層轉換：先固定模型、呈現、流程與事件邊界，再處理雲端及編輯層。
 
 import "../../JS/cloud-config.js";
 import "../../JS/site-account.js";
@@ -22,11 +22,10 @@ import {
   footballEnergyAdapter,
   energyFootballCore,
 } from "./energy-adapter.js";
-import "../../JS/football-advance-visibility.js";
-import "../../JS/football-datetime-fix.js";
-import "../../JS/football-knockout-flow.js";
-import "../../JS/football-direct-energy-form.js";
-import "../../JS/football-events.js";
+import {
+  footballWorkflowRuntime,
+  footballEvents,
+} from "./workflow-runtime.js";
 import "../../JS/football-cloud.js";
 import "../../JS/football-records-ux.js";
 import "../../JS/football-hit-ux.js";
@@ -45,8 +44,8 @@ import "../../JS/football-record-status-visibility-fix.js";
 import "../../JS/football-performance-trends.js";
 import "../../JS/football-layout-optimizer.js";
 
-const MODULE_COUNT = 30;
-const NAMED_MODULE_COUNT = 6;
+const MODULE_COUNT = 31;
+const NAMED_MODULE_COUNT = 8;
 const INTERFACE_VERSION = "1.7.6";
 
 /**
@@ -66,17 +65,30 @@ function sharesCoreDataContract(runtimeData) {
 }
 
 /**
- * 固定記錄基礎 Render、能量 Render 與所有相容 UX 完成後的最終 Render。
+ * 固定記錄基礎、評分、能量、淘汰賽流程與後續 UX 完成後的核心。
+ * 時間／空間複雜度 O(1)。
+ */
+const footballCoreLineage = Object.freeze({
+  base: footballCore,
+  scored: scoredFootballCore,
+  energy: footballEnergyAdapter.core,
+  workflow: footballWorkflowRuntime.core,
+  final: window.FootballLabCore,
+});
+
+/**
+ * 固定記錄基礎 Render、能量 Render、淘汰賽流程 Render 與最終 Render。
  * 時間／空間複雜度 O(1)。
  */
 const footballRenderLineage = Object.freeze({
   base: footballRender,
   energy: footballEnergyAdapter.ui,
+  workflow: footballWorkflowRuntime.render,
   final: window.FootballLabRender,
 });
 
 /**
- * 確認具名模型、Render、轉接層與最終相容核心共用同一份契約。
+ * 確認具名模型、流程、事件與最終相容介面共用同一份契約。
  * 時間／空間複雜度 O(1)。
  */
 function assertCoreContracts() {
@@ -89,8 +101,10 @@ function assertCoreContracts() {
     || !footballEnergyModel
     || !footballEnergyAdapter
     || !energyFootballCore
+    || !footballWorkflowRuntime
+    || !footballEvents
   ) {
-    throw new Error("世足資料、核心、評分、Render 或能量模組尚未載入。");
+    throw new Error("世足資料、核心、呈現、流程或事件模組尚未載入。");
   }
   if (window.FOOTBALL_LAB_DATA !== footballData) {
     throw new Error("世足資料相容介面與 ES Module export 不一致。");
@@ -121,14 +135,34 @@ function assertCoreContracts() {
   ) {
     throw new Error("世足單張能量模型、轉接層或核心資料契約不一致。");
   }
+  if (
+    window.FootballWorkflowRuntime !== footballWorkflowRuntime
+    || window.FootballLabEvents !== footballEvents
+    || footballWorkflowRuntime.events !== footballEvents
+    || footballEvents.core !== footballWorkflowRuntime.core
+    || footballEvents.ui !== footballWorkflowRuntime.render
+    || !footballEvents.isBound()
+    || footballWorkflowRuntime.stage !== "knockout-ready"
+    || footballWorkflowRuntime.energyCore !== footballEnergyAdapter.core
+    || footballWorkflowRuntime.energyRender !== footballEnergyAdapter.ui
+  ) {
+    throw new Error("世足流程執行層與事件模組連結不一致。");
+  }
 
-  const runtimeCore = window.FootballLabCore;
+  const runtimeCore = footballCoreLineage.final;
   const runtimeRender = footballRenderLineage.final;
   if (
-    footballRenderLineage.base !== footballRender
+    footballCoreLineage.base !== footballCore
+    || footballCoreLineage.scored !== scoredFootballCore
+    || footballCoreLineage.energy !== footballEnergyAdapter.core
+    || footballCoreLineage.workflow !== footballWorkflowRuntime.core
+    || runtimeCore !== window.FootballLabCore
+    || footballRenderLineage.base !== footballRender
     || footballRenderLineage.energy !== footballEnergyAdapter.ui
+    || footballRenderLineage.workflow !== footballWorkflowRuntime.render
     || runtimeRender !== window.FootballLabRender
     || footballRenderLineage.base === footballRenderLineage.energy
+    || footballRenderLineage.energy === footballRenderLineage.workflow
     || !runtimeCore
     || !sharesCoreDataContract(runtimeCore.data)
     || typeof runtimeCore.calculateEvaluation !== "function"
@@ -139,7 +173,7 @@ function assertCoreContracts() {
     || typeof runtimeRender.renderScorecard !== "function"
     || typeof runtimeRender.openEvaluation !== "function"
   ) {
-    throw new Error("世足最終相容核心、Render 血統或必要 API 不一致。");
+    throw new Error("世足最終核心、Render 血統或必要 API 不一致。");
   }
 }
 
@@ -157,8 +191,9 @@ function synchronizeVersionCopy() {
   if (versionBadge) versionBadge.textContent = combinedLabel;
 }
 
-// 僅供相容層、除錯與瀏覽器測試確認 Render 三層關係。
+// 僅供相容層、除錯與瀏覽器測試確認各層關係。
 window.FootballRenderModule = footballRender;
+window.FootballCoreLineage = footballCoreLineage;
 window.FootballRenderLineage = footballRenderLineage;
 
 assertCoreContracts();
@@ -172,8 +207,11 @@ window.FootballLabBundle = Object.freeze({
   interfaceVersion: INTERFACE_VERSION,
   scoringPolicy: footballScoring.policy,
   energyModelKey: footballEnergyModel.modelKey,
+  workflowStage: footballWorkflowRuntime.stage,
+  eventLayer: "esm-factory",
+  coreLayerCount: 5,
   renderLayer: "esm",
-  renderLayerCount: 3,
+  renderLayerCount: 4,
   loadedAt: new Date().toISOString(),
 });
 
