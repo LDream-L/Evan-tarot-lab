@@ -2,14 +2,13 @@
 //
 // 主要流程複雜度：
 // - 模組解析與執行：時間 O(M)、空間 O(M)，M = 32 個相依元件。
-// - 啟動完整性檢查：時間 O(G)、空間 O(G)，G = 必要核心 API 數。
+// - 啟動完整性檢查：時間／空間 O(G)，G = 必要契約數。
 // - 版本文案同步：時間／空間 O(1)。
 //
 // 更快替代方案比較：
 // - 舊版雲端與事件在點擊時各自猜測 window 核心、帳號與登入物件。
 // - 本階段先固定 workflow 核心快照，再建立具名雲端實例與事件控制器；登入物件仍動態讀取。
-// - 一次改完編輯與全部 UX 可立即消除全域，但回歸範圍過大。
-// - 分層轉換先固定資料、模型、呈現、流程、事件與雲端邊界，再處理編輯層。
+// - 單一巨大布林式雖為 O(G)，但失敗時無法定位；本版保留同等成本並回報具名失敗契約。
 
 import "../../JS/cloud-config.js";
 import "../../JS/site-account.js";
@@ -66,9 +65,20 @@ function sharesCoreDataContract(runtimeData) {
 }
 
 /**
- * 固定記錄基礎、評分、能量、淘汰賽流程與後續 UX 完成後的核心。
- * 時間／空間複雜度 O(1)。
+ * 逐項驗證具名契約並回報失敗名稱。
+ * 時間／空間複雜度 O(G)，G = 該群組契約數。
  */
+function assertContractGroup(groupName, checks) {
+  const failed = checks.filter(([, passed]) => !passed).map(([name]) => name);
+  if (!failed.length) return;
+  window.FootballContractDiagnostics = Object.freeze({
+    group: groupName,
+    failed: Object.freeze(failed.slice()),
+  });
+  throw new Error(`${groupName}不一致：${failed.join("、")}`);
+}
+
+/** 時間／空間複雜度 O(1)。 */
 const footballCoreLineage = Object.freeze({
   base: footballCore,
   scored: scoredFootballCore,
@@ -77,10 +87,7 @@ const footballCoreLineage = Object.freeze({
   final: window.FootballLabCore,
 });
 
-/**
- * 固定記錄基礎 Render、能量 Render、淘汰賽流程 Render 與最終 Render。
- * 時間／空間複雜度 O(1)。
- */
+/** 時間／空間複雜度 O(1)。 */
 const footballRenderLineage = Object.freeze({
   base: footballRender,
   energy: footballEnergyAdapter.ui,
@@ -90,109 +97,98 @@ const footballRenderLineage = Object.freeze({
 
 /**
  * 確認具名模型、workflow、雲端、事件與最終相容介面共用同一份契約。
- * 時間／空間複雜度 O(1)。
+ * 時間／空間複雜度 O(G)。
  */
 function assertCoreContracts() {
-  if (
-    !footballData
-    || !footballCore
-    || !footballScoring
-    || !scoredFootballCore
-    || !footballRender
-    || !footballEnergyModel
-    || !footballEnergyAdapter
-    || !energyFootballCore
-    || !footballWorkflowRuntime
-    || !footballApplicationRuntime
-    || !footballCloud
-    || !footballEvents
-  ) {
-    throw new Error("世足資料、核心、呈現、流程、雲端或事件模組尚未載入。");
-  }
-  if (window.FOOTBALL_LAB_DATA !== footballData) {
-    throw new Error("世足資料相容介面與 ES Module export 不一致。");
-  }
-  if (footballCore.data !== footballData || scoredFootballCore.data !== footballData) {
-    throw new Error("世足核心與評分層未共用同一份資料契約。");
-  }
-  if (footballScoring.baseCore !== footballCore || footballScoring.core !== scoredFootballCore) {
-    throw new Error("世足嚴格評分層與基礎核心連結不一致。");
-  }
-  if (window.FootballStrictScoring !== footballScoring) {
-    throw new Error("世足嚴格評分相容介面與 ES Module export 不一致。");
-  }
-  if (
-    footballRender.core !== scoredFootballCore
-    || typeof footballRender.renderDraft !== "function"
-    || typeof footballRender.renderRecords !== "function"
-    || typeof footballRender.openEvaluation !== "function"
-  ) {
-    throw new Error("世足基礎 Render 與具名評分核心連結不一致。");
-  }
-  if (
-    window.FootballEnergyModel !== footballEnergyModel
-    || window.FootballDirectEnergy !== footballEnergyAdapter
-    || footballEnergyAdapter.model !== footballEnergyModel
-    || footballEnergyAdapter.core !== energyFootballCore
-    || !sharesCoreDataContract(energyFootballCore.data)
-  ) {
-    throw new Error("世足單張能量模型、轉接層或核心資料契約不一致。");
-  }
-  if (
-    window.FootballWorkflowRuntime !== footballWorkflowRuntime
-    || footballWorkflowRuntime.stage !== "knockout-ready"
-    || footballWorkflowRuntime.energyCore !== footballEnergyAdapter.core
-    || footballWorkflowRuntime.energyRender !== footballEnergyAdapter.ui
-  ) {
-    throw new Error("世足 workflow runtime 與能量層連結不一致。");
-  }
-  if (
-    window.FootballApplicationRuntime !== footballApplicationRuntime
-    || footballApplicationRuntime.stage !== "cloud-and-events-ready"
-    || footballApplicationRuntime.workflow !== footballWorkflowRuntime
-    || footballApplicationRuntime.core !== footballWorkflowRuntime.core
-    || footballApplicationRuntime.render !== footballWorkflowRuntime.render
-    || footballApplicationRuntime.cloud !== footballCloud
-    || footballApplicationRuntime.events !== footballEvents
-    || window.FootballLabCloud !== footballCloud
-    || window.FootballCloudModule !== footballCloud
-    || footballCloud.core !== footballWorkflowRuntime.core
-    || !Object.isFrozen(footballCloud.protocol)
-    || footballCloud.protocol.join(",") !== "health,createRecord,updateActual"
-    || window.FootballLabEvents !== footballEvents
-    || footballEvents.core !== footballWorkflowRuntime.core
-    || footballEvents.ui !== footballWorkflowRuntime.render
-    || !footballEvents.isBound()
-  ) {
-    throw new Error("世足應用執行層、雲端或事件相容介面連結不一致。");
-  }
+  assertContractGroup("世足模組載入契約", [
+    ["footballData", Boolean(footballData)],
+    ["footballCore", Boolean(footballCore)],
+    ["footballScoring", Boolean(footballScoring)],
+    ["scoredFootballCore", Boolean(scoredFootballCore)],
+    ["footballRender", Boolean(footballRender)],
+    ["footballEnergyModel", Boolean(footballEnergyModel)],
+    ["footballEnergyAdapter", Boolean(footballEnergyAdapter)],
+    ["energyFootballCore", Boolean(energyFootballCore)],
+    ["footballWorkflowRuntime", Boolean(footballWorkflowRuntime)],
+    ["footballApplicationRuntime", Boolean(footballApplicationRuntime)],
+    ["footballCloud", Boolean(footballCloud)],
+    ["footballEvents", Boolean(footballEvents)],
+  ]);
+
+  assertContractGroup("世足資料與評分契約", [
+    ["data-global-export", window.FOOTBALL_LAB_DATA === footballData],
+    ["base-core-data", footballCore.data === footballData],
+    ["scored-core-data", scoredFootballCore.data === footballData],
+    ["scoring-base-core", footballScoring.baseCore === footballCore],
+    ["scoring-core", footballScoring.core === scoredFootballCore],
+    ["scoring-global-export", window.FootballStrictScoring === footballScoring],
+  ]);
+
+  assertContractGroup("世足基礎 Render 契約", [
+    ["render-core", footballRender.core === scoredFootballCore],
+    ["renderDraft", typeof footballRender.renderDraft === "function"],
+    ["renderRecords", typeof footballRender.renderRecords === "function"],
+    ["openEvaluation", typeof footballRender.openEvaluation === "function"],
+  ]);
+
+  assertContractGroup("世足能量層契約", [
+    ["energy-model-global", window.FootballEnergyModel === footballEnergyModel],
+    ["energy-adapter-global", window.FootballDirectEnergy === footballEnergyAdapter],
+    ["energy-model-link", footballEnergyAdapter.model === footballEnergyModel],
+    ["energy-core-link", footballEnergyAdapter.core === energyFootballCore],
+    ["energy-data-contract", sharesCoreDataContract(energyFootballCore.data)],
+  ]);
+
+  assertContractGroup("世足 workflow runtime 契約", [
+    ["workflow-global", window.FootballWorkflowRuntime === footballWorkflowRuntime],
+    ["workflow-stage", footballWorkflowRuntime.stage === "knockout-ready"],
+    ["workflow-energy-core", footballWorkflowRuntime.energyCore === footballEnergyAdapter.core],
+    ["workflow-energy-render", footballWorkflowRuntime.energyRender === footballEnergyAdapter.ui],
+  ]);
+
+  assertContractGroup("世足應用執行層契約", [
+    ["application-global", window.FootballApplicationRuntime === footballApplicationRuntime],
+    ["application-stage", footballApplicationRuntime.stage === "cloud-and-events-ready"],
+    ["application-workflow", footballApplicationRuntime.workflow === footballWorkflowRuntime],
+    ["application-core", footballApplicationRuntime.core === footballWorkflowRuntime.core],
+    ["application-render", footballApplicationRuntime.render === footballWorkflowRuntime.render],
+    ["application-cloud", footballApplicationRuntime.cloud === footballCloud],
+    ["application-events", footballApplicationRuntime.events === footballEvents],
+    ["cloud-global", window.FootballLabCloud === footballCloud],
+    ["cloud-module-global", window.FootballCloudModule === footballCloud],
+    ["cloud-core", footballCloud.core === footballWorkflowRuntime.core],
+    ["cloud-protocol-frozen", Object.isFrozen(footballCloud.protocol)],
+    ["cloud-protocol", footballCloud.protocol.join(",") === "health,createRecord,updateActual"],
+    ["events-global", window.FootballLabEvents === footballEvents],
+    ["events-core", footballEvents.core === footballWorkflowRuntime.core],
+    ["events-render", footballEvents.ui === footballWorkflowRuntime.render],
+    ["events-bound", footballEvents.isBound()],
+  ]);
 
   const runtimeCore = footballCoreLineage.final;
   const runtimeRender = footballRenderLineage.final;
-  if (
-    footballCoreLineage.base !== footballCore
-    || footballCoreLineage.scored !== scoredFootballCore
-    || footballCoreLineage.energy !== footballEnergyAdapter.core
-    || footballCoreLineage.workflow !== footballWorkflowRuntime.core
-    || runtimeCore !== window.FootballLabCore
-    || footballRenderLineage.base !== footballRender
-    || footballRenderLineage.energy !== footballEnergyAdapter.ui
-    || footballRenderLineage.workflow !== footballWorkflowRuntime.render
-    || runtimeRender !== window.FootballLabRender
-    || footballRenderLineage.base === footballRenderLineage.energy
-    || footballRenderLineage.energy === footballRenderLineage.workflow
-    || !runtimeCore
-    || !sharesCoreDataContract(runtimeCore.data)
-    || typeof runtimeCore.calculateEvaluation !== "function"
-    || typeof runtimeCore.calculateStats !== "function"
-    || !runtimeRender
-    || typeof runtimeRender.renderDraft !== "function"
-    || typeof runtimeRender.renderRecords !== "function"
-    || typeof runtimeRender.renderScorecard !== "function"
-    || typeof runtimeRender.openEvaluation !== "function"
-  ) {
-    throw new Error("世足最終核心、Render 血統或必要 API 不一致。");
-  }
+  assertContractGroup("世足最終核心與 Render 契約", [
+    ["lineage-base-core", footballCoreLineage.base === footballCore],
+    ["lineage-scored-core", footballCoreLineage.scored === scoredFootballCore],
+    ["lineage-energy-core", footballCoreLineage.energy === footballEnergyAdapter.core],
+    ["lineage-workflow-core", footballCoreLineage.workflow === footballWorkflowRuntime.core],
+    ["lineage-final-core", runtimeCore === window.FootballLabCore],
+    ["lineage-base-render", footballRenderLineage.base === footballRender],
+    ["lineage-energy-render", footballRenderLineage.energy === footballEnergyAdapter.ui],
+    ["lineage-workflow-render", footballRenderLineage.workflow === footballWorkflowRuntime.render],
+    ["lineage-final-render", runtimeRender === window.FootballLabRender],
+    ["render-base-energy-separated", footballRenderLineage.base !== footballRenderLineage.energy],
+    ["render-energy-workflow-separated", footballRenderLineage.energy !== footballRenderLineage.workflow],
+    ["runtime-core-present", Boolean(runtimeCore)],
+    ["runtime-data-contract", sharesCoreDataContract(runtimeCore?.data)],
+    ["runtime-evaluation", typeof runtimeCore?.calculateEvaluation === "function"],
+    ["runtime-stats", typeof runtimeCore?.calculateStats === "function"],
+    ["runtime-render-present", Boolean(runtimeRender)],
+    ["runtime-render-draft", typeof runtimeRender?.renderDraft === "function"],
+    ["runtime-render-records", typeof runtimeRender?.renderRecords === "function"],
+    ["runtime-render-scorecard", typeof runtimeRender?.renderScorecard === "function"],
+    ["runtime-render-evaluation", typeof runtimeRender?.openEvaluation === "function"],
+  ]);
 }
 
 /** 統一模型版本與介面版本顯示。時間／空間 O(1)。 */
@@ -209,7 +205,6 @@ function synchronizeVersionCopy() {
   if (versionBadge) versionBadge.textContent = combinedLabel;
 }
 
-// 僅供相容層、除錯與瀏覽器測試確認各層關係。
 window.FootballRenderModule = footballRender;
 window.FootballCoreLineage = footballCoreLineage;
 window.FootballRenderLineage = footballRenderLineage;
