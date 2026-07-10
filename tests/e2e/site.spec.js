@@ -76,7 +76,7 @@ test("預約表單保留原生必填驗證並切換可配合時間", async ({ pa
 
   const form = page.locator("#booking-form");
   await expect(form).toBeVisible();
-  await expect(form).not.toBeValid();
+  expect(await form.evaluate((element) => element.checkValidity())).toBe(false);
 
   await page.locator('input[name="name"]').fill("E2E 測試");
   await page.locator('input[name="contact"]').fill("test@example.com");
@@ -85,7 +85,7 @@ test("預約表單保留原生必填驗證並切換可配合時間", async ({ pa
 
   const availability = page.locator("#booking-availability-field");
   await expect(availability).toBeVisible();
-  await expect(form).toBeValid();
+  expect(await form.evaluate((element) => element.checkValidity())).toBe(true);
 
   await page.locator('select[name="mode"]').selectOption("text");
   await expect(availability).toBeHidden();
