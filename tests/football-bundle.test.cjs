@@ -30,10 +30,7 @@ function stripComments(source) {
     .replace(/^\s*\/\/.*$/gm, "");
 }
 
-/**
- * 驗證 entry、分層 runtime、具名編輯模型／控制器與 sourcemap。
- * 時間／空間複雜度 O(B)，B 為相關 source、bundle 與 map 總大小。
- */
+/** 時間／空間複雜度 O(B)，B 為相關 source、bundle 與 map 總大小。 */
 function run() {
   const entry = fs.readFileSync(ENTRY, "utf8");
   const workflowRuntime = fs.readFileSync(WORKFLOW_RUNTIME, "utf8");
@@ -45,6 +42,7 @@ function run() {
   const events = fs.readFileSync(EVENTS, "utf8");
   const executableCloud = stripComments(cloud);
   const executableEvents = stripComments(events);
+  const executableRecordEditModel = stripComments(recordEditModel);
   const executableRecordEdit = stripComments(recordEdit);
   const render = fs.readFileSync(RENDER, "utf8");
   const energyAdapter = fs.readFileSync(ENERGY_ADAPTER, "utf8");
@@ -80,28 +78,16 @@ function run() {
   assert.equal(fs.existsSync(LEGACY_RENDER), false, "舊全域 Render 應自 source 移除");
   assert.equal(fs.existsSync(LEGACY_ENERGY), false, "舊單張能量混合模組應自 source 移除");
 
-  assert.doesNotMatch(
-    executableRecordEdit,
-    /window\.FootballLab(?:Core|Render)/,
-    "具名紀錄編輯控制器不得自行猜測全域核心或 Render"
-  );
+  assert.doesNotMatch(executableRecordEdit, /window\.FootballLab(?:Core|Render)/, "編輯控制器不得猜測全域核心或 Render");
   assert.match(recordEdit, /createFootballRecordEdit/, "紀錄編輯層應提供可注入工廠");
   assert.match(recordEditModel, /buildUpdatedRecord/, "紀錄編輯規則應集中於純模型");
-  assert.doesNotMatch(recordEditModel, /\b(?:window|document|localStorage)\b/, "純編輯模型不得依賴瀏覽器全域");
+  assert.doesNotMatch(executableRecordEditModel, /\b(?:window|document|localStorage)\b/, "純編輯模型不得依賴瀏覽器全域");
   assert.doesNotMatch(executableCloud, /listRecords/, "未確認的 listRecords 不得進入可執行雲端協定");
   assert.match(executableCloud, /\["health",\s*"createRecord",\s*"updateActual"\]/);
-  assert.doesNotMatch(
-    executableEvents,
-    /window\.FootballLab(?:Core|Render)/,
-    "具名事件模組不得自行猜測全域核心或 Render"
-  );
+  assert.doesNotMatch(executableEvents, /window\.FootballLab(?:Core|Render)/, "事件模組不得猜測全域核心或 Render");
   assert.doesNotMatch(render, /\.innerHTML\s*=/, "具名 Render 不得以 innerHTML 寫入動態資料");
   assert.match(render, /textContent\s*=/, "具名 Render 應以 textContent 寫入文字");
-  assert.doesNotMatch(
-    energyAdapter,
-    /(?:FOOTBALL_LAB_DATA|\bdata)\.positionMap\s*=/,
-    "能量轉接層不得重新指定具名資料層的 positionMap"
-  );
+  assert.doesNotMatch(energyAdapter, /(?:FOOTBALL_LAB_DATA|\bdata)\.positionMap\s*=/, "能量轉接層不得分叉 positionMap");
 
   assert.ok(fs.existsSync(RUNTIME), "dist 缺少 football-lab.js bundle");
   assert.ok(fs.existsSync(SOURCE_MAP), "dist 缺少 football-lab.js.map");
