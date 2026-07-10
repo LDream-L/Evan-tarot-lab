@@ -46,7 +46,23 @@ const NAMED_MODULE_COUNT = 3;
 const INTERFACE_VERSION = "1.7.6";
 
 /**
- * 確認具名模組、評分包裝與最終相容核心共用同一份資料契約。
+ * 後續模型層可建立新的不可變文案外殼，但不得分叉核心牌組、牌位與儲存契約。
+ * 時間／空間複雜度 O(1)。
+ */
+function sharesCoreDataContract(runtimeData) {
+  return Boolean(
+    runtimeData
+    && Object.isFrozen(runtimeData)
+    && runtimeData.modelVersion === footballData.modelVersion
+    && runtimeData.storageKey === footballData.storageKey
+    && runtimeData.deck === footballData.deck
+    && runtimeData.positionMap === footballData.positionMap
+    && runtimeData.positionSets === footballData.positionSets
+  );
+}
+
+/**
+ * 確認具名模組、評分包裝與最終相容核心共用同一份核心資料契約。
  * 時間／空間複雜度 O(1)。
  */
 function assertCoreContracts() {
@@ -69,11 +85,11 @@ function assertCoreContracts() {
   const runtimeCore = window.FootballLabCore;
   if (
     !runtimeCore
-    || runtimeCore.data !== footballData
+    || !sharesCoreDataContract(runtimeCore.data)
     || typeof runtimeCore.calculateEvaluation !== "function"
     || typeof runtimeCore.calculateStats !== "function"
   ) {
-    throw new Error("世足最終相容核心缺少必要 API 或資料契約不一致。");
+    throw new Error("世足最終相容核心缺少必要 API 或核心資料契約不一致。");
   }
 }
 
