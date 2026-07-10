@@ -39,7 +39,7 @@ jobs:
             scripts/build-site.cjs scripts/build-football.cjs
             src/timeflow/ui.js src/timeflow/actions.js src/timeflow/bootstrap.js
             src/football/entry.js
-            JS/main.js JS/utils.js JS/site-hardening.js JS/booking-verified.js
+            JS/main.js JS/utils.js JS/site-shell.js JS/site-hardening.js JS/booking-verified.js
             JS/timeflow-v5-core.js JS/timeflow-v5-layout.js
             tests/build-site.test.cjs tests/football-bundle.test.cjs
             tests/e2e/site.spec.js tests/e2e/accessibility.spec.js
@@ -61,6 +61,7 @@ jobs:
           node --check src/football/entry.js
           node --check JS/main.js
           node --check JS/utils.js
+          node --check JS/site-shell.js
           node --check JS/site-hardening.js
           node --check JS/booking.js
           node --check JS/booking-verified.js
