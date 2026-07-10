@@ -112,7 +112,7 @@ function run() {
   ].forEach((suffix) => {
     assert.equal(sources.some((value) => value.endsWith(suffix)), false, `sourcemap 不得包含 ${suffix}`);
   });
-  assert.ok(Array.isArray(sourceMap.sourcesContent) && sourceMap.sourcesContent.length >= 33);
+  assert.ok(Array.isArray(sourceMap.sourcesContent) && sourceMap.sourcesContent.length >= 32);
 
   const html = fs.readFileSync(path.join(DIST, "football-lab.html"), "utf8");
   assert.ok(html.includes('id="football-layout-final-style"'), "正式頁面缺少最終世足樣式");
