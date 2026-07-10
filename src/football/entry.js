@@ -7,15 +7,15 @@
 //
 // 更快替代方案比較：
 // - 舊版：瀏覽器動態建立 29 個 script，並以 window 全域傳遞資料與核心函式。
-// - 本階段：資料層與計算核心使用具名 ES imports；其餘 27 個模組仍由 side-effect imports 相容載入。
-// - 一次改完全部模組：可立即消除全域，但資料、UI、編輯與雲端同步同時變更，回歸風險過高。
-// - 分層轉換：先建立真正的資料／核心 exports，再依評分、呈現、編輯與雲端層逐批遷移。
+// - 本階段：資料、基礎核心與嚴格評分層使用具名 ES imports；其餘 26 個模組仍由 side-effect imports 相容載入。
+// - 一次改完全部模組：可立即消除全域，但 UI、編輯與雲端同步同時變更，回歸風險過高。
+// - 分層轉換：先建立資料／核心／評分 exports，再依能量、呈現、編輯與雲端層逐批遷移。
 
 import "../../JS/cloud-config.js";
 import "../../JS/site-account.js";
 import { footballData } from "./data.js";
 import { footballCore } from "./core.js";
-import "../../JS/football-strict-scoring.js";
+import { footballScoring, scoredFootballCore } from "./scoring.js";
 import "../../JS/football-render.js";
 import "../../JS/football-advance-visibility.js";
 import "../../JS/football-datetime-fix.js";
@@ -42,22 +42,38 @@ import "../../JS/football-performance-trends.js";
 import "../../JS/football-layout-optimizer.js";
 
 const MODULE_COUNT = 29;
-const NAMED_MODULE_COUNT = 2;
+const NAMED_MODULE_COUNT = 3;
 const INTERFACE_VERSION = "1.7.6";
 
 /**
- * 確認具名 imports 與相容 window API 指向同一物件。
+ * 確認具名模組、評分包裝與最終相容核心共用同一份資料契約。
  * 時間／空間複雜度 O(1)。
  */
 function assertCoreContracts() {
-  if (!footballData || !footballCore) {
-    throw new Error("世足資料層或核心模組尚未載入。");
+  if (!footballData || !footballCore || !footballScoring || !scoredFootballCore) {
+    throw new Error("世足資料層、核心或評分模組尚未載入。");
   }
   if (window.FOOTBALL_LAB_DATA !== footballData) {
     throw new Error("世足資料相容介面與 ES Module export 不一致。");
   }
-  if (window.FootballLabCore !== footballCore) {
-    throw new Error("世足核心相容介面與 ES Module export 不一致。");
+  if (footballCore.data !== footballData || scoredFootballCore.data !== footballData) {
+    throw new Error("世足核心與評分層未共用同一份資料契約。");
+  }
+  if (footballScoring.baseCore !== footballCore || footballScoring.core !== scoredFootballCore) {
+    throw new Error("世足嚴格評分層與基礎核心連結不一致。");
+  }
+  if (window.FootballStrictScoring !== footballScoring) {
+    throw new Error("世足嚴格評分相容介面與 ES Module export 不一致。");
+  }
+
+  const runtimeCore = window.FootballLabCore;
+  if (
+    !runtimeCore
+    || runtimeCore.data !== footballData
+    || typeof runtimeCore.calculateEvaluation !== "function"
+    || typeof runtimeCore.calculateStats !== "function"
+  ) {
+    throw new Error("世足最終相容核心缺少必要 API 或資料契約不一致。");
   }
 }
 
@@ -84,6 +100,7 @@ window.FootballLabBundle = Object.freeze({
   namedModuleCount: NAMED_MODULE_COUNT,
   modelVersion: footballData.modelVersion,
   interfaceVersion: INTERFACE_VERSION,
+  scoringPolicy: footballScoring.policy,
   loadedAt: new Date().toISOString(),
 });
 
