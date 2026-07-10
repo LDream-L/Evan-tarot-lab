@@ -1,0 +1,93 @@
+/* ========================================
+   Evan Tarot｜正式頁首、品牌與鍵盤導覽
+   ======================================== */
+
+.skip-link {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  z-index: 10000;
+  padding: 0.7rem 1rem;
+  border: 2px solid #ffffff;
+  border-radius: 10px;
+  background: #17103a;
+  color: #ffffff;
+  font-weight: 800;
+  text-decoration: none;
+  transform: translateY(-180%);
+  transition: transform 0.16s ease;
+}
+
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+}
+
+.site-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 0;
+  color: inherit;
+  text-decoration: none;
+}
+
+.site-brand-image {
+  width: 54px;
+  height: 54px;
+  flex: 0 0 54px;
+  object-fit: cover;
+  border: 1px solid rgba(214, 163, 91, 0.34);
+  border-radius: 15px;
+  background: #090705;
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.34);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.site-brand-link:hover .site-brand-image,
+.site-brand-link:focus-visible .site-brand-image {
+  transform: translateY(-1px) scale(1.02);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.42), 0 0 0 1px rgba(214, 163, 91, 0.22);
+}
+
+.site-brand-copy {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  line-height: 1.15;
+}
+
+#main-content:focus {
+  outline: none;
+}
+
+#main-content:focus-visible {
+  outline: 2px solid rgba(203, 184, 255, 0.9);
+  outline-offset: 4px;
+}
+
+@media (max-width: 720px) {
+  .site-brand-image {
+    width: 46px;
+    height: 46px;
+    flex-basis: 46px;
+    border-radius: 13px;
+  }
+
+  .site-brand-link {
+    gap: 10px;
+  }
+}
+
+@media (max-width: 520px) {
+  .site-brand-copy .logo-sub {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skip-link,
+  .site-brand-image {
+    transition: none;
+  }
+}
