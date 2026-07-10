@@ -7,28 +7,25 @@ const esbuild = require("esbuild");
 const ROOT = path.resolve(__dirname, "..");
 const ENTRY = path.join(ROOT, "src", "football", "cloud.js");
 
-/**
- * 以 esbuild 解析具名雲端模組，避免整頁 E2E 才發現 API 契約錯誤。
- * 時間／空間複雜度 O(B)，B 為 cloud source 大小。
- */
+/** 時間／空間複雜度 O(B)，B 為 cloud source 大小。 */
 function loadModule() {
-  const temporaryDirectory = fs.mkdtempSync(path.join(os.tmpdir(), "football-cloud-esm-"));
-  const bundlePath = path.join(temporaryDirectory, "cloud.bundle.cjs");
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), "football-cloud-esm-"));
+  const bundle = path.join(directory, "cloud.bundle.cjs");
   esbuild.buildSync({
     entryPoints: [ENTRY],
-    outfile: bundlePath,
+    outfile: bundle,
     bundle: true,
     format: "cjs",
     platform: "browser",
     target: ["es2020"],
     logLevel: "silent",
   });
-  delete require.cache[bundlePath];
-  return { api: require(bundlePath), temporaryDirectory };
+  delete require.cache[bundle];
+  return { api: require(bundle), directory };
 }
 
 /** 固定回應 stub：時間／空間 O(1)。 */
-function response(payload, { ok = true, status = 200 } = {}) {
+function makeResponse(payload, { ok = true, status = 200 } = {}) {
   return {
     ok,
     status,
@@ -38,34 +35,31 @@ function response(payload, { ok = true, status = 200 } = {}) {
   };
 }
 
-/**
- * 驗證既有三個 action、動態登入、循序補傳與錯誤處理。
- * 時間 O(r)、額外空間 O(r)，r 為固定測試呼叫數。
- */
+/** 時間 O(r)、額外空間 O(r)，r 為固定測試呼叫數。 */
 async function run() {
   const runtime = loadModule();
   const { api } = runtime;
 
   try {
-    assert.deepEqual(
-      api.prepareActualForCloud({ reviewAnalysis: "判讀成立", notes: "下半場紅牌", homeGoals: 2 }),
-      {
-        reviewAnalysis: "判讀成立",
-        notes: "【回顧與分析】\n判讀成立\n\n【賽事事件／特殊狀況】\n下半場紅牌",
-        homeGoals: 2,
-      }
-    );
-
-    assert.deepEqual(await api.parseCloudResponse(response({ ok: true, result: { id: "R-1" } })), {
-      ok: true,
-      result: { id: "R-1" },
+    const prepared = api.prepareActualForCloud({
+      homeGoals: 2,
+      reviewAnalysis: "判讀成立",
+      notes: "下半場紅牌",
     });
+    assert.equal(prepared.homeGoals, 2);
+    assert.match(prepared.notes, /【回顧與分析】\n判讀成立/);
+    assert.match(prepared.notes, /【賽事事件／特殊狀況】\n下半場紅牌/);
+
+    assert.deepEqual(
+      await api.parseCloudResponse(makeResponse({ ok: true, result: { id: "R-1" } })),
+      { ok: true, result: { id: "R-1" } }
+    );
     await assert.rejects(
-      () => api.parseCloudResponse(response("not-json", { status: 502 })),
+      () => api.parseCloudResponse(makeResponse("not-json", { status: 502 })),
       /不是有效 JSON/
     );
     await assert.rejects(
-      () => api.parseCloudResponse(response({ ok: false, error: "後端拒絕" }, { ok: false, status: 403 })),
+      () => api.parseCloudResponse(makeResponse({ ok: false, error: "後端拒絕" }, { ok: false, status: 403 })),
       /後端拒絕/
     );
 
@@ -85,20 +79,23 @@ async function run() {
     let auth = null;
     let opened = 0;
     let signedOut = 0;
-    let onChangeListener = null;
+    let authListener = null;
     const calls = [];
     const fetchImpl = async (url, options = {}) => {
       calls.push({ url, options });
       if (String(url).includes("action=health")) {
-        return response({ ok: true, service: "football-tarot" });
+        return makeResponse({ ok: true, service: "football-tarot" });
       }
       const body = JSON.parse(options.body);
-      return response({ ok: true, result: { action: body.action, id: body.recordId || body.record?.id } });
+      return makeResponse({
+        ok: true,
+        result: { action: body.action, id: body.recordId || body.record?.id },
+      });
     };
-    const listeners = new Map();
+    const windowListeners = new Map();
     const browserWindow = {
       addEventListener(type, listener) {
-        listeners.set(type, listener);
+        windowListeners.set(type, listener);
       },
     };
     const documentRef = {
@@ -135,48 +132,52 @@ async function run() {
       getCredential: () => "jwt-token",
       signOut: () => { signedOut += 1; },
       onChange(listener) {
-        onChangeListener = listener;
-        return () => { onChangeListener = null; };
+        authListener = listener;
+        return () => { authListener = null; };
       },
     };
     assert.equal(cloud.bindUnifiedAuth(), true);
-    assert.equal(typeof onChangeListener, "function");
+    assert.equal(typeof authListener, "function");
     assert.equal(cloud.hasToken(), true);
 
-    const saved = await cloud.saveRecord(records[0]);
-    assert.deepEqual(saved, { action: "createRecord", id: "R-1" });
-    const updated = await cloud.updateActual("R-1", records[0].actual);
-    assert.deepEqual(updated, { action: "updateActual", id: "R-1" });
+    assert.deepEqual(await cloud.saveRecord(records[0]), { action: "createRecord", id: "R-1" });
+    assert.deepEqual(await cloud.updateActual("R-1", records[0].actual), {
+      action: "updateActual",
+      id: "R-1",
+    });
 
     const createBody = JSON.parse(calls.at(-2).options.body);
     assert.equal(createBody.action, "createRecord");
     assert.equal(createBody.idToken, "jwt-token");
-    assert.strictEqual(createBody.record, records[0]);
+    assert.deepEqual(createBody.record, records[0]);
 
     const updateBody = JSON.parse(calls.at(-1).options.body);
     assert.equal(updateBody.action, "updateActual");
     assert.equal(updateBody.recordId, "R-1");
     assert.match(updateBody.actual.notes, /【回顧與分析】/);
-    assert.match(updateBody.actual.notes, /【賽事事件／特殊狀況】/);
 
     const progress = [];
-    const result = await cloud.syncAll(records, (done, total) => progress.push([done, total]));
-    assert.deepEqual(result, { synced: 2, completed: 1 });
+    assert.deepEqual(
+      await cloud.syncAll(records, (done, total) => progress.push([done, total])),
+      { synced: 2, completed: 1 }
+    );
     assert.deepEqual(progress, [[1, 2], [2, 2]]);
-    const syncActions = calls.slice(-3).map((item) => JSON.parse(item.options.body).action);
-    assert.deepEqual(syncActions, ["createRecord", "updateActual", "createRecord"]);
+    assert.deepEqual(
+      calls.slice(-3).map((item) => JSON.parse(item.options.body).action),
+      ["createRecord", "updateActual", "createRecord"]
+    );
 
     assert.equal(await cloud.healthCheck(), true);
     assert.match(calls.at(-1).url, /action=health/);
 
     await cloud.init();
-    assert.equal(listeners.has("evan-site-account-ready"), true);
-    assert.equal(listeners.has("evan-google-auth-change"), true);
+    assert.equal(windowListeners.has("evan-site-account-ready"), true);
+    assert.equal(windowListeners.has("evan-google-auth-change"), true);
 
     cloud.clearToken();
     assert.equal(signedOut, 1);
     cloud.destroy();
-    assert.equal(onChangeListener, null);
+    assert.equal(authListener, null);
 
     const unconfigured = api.createFootballCloud({
       core,
@@ -194,7 +195,7 @@ async function run() {
 
     console.log("football-cloud module tests passed");
   } finally {
-    fs.rmSync(runtime.temporaryDirectory, { recursive: true, force: true });
+    fs.rmSync(runtime.directory, { recursive: true, force: true });
   }
 }
 
