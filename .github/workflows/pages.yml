@@ -33,7 +33,8 @@ jobs:
         run: |
           set -euo pipefail
           required=(
-            index.html services.html articles.html lab.html timeflow.html football-lab.html
+            index.html services.html privacy.html articles.html lab.html methodology.html
+            timeflow.html football-lab.html trust.css
             package.json playwright.config.cjs
             scripts/build-site.cjs scripts/build-football.cjs
             src/timeflow/ui.js src/timeflow/actions.js src/timeflow/bootstrap.js

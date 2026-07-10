@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Evan Tarot｜占卜項目</title>
-  <meta name="description" content="Evan Tarot 目前開放的占卜形式、預約流程與服務界線。" />
+  <meta name="description" content="Evan Tarot 目前開放的占卜形式、預約流程、服務界線與資料隱私。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-dialog-v6" />
+  <link rel="stylesheet" href="trust.css?v=20260710-trust-architecture-v1" />
 </head>
 <body>
   <header class="site-header">
@@ -20,7 +21,6 @@
         <a href="services.html" aria-current="page">占卜項目</a>
         <a href="articles.html">文章</a>
         <a href="lab.html">實驗室</a>
-        <a href="timeflow.html">時間流</a>
         <a data-podcast-link="true" href="https://podcasts.apple.com/tw/podcast/%E6%9C%89%E9%BB%9E%E5%81%8F/id1896598359" target="_blank" rel="noopener noreferrer" aria-label="前往 Apple Podcast 收聽《有點偏》（另開新分頁）">Podcast</a>
         <a href="services.html#booking">預約</a>
       </nav>
@@ -41,6 +41,7 @@
           <div class="hero-meta">
             <span class="pill pill-soft">占卜服務</span>
             <span class="pill pill-outline">人際 / 職涯 / 深度主題</span>
+            <span class="pill pill-outline">服務界線與隱私</span>
           </div>
         </div>
         <aside class="hero-card" aria-label="占卜項目說明">
@@ -112,6 +113,10 @@
             <p>占卜用於整理情境、風險與選項，不替代醫療、法律、投資等專業意見，也不保證特定結果。預約資料只用於聯絡與本次服務；若需匿名整理成案例，會另外取得同意。</p>
           </article>
         </div>
+        <div class="trust-actions" aria-label="服務方法與資料說明">
+          <a class="btn ghost" href="methodology.html">查看驗證方法</a>
+          <a class="btn ghost" href="privacy.html">查看資料與隱私</a>
+        </div>
       </div>
     </section>
 
@@ -147,18 +152,14 @@
           </div>
           <label id="booking-availability-field" hidden>
             可配合的時間（可填多個時間段）
-            <textarea
-              name="availability"
-              placeholder="例如：平日 19:00 後、週末下午皆可。"
-              rows="3"
-            ></textarea>
+            <textarea name="availability" placeholder="例如：平日 19:00 後、週末下午皆可。" rows="3"></textarea>
           </label>
           <label>
             想說的話（越具體越好，但一句話也可以）
-            <textarea name="message" placeholder="可以寫：目前狀況、你最在意的是什麼、希望占卜幫你釐清什麼。" rows="4"></textarea>
+            <textarea name="message" placeholder="可以寫：目前狀況、你最在意的是什麼、希望占卜幫你釐清什麼。請勿填入帳號密碼、金融資料或不必要的第三人敏感資訊。" rows="4"></textarea>
           </label>
           <button class="btn primary full" type="submit">送出預約需求</button>
-          <p class="tool-note-small">後端確認成功時會顯示預約編號；若橋接服務暫時無法回傳結果，表單會保留並顯示「等待確認」，不會誤報為已完成入庫。</p>
+          <p class="tool-note-small">後端確認成功時會顯示預約編號；若橋接服務暫時無法回傳結果，表單會保留並顯示「等待確認」，不會誤報為已完成入庫。送出前請閱讀<a href="privacy.html">資料與隱私說明</a>。</p>
           <p aria-live="polite" class="tool-feedback-message hidden" id="booking-message"></p>
         </form>
       </div>
@@ -168,7 +169,7 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <p>Evan Tarot ｜塔羅占卜、文章與實驗室</p>
-      <p class="footer-sub">依問題類型選擇人際、職涯或深度占卜，整理現況與可行方向。</p>
+      <p class="footer-sub">依問題類型選擇人際、職涯或深度占卜，並在確認前理解服務與資料界線。</p>
     </div>
   </footer>
 
@@ -177,6 +178,6 @@
   <script src="JS/booking.js?v=20260710-booking-reliability-v1"></script>
   <script src="JS/booking-verified.js?v=20260710-verified-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
-  <script src="JS/main.js?v=20260702-podcast-nav-v2"></script>
+  <script src="JS/main.js?v=20260710-loader-timeout-v1"></script>
 </body>
 </html>

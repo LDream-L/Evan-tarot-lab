@@ -1,0 +1,197 @@
+/* ========================================
+   Evan Tarot｜驗證方法、資料隱私與存取分區
+   ======================================== */
+
+.trust-page .hero-text {
+  max-width: 720px;
+}
+
+.trust-directory {
+  display: grid;
+  gap: 1.4rem;
+}
+
+.trust-summary-grid,
+.trust-card-grid,
+.trust-data-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.trust-card,
+.trust-data-card,
+.trust-principle {
+  padding: 1.25rem;
+  border: 1px solid rgba(190, 166, 255, 0.22);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.trust-card h3,
+.trust-data-card h3,
+.trust-principle h3 {
+  margin: 0 0 0.6rem;
+  font-size: 1.05rem;
+}
+
+.trust-card p,
+.trust-data-card p,
+.trust-principle p,
+.trust-card li,
+.trust-data-card li {
+  line-height: 1.72;
+}
+
+.trust-card ul,
+.trust-data-card ul {
+  margin: 0.7rem 0 0;
+  padding-left: 1.15rem;
+}
+
+.trust-kicker {
+  margin: 0 0 0.4rem;
+  color: var(--accent-soft, #cbb8ff);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.trust-status-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 0.9rem;
+}
+
+.trust-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.28rem 0.68rem;
+  border: 1px solid rgba(190, 166, 255, 0.28);
+  border-radius: 999px;
+  background: rgba(150, 112, 255, 0.08);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.trust-process {
+  display: grid;
+  gap: 0.8rem;
+  margin: 1rem 0 0;
+  padding: 0;
+  list-style: none;
+  counter-reset: trust-step;
+}
+
+.trust-process li {
+  position: relative;
+  padding: 0.95rem 1rem 0.95rem 3.2rem;
+  border-left: 2px solid rgba(190, 166, 255, 0.42);
+  background: rgba(255, 255, 255, 0.018);
+  counter-increment: trust-step;
+}
+
+.trust-process li::before {
+  position: absolute;
+  top: 0.82rem;
+  left: 0.85rem;
+  display: grid;
+  width: 1.65rem;
+  height: 1.65rem;
+  place-items: center;
+  border-radius: 50%;
+  background: rgba(166, 126, 255, 0.2);
+  content: counter(trust-step);
+  font-size: 0.78rem;
+  font-weight: 900;
+}
+
+.trust-boundary {
+  padding: 1rem 1.1rem;
+  border-left: 3px solid rgba(255, 194, 117, 0.72);
+  border-radius: 10px;
+  background: rgba(255, 194, 117, 0.065);
+  line-height: 1.72;
+}
+
+.trust-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.2rem;
+}
+
+.lab-access-directory {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.85rem;
+  margin: 1.4rem 0;
+}
+
+.lab-access-card {
+  padding: 1rem 1.05rem;
+  border: 1px solid rgba(190, 166, 255, 0.2);
+  border-radius: 16px;
+  background: linear-gradient(145deg, rgba(150, 112, 255, 0.065), rgba(255, 255, 255, 0.018));
+}
+
+.lab-access-card h3,
+.lab-access-card p {
+  margin-top: 0;
+}
+
+.lab-access-card h3 {
+  margin-bottom: 0.45rem;
+  font-size: 1rem;
+}
+
+.lab-access-card > p:last-child {
+  margin-bottom: 0;
+  line-height: 1.62;
+  opacity: 0.84;
+}
+
+.lab-trust-links {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1.4rem;
+  padding: 1.15rem 1.25rem;
+  border: 1px solid rgba(190, 166, 255, 0.22);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.lab-trust-links h3,
+.lab-trust-links .trust-actions {
+  margin: 0;
+}
+
+@media (max-width: 860px) {
+  .lab-access-directory {
+    grid-template-columns: 1fr;
+  }
+
+  .lab-trust-links {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 760px) {
+  .trust-summary-grid,
+  .trust-card-grid,
+  .trust-data-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .trust-card,
+  .trust-data-card,
+  .trust-principle {
+    padding: 1rem;
+  }
+}

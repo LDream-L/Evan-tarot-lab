@@ -4,10 +4,11 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Evan Tarot｜塔羅實驗室</title>
-  <meta name="description" content="Evan Tarot 實驗室：將成熟的塔羅實驗轉化成可操作、可紀錄與可驗證的工具。" />
+  <meta name="description" content="Evan Tarot 實驗室：公開工具、研究工作區與私人紀錄，將塔羅實驗轉化成可操作、可紀錄與可驗證的工具。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260627-lab-layout-v1" />
   <link rel="stylesheet" href="lab.css?v=20260627-lab-layout-v1" />
+  <link rel="stylesheet" href="trust.css?v=20260710-trust-architecture-v1" />
 </head>
 <body>
   <header class="site-header">
@@ -33,14 +34,15 @@
       <div class="container hero-inner">
         <div class="hero-text">
           <h1>塔羅實驗室。</h1>
-          <p>把成熟的實驗紀錄轉化成可以直接操作、持續驗證與反覆修正的工具。</p>
+          <p>把成熟的實驗紀錄轉化成可以直接操作、持續驗證與反覆修正的工具；同時標明哪些是公開工具、研究工作區，哪些只屬於私人紀錄。</p>
           <div class="hero-cta">
             <a href="#projects" class="btn primary">查看實驗物件</a>
-            <a href="articles.html" class="btn ghost">閱讀文章與紀錄</a>
+            <a href="methodology.html" class="btn ghost">閱讀驗證方法</a>
           </div>
           <div class="hero-meta">
             <span class="pill pill-soft">可操作工具</span>
             <span class="pill pill-outline">持續驗證</span>
+            <span class="pill pill-outline">公開／研究／私人分區</span>
           </div>
         </div>
 
@@ -52,6 +54,7 @@
               <li>能保存結果並進行驗證</li>
               <li>能依真實回饋檢查結構與文案</li>
             </ul>
+            <p class="hero-note">「實驗中」代表持續記錄與修正，不等於已完成科學驗證。</p>
           </div>
         </aside>
       </div>
@@ -63,7 +66,7 @@
           <div class="lab-projects-heading">
             <p class="lab-section-eyebrow">Experiment Directory</p>
             <h2>目前的實驗物件</h2>
-            <p class="section-lead">由可直接使用的工具、進行中的模型與驗證型紀錄組成；每個項目都保留輸入、輸出與後續檢查。</p>
+            <p class="section-lead">由可直接使用的公開工具、需要持續紀錄的研究工作區，以及不對外開放的私人紀錄組成。</p>
           </div>
           <div class="lab-projects-summary" aria-label="目前共有四個實驗物件">
             <strong>4</strong>
@@ -71,11 +74,29 @@
           </div>
         </div>
 
+        <div class="lab-access-directory" aria-label="實驗室存取層級">
+          <article class="lab-access-card" id="lab-public-tools">
+            <p class="trust-kicker">Public Tools</p>
+            <h3>公開工具</h3>
+            <p>任何訪客都能閱讀或操作；輸出用於整理搜尋與研究紀錄，不保證結果。</p>
+          </article>
+          <article class="lab-access-card" id="lab-research-workspace">
+            <p class="trust-kicker">Research Workspace</p>
+            <h3>研究工作區</h3>
+            <p>保存原始判讀、後續事件與驗證狀態，可能需要登入授權帳號同步雲端。</p>
+          </article>
+          <article class="lab-access-card" id="lab-private-tools">
+            <p class="trust-kicker">Private Records</p>
+            <h3>私人紀錄</h3>
+            <p>只供本人或持有授權資訊的人使用，不作為網站公開服務或公開資料庫。</p>
+          </article>
+        </div>
+
         <div class="lab-projects-grid" aria-label="實驗室項目清單">
-          <article class="lab-project-card is-featured">
+          <article class="lab-project-card is-featured" aria-describedby="lab-public-tools">
             <div class="lab-project-topline">
               <p class="lab-project-kicker">Lost Item Lab</p>
-              <span class="lab-project-status is-active">進行中</span>
+              <span class="lab-project-status is-active">公開工具</span>
             </div>
             <div class="lab-project-heading">
               <span class="lab-project-number" aria-hidden="true">01</span>
@@ -99,14 +120,14 @@
             </div>
             <div class="lab-project-actions">
               <a class="btn primary" href="lost-item.html">開啟塔羅尋物</a>
-              <a class="btn ghost" href="articles.html">查看相關文章</a>
+              <a class="btn ghost" href="methodology.html">查看驗證方法</a>
             </div>
           </article>
 
-          <article class="lab-project-card is-experiment">
+          <article class="lab-project-card is-experiment" aria-describedby="lab-public-tools">
             <div class="lab-project-topline">
               <p class="lab-project-kicker">Football Match Lab</p>
-              <span class="lab-project-status is-experiment">實驗中</span>
+              <span class="lab-project-status is-experiment">公開研究</span>
             </div>
             <div class="lab-project-heading">
               <span class="lab-project-number" aria-hidden="true">02</span>
@@ -116,7 +137,7 @@
               </div>
             </div>
             <div class="lab-project-meta">
-              <span>v1.6.0</span>
+              <span>模型 v1.6.0｜介面 v1.7.6</span>
               <span>模型分離</span>
               <span>賽前鎖定</span>
             </div>
@@ -130,13 +151,14 @@
             </div>
             <div class="lab-project-actions">
               <a class="btn primary" href="football-lab.html">開啟世足驗證</a>
+              <a class="btn ghost" href="methodology.html">查看核對規則</a>
             </div>
           </article>
 
-          <article class="lab-project-card is-tool">
+          <article class="lab-project-card is-tool" aria-describedby="lab-research-workspace">
             <div class="lab-project-topline">
               <p class="lab-project-kicker">Timeflow Lab</p>
-              <span class="lab-project-status is-tool">驗證工具</span>
+              <span class="lab-project-status is-tool">研究工作區</span>
             </div>
             <div class="lab-project-heading">
               <span class="lab-project-number" aria-hidden="true">03</span>
@@ -160,13 +182,14 @@
             </div>
             <div class="lab-project-actions">
               <a class="btn primary" href="timeflow.html">開啟占卜時間流</a>
+              <a class="btn ghost" href="privacy.html">查看資料位置</a>
             </div>
           </article>
 
-          <article class="lab-project-card is-tool">
+          <article class="lab-project-card is-tool" aria-describedby="lab-private-tools">
             <div class="lab-project-topline">
               <p class="lab-project-kicker">Private Practice Tracker</p>
-              <span class="lab-project-status is-tool">僅本人</span>
+              <span class="lab-project-status is-tool">私人紀錄</span>
             </div>
             <div class="lab-project-heading">
               <span class="lab-project-number" aria-hidden="true">04</span>
@@ -176,22 +199,34 @@
               </div>
             </div>
             <div class="lab-project-meta">
-              <span>金鑰鎖定</span>
-              <span>Google Sheet</span>
-              <span>一鍵匯出</span>
+              <span>工作階段金鑰</span>
+              <span>Google Sheets</span>
+              <span>不公開讀取</span>
             </div>
             <div class="lab-project-detail">
               <p class="lab-project-label">紀錄核心</p>
               <ul class="lab-project-points">
                 <li>快速輸入每週練習回饋，不再重複複製整份格式</li>
-                <li>本機先保存，再同步至私人 Google Sheet</li>
+                <li>本機只保留工作階段金鑰，再將內容送往私人 Google Sheet</li>
                 <li>網站不提供公開讀取紀錄的接口</li>
               </ul>
             </div>
             <div class="lab-project-actions">
               <a class="btn primary" href="practice.html">開啟私人修煉紀錄</a>
+              <a class="btn ghost" href="privacy.html">查看隱私說明</a>
             </div>
           </article>
+        </div>
+
+        <div class="lab-trust-links" aria-label="實驗室方法與資料說明">
+          <div>
+            <p class="trust-kicker">Before Using the Tools</p>
+            <h3>先理解方法與資料位置，再開始輸入。</h3>
+          </div>
+          <div class="trust-actions">
+            <a class="btn ghost" href="methodology.html">驗證方法</a>
+            <a class="btn ghost" href="privacy.html">資料與隱私</a>
+          </div>
         </div>
       </div>
     </section>
@@ -200,12 +235,12 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <p>Evan Tarot ｜塔羅實驗室</p>
-      <p class="footer-sub">成熟的實驗紀錄，會在這裡轉化成可操作與可驗證的物件。</p>
+      <p class="footer-sub">工具、研究與私人紀錄使用不同的資料與驗證界線。</p>
     </div>
   </footer>
 
   <script src="JS/utils.js?v=20260629-stability-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
-  <script src="JS/main.js?v=20260702-podcast-nav-v2"></script>
+  <script src="JS/main.js?v=20260710-loader-timeout-v1"></script>
 </body>
 </html>

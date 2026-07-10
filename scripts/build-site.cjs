@@ -13,9 +13,10 @@ const EXCLUDED_ROOT_FILES = new Set([
   ".gitignore", "package.json", "package-lock.json", "playwright.config.cjs", "README.md",
 ]);
 const NAVIGATION_PAGES = new Map([
-  ["index.html", "intro"], ["services.html", "services"], ["articles.html", "articles"],
-  ["article.html", "articles"], ["lab.html", "lab"], ["lost-item.html", "lab"],
-  ["football-lab.html", "lab"], ["timeflow.html", "lab"], ["practice.html", "lab"],
+  ["index.html", "intro"], ["services.html", "services"], ["privacy.html", "services"],
+  ["articles.html", "articles"], ["article.html", "articles"], ["lab.html", "lab"],
+  ["methodology.html", "lab"], ["lost-item.html", "lab"], ["football-lab.html", "lab"],
+  ["timeflow.html", "lab"], ["practice.html", "lab"],
 ]);
 const TIMEFLOW_RUNTIME = new Map([
   ["ui.js", "timeflow-v5-ui.js"],
