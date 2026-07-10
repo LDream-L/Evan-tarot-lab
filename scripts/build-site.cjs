@@ -24,7 +24,9 @@ const TIMEFLOW_RUNTIME = new Map([
   ["bootstrap.js", "divination-map.js"],
 ]);
 const PODCAST_URL = "https://podcasts.apple.com/tw/podcast/%E6%9C%89%E9%BB%9E%E5%81%8F/id1896598359";
+const BRAND_LOGO_URL = "images/branding/evan-tarot-logo.svg?v=20260625-brand-v4";
 const NAV_PATTERN = /(^[ \t]*)<nav\b(?=[^>]*\bclass=["'][^"']*\bnav\b[^"']*["'])(?=[^>]*\baria-label=["']主選單["'])[^>]*>[\s\S]*?<\/nav>/m;
+const LOGO_PATTERN = /(^[ \t]*)<div\s+class=["']logo["']\s*>[\s\S]*?<\/div>/m;
 
 /** 時間／空間 O(1)。 */
 function renderNavigation(currentKey, indent) {
@@ -42,12 +44,66 @@ function renderNavigation(currentKey, indent) {
   ].join("\n");
 }
 
+/**
+ * 產生不依賴 JavaScript 的品牌首頁連結。
+ * 時間／空間複雜度 O(1)。
+ *
+ * 替代方案比較：DOMContentLoaded 後才將文字 Logo 換成圖片會造成首屏閃動；
+ * 建置期直接輸出完整品牌節點，瀏覽器第一次繪製即為最終內容。
+ */
+function renderBrand(indent) {
+  return [
+    `${indent}<a class="logo site-brand-link" href="index.html" aria-label="Evan Tarot 首頁">`,
+    `${indent}  <img class="site-brand-image" src="${BRAND_LOGO_URL}" alt="" width="54" height="54" decoding="async" />`,
+    `${indent}  <span class="site-brand-copy">`,
+    `${indent}    <span class="logo-main">Evan Tarot</span>`,
+    `${indent}    <span class="logo-sub">Tarot Lab ／ Systematic Divination</span>`,
+    `${indent}  </span>`,
+    `${indent}</a>`,
+  ].join("\n");
+}
+
+/**
+ * 將品牌、favicon、跳轉連結與主要內容目標寫入正式 HTML。
+ * 時間／空間複雜度 O(H)，H 為 HTML 長度。
+ *
+ * 替代方案比較：逐頁手動維護容易分歧；執行期注入會造成閃動。
+ * 本方案集中在建置器，所有正式頁面得到相同靜態結構。
+ */
+function applyStaticSiteShell(source, fileName) {
+  let output = source;
+  const logoMatch = output.match(LOGO_PATTERN);
+  if (!logoMatch) throw new Error(`[build] ${fileName} 找不到品牌 Logo 容器`);
+  output = output.replace(LOGO_PATTERN, renderBrand(logoMatch[1]));
+
+  if (!output.includes('href="site-shell.css')) {
+    output = output.replace(
+      "</head>",
+      `  <link rel="stylesheet" href="site-shell.css?v=20260710-static-brand-a11y-v1" />\n  <link rel="icon" type="image/svg+xml" href="${BRAND_LOGO_URL}" />\n</head>`
+    );
+  }
+
+  if (!output.includes('class="skip-link"')) {
+    output = output.replace(/(<body\b[^>]*>)/, '$1\n  <a class="skip-link" href="#main-content">跳到主要內容</a>');
+  }
+
+  output = output.replace(/<main(\s[^>]*)?>/, (match, attributes = "") => {
+    if (/\bid=/.test(attributes)) {
+      throw new Error(`[build] ${fileName} 的 main 已有 id，需明確整合 main-content`);
+    }
+    return `<main id="main-content" tabindex="-1"${attributes}>`;
+  });
+
+  return output;
+}
+
 /** 時間／空間 O(H)，H 為 HTML 長度。 */
 function transformHtml(source, fileName) {
   if (!NAVIGATION_PAGES.has(fileName)) return source;
   const match = source.match(NAV_PATTERN);
   if (!match) throw new Error(`[build] ${fileName} 找不到主導覽`);
   let output = source.replace(NAV_PATTERN, renderNavigation(NAVIGATION_PAGES.get(fileName), match[1]));
+  output = applyStaticSiteShell(output, fileName);
   if (fileName === "football-lab.html") output = transformFootballHtml(output);
   return output;
 }
@@ -112,7 +168,7 @@ function build() {
   fs.writeFileSync(path.join(DIST, ".nojekyll"), "", "utf8");
   const builtPages = [...NAVIGATION_PAGES.keys()].filter((fileName) => fs.existsSync(path.join(DIST, fileName)));
   if (builtPages.length !== NAVIGATION_PAGES.size) throw new Error(`[build] 預期 ${NAVIGATION_PAGES.size} 個導覽頁，實際 ${builtPages.length} 個`);
-  console.log(`[build] 已產生 dist/：${builtPages.length} 頁導覽、${TIMEFLOW_RUNTIME.size} 個時間流 runtime、1 個世足 bundle`);
+  console.log(`[build] 已產生 dist/：${builtPages.length} 頁導覽與靜態品牌、${TIMEFLOW_RUNTIME.size} 個時間流 runtime、1 個世足 bundle`);
 }
 
 build();
