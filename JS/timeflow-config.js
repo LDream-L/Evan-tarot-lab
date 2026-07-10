@@ -193,6 +193,22 @@
     TF.astrology.recoveryObserver = observer;
   }
 
-  script.addEventListener("load", installAstrologyRenderRecovery, { once: true });
+  /**
+   * 能量解讀延後至占星主模組載入後再加入。
+   * 時間／空間複雜度 O(1)；比在 HTML 維護額外載入順序更不易產生相依錯誤。
+   */
+  function loadAstrologyEnergy() {
+    if (document.querySelector('script[data-timeflow-astrology-energy="true"]')) return;
+    const energy = document.createElement("script");
+    energy.src = "JS/timeflow-astrology-energy.js?v=20260710-energy-v1";
+    energy.async = true;
+    energy.dataset.timeflowAstrologyEnergy = "true";
+    document.head.appendChild(energy);
+  }
+
+  script.addEventListener("load", () => {
+    installAstrologyRenderRecovery();
+    loadAstrologyEnergy();
+  }, { once: true });
   document.head.appendChild(script);
 })();
