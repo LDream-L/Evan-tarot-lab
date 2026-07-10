@@ -72,27 +72,45 @@ test("驗證方法與隱私頁互相連結且保留核心界線", async ({ page 
   await expect(page.locator('a[href="methodology.html"]').last()).toBeVisible();
 });
 
-test("世足 30 個元件完整啟動且能量規則與 UI 分層", async ({ page }) => {
+test("世足 30 個元件完整啟動且 Render 與能量 UI 分層", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
   expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(30);
-  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(5);
+  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(6);
   expect(await page.evaluate(() => window.FootballLabBundle.modelVersion)).toBe("1.6.0");
   expect(await page.evaluate(() => window.FootballLabBundle.interfaceVersion)).toBe("1.7.6");
   expect(await page.evaluate(() => window.FootballLabBundle.scoringPolicy)).toBe("individual-goals-plus-exact-score");
   expect(await page.evaluate(() => window.FootballLabBundle.energyModelKey)).toBe("energy-v1");
+  expect(await page.evaluate(() => window.FootballLabBundle.renderLayer)).toBe("esm");
+  expect(await page.evaluate(() => window.FootballLabBundle.renderLayerCount)).toBe(3);
 
   expect(await page.evaluate(() => Boolean(
     window.FOOTBALL_LAB_DATA
     && window.FootballLabCore
     && window.FootballStrictScoring
+    && window.FootballRenderModule
+    && window.FootballRenderLineage
     && window.FootballEnergyModel
     && window.FootballDirectEnergy
+    && window.FootballLabRender
   ))).toBe(true);
-  expect(await page.evaluate(() => (
-    window.FootballDirectEnergy.model === window.FootballEnergyModel
-    && window.FootballDirectEnergy.core.data === window.FootballLabCore.data
-  ))).toBe(true);
+
+  expect(await page.evaluate(() => {
+    const lineage = window.FootballRenderLineage;
+    return Boolean(
+      lineage.base === window.FootballRenderModule
+      && lineage.energy === window.FootballDirectEnergy.ui
+      && lineage.final === window.FootballLabRender
+      && lineage.base.core === window.FootballStrictScoring.core
+      && lineage.base !== lineage.energy
+      && typeof lineage.energy.renderDraft === "function"
+      && typeof lineage.energy.renderRecords === "function"
+      && typeof lineage.final.renderDraft === "function"
+      && typeof lineage.final.renderRecords === "function"
+      && typeof lineage.final.renderScorecard === "function"
+      && typeof lineage.final.openEvaluation === "function"
+    );
+  })).toBe(true);
 
   expect(await page.evaluate(() => {
     const baseData = window.FOOTBALL_LAB_DATA;

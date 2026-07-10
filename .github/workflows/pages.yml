@@ -39,12 +39,12 @@ jobs:
             scripts/build-site.cjs scripts/build-football.cjs
             src/timeflow/ui.js src/timeflow/actions.js src/timeflow/bootstrap.js
             src/football/entry.js src/football/data.js src/football/core.js src/football/scoring.js
-            src/football/energy-model.js src/football/energy-adapter.js
+            src/football/render.js src/football/energy-model.js src/football/energy-adapter.js
             JS/main.js JS/utils.js JS/site-shell.js JS/site-hardening.js JS/booking-verified.js
             JS/timeflow-v5-core.js JS/timeflow-v5-layout.js
             tests/build-site.test.cjs tests/football-bundle.test.cjs
             tests/football-core-esm.test.cjs tests/football-scoring-esm.test.cjs
-            tests/football-energy-model.test.cjs
+            tests/football-render-module.test.cjs tests/football-energy-model.test.cjs
             tests/e2e/site.spec.js tests/e2e/accessibility.spec.js
             tests/main-loader.test.cjs tests/timeflow-core.test.cjs tests/timeflow-layout.test.cjs tests/site-smoke.sh
           )
@@ -65,6 +65,7 @@ jobs:
           node --check src/football/data.js
           node --check src/football/core.js
           node --check src/football/scoring.js
+          node --check src/football/render.js
           node --check src/football/energy-model.js
           node --check src/football/energy-adapter.js
           node --check JS/main.js
@@ -80,6 +81,7 @@ jobs:
           node --check tests/football-bundle.test.cjs
           node --check tests/football-core-esm.test.cjs
           node --check tests/football-scoring-esm.test.cjs
+          node --check tests/football-render-module.test.cjs
           node --check tests/football-energy-model.test.cjs
           node --check tests/e2e/site.spec.js
           node --check tests/e2e/accessibility.spec.js
@@ -97,6 +99,8 @@ jobs:
         run: node tests/football-core-esm.test.cjs
       - name: Run football named scoring tests
         run: node tests/football-scoring-esm.test.cjs
+      - name: Run football render module tests
+        run: node tests/football-render-module.test.cjs
       - name: Run football energy model tests
         run: node tests/football-energy-model.test.cjs
       - name: Build and verify production site
