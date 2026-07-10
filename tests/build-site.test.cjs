@@ -48,6 +48,7 @@ function verifyStaticShell(html, fileName) {
   assert.ok(html.includes('class="site-brand-image"') && html.includes('alt=""'), `${fileName} 裝飾品牌圖應使用空 alt`);
   assert.ok(html.includes('href="site-shell.css'), `${fileName} 缺少 site-shell.css`);
   assert.ok(html.includes('rel="icon" type="image/svg+xml"'), `${fileName} favicon 未靜態輸出`);
+  assert.ok(html.includes('src="JS/site-shell.js'), `${fileName} 缺少 skip link 焦點增強`);
 }
 
 /** 驗證時間流 source → runtime → sourcemap。時間／空間 O(B)。 */
