@@ -42,6 +42,7 @@ jobs:
             JS/timeflow-v5-layout.js
             tests/timeflow-core.test.cjs
             tests/timeflow-layout.test.cjs
+            tests/site-smoke.sh
           )
           for file in "${required[@]}"; do
             test -f "$file" || { echo "Missing required file: $file"; exit 1; }
@@ -60,12 +61,35 @@ jobs:
           node --check JS/timeflow-v5-layout.js
           node --check tests/timeflow-core.test.cjs
           node --check tests/timeflow-layout.test.cjs
+          bash -n tests/site-smoke.sh
 
       - name: Run timeflow core tests
         run: node tests/timeflow-core.test.cjs
 
       - name: Run timeflow layout tests
         run: node tests/timeflow-layout.test.cjs
+
+      - name: Run local site smoke test
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 > /tmp/evan-site-server.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+
+          for attempt in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:4173/index.html > /dev/null; then
+              break
+            fi
+            if [[ "$attempt" == "20" ]]; then
+              cat /tmp/evan-site-server.log
+              exit 1
+            fi
+            sleep 0.25
+          done
+
+          SMOKE_MAX_ATTEMPTS=3 SMOKE_SLEEP_SECONDS=1 \
+            bash tests/site-smoke.sh http://127.0.0.1:4173/
 
   deploy:
     if: github.event_name != 'pull_request'
@@ -89,6 +113,25 @@ jobs:
             "repos/${GITHUB_REPOSITORY}/pages" \
             -f build_type=workflow
 
+      - name: Add deployment identity
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = {
+              "sha": os.environ["GITHUB_SHA"],
+              "runId": os.environ["GITHUB_RUN_ID"],
+              "repository": os.environ["GITHUB_REPOSITORY"],
+          }
+          Path("deploy-info.json").write_text(
+              json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
+              encoding="utf-8",
+          )
+          PY
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
@@ -100,3 +143,9 @@ jobs:
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
+
+      - name: Verify deployed commit and critical pages
+        env:
+          PAGE_URL: ${{ steps.deployment.outputs.page_url }}
+        shell: bash
+        run: bash tests/site-smoke.sh "$PAGE_URL" "$GITHUB_SHA"
