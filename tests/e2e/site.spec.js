@@ -82,23 +82,35 @@ test("世足 30 個元件完整啟動且 Render 與能量 UI 分層", async ({ p
   expect(await page.evaluate(() => window.FootballLabBundle.scoringPolicy)).toBe("individual-goals-plus-exact-score");
   expect(await page.evaluate(() => window.FootballLabBundle.energyModelKey)).toBe("energy-v1");
   expect(await page.evaluate(() => window.FootballLabBundle.renderLayer)).toBe("esm");
+  expect(await page.evaluate(() => window.FootballLabBundle.renderLayerCount)).toBe(3);
 
   expect(await page.evaluate(() => Boolean(
     window.FOOTBALL_LAB_DATA
     && window.FootballLabCore
     && window.FootballStrictScoring
     && window.FootballRenderModule
+    && window.FootballRenderLineage
     && window.FootballEnergyModel
     && window.FootballDirectEnergy
     && window.FootballLabRender
   ))).toBe(true);
-  expect(await page.evaluate(() => (
-    window.FootballRenderModule.core === window.FootballStrictScoring.core
-    && window.FootballDirectEnergy.model === window.FootballEnergyModel
-    && window.FootballDirectEnergy.core.data === window.FootballLabCore.data
-    && window.FootballDirectEnergy.ui === window.FootballLabRender
-    && window.FootballRenderModule !== window.FootballLabRender
-  ))).toBe(true);
+
+  expect(await page.evaluate(() => {
+    const lineage = window.FootballRenderLineage;
+    return Boolean(
+      lineage.base === window.FootballRenderModule
+      && lineage.energy === window.FootballDirectEnergy.ui
+      && lineage.final === window.FootballLabRender
+      && lineage.base.core === window.FootballStrictScoring.core
+      && lineage.base !== lineage.energy
+      && typeof lineage.energy.renderDraft === "function"
+      && typeof lineage.energy.renderRecords === "function"
+      && typeof lineage.final.renderDraft === "function"
+      && typeof lineage.final.renderRecords === "function"
+      && typeof lineage.final.renderScorecard === "function"
+      && typeof lineage.final.openEvaluation === "function"
+    );
+  })).toBe(true);
 
   expect(await page.evaluate(() => {
     const baseData = window.FOOTBALL_LAB_DATA;
