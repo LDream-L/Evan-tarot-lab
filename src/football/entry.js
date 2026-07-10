@@ -6,8 +6,8 @@
 // - 版本文案同步：時間／空間 O(1)。
 //
 // 更快替代方案比較：
-// - 舊版決勝編輯同時重建基本欄位、同步雲端與推導路徑。
-// - 本階段沿用基礎 editor，只把決勝規則移到純模型，必要提交才由 capture 轉接層接管。
+// - 舊 guard 同時重算階段顯示與保存欄位，和決勝編輯器重複規則。
+// - 本階段只保留工作階段欄位快照，決勝路徑仍由純模型與轉接層負責。
 // - 具名契約逐項回報失敗名稱，與單一巨大布林式同為 O(G)，但可直接定位回歸層。
 
 import "../../JS/cloud-config.js";
@@ -34,14 +34,14 @@ import {
 import {
   footballKnockoutEditRuntime,
   footballRecordKnockoutEdit,
+  footballRecordKnockoutInputGuard,
 } from "./knockout-edit-runtime.js";
-import "../../JS/football-record-knockout-input-guard.js";
 import "../../JS/football-record-status-visibility-fix.js";
 import "../../JS/football-performance-trends.js";
 import "../../JS/football-layout-optimizer.js";
 
 const MODULE_COUNT = 36;
-const NAMED_MODULE_COUNT = 16;
+const NAMED_MODULE_COUNT = 17;
 const INTERFACE_VERSION = "1.7.6";
 
 /** 時間／空間複雜度 O(1)。 */
@@ -113,6 +113,7 @@ function assertCoreContracts() {
     ["footballRecordEdit", Boolean(footballRecordEdit)],
     ["footballKnockoutEditRuntime", Boolean(footballKnockoutEditRuntime)],
     ["footballRecordKnockoutEdit", Boolean(footballRecordKnockoutEdit)],
+    ["footballRecordKnockoutInputGuard", Boolean(footballRecordKnockoutInputGuard)],
   ]);
 
   assertContractGroup("世足資料與評分契約", [
@@ -181,6 +182,7 @@ function assertCoreContracts() {
   assertContractGroup("世足決勝編輯執行層契約", [
     ["knockout-runtime-global", window.FootballKnockoutEditRuntime === footballKnockoutEditRuntime],
     ["knockout-runtime-stage", footballKnockoutEditRuntime.stage === "knockout-record-edit-ready"],
+    ["knockout-guard-stage", footballKnockoutEditRuntime.guardStage === "knockout-input-preservation-ready"],
     ["knockout-runtime-review", footballKnockoutEditRuntime.review === footballReviewRuntime],
     ["knockout-runtime-core", footballKnockoutEditRuntime.core === footballReviewRuntime.core],
     ["knockout-runtime-render", footballKnockoutEditRuntime.render === footballReviewRuntime.render],
@@ -192,6 +194,11 @@ function assertCoreContracts() {
     ["knockout-editor-render", footballRecordKnockoutEdit.ui === footballReviewRuntime.render],
     ["knockout-editor-base", footballRecordKnockoutEdit.baseEditor === footballRecordEdit],
     ["knockout-editor-bound", footballRecordKnockoutEdit.isBound()],
+    ["knockout-guard-global", window.FootballLabRecordKnockoutInputGuard === footballRecordKnockoutInputGuard],
+    ["knockout-guard-link", footballKnockoutEditRuntime.inputGuard === footballRecordKnockoutInputGuard],
+    ["knockout-guard-core", footballRecordKnockoutInputGuard.core === footballReviewRuntime.core],
+    ["knockout-guard-editor", footballRecordKnockoutInputGuard.knockoutEditor === footballRecordKnockoutEdit],
+    ["knockout-guard-bound", footballRecordKnockoutInputGuard.isBound()],
   ]);
 
   const finalCloud = footballCloudLineage.final;
@@ -272,12 +279,14 @@ window.FootballLabBundle = Object.freeze({
   applicationStage: footballApplicationRuntime.stage,
   reviewStage: footballReviewRuntime.stage,
   knockoutEditStage: footballKnockoutEditRuntime.stage,
+  knockoutInputGuardStage: footballKnockoutEditRuntime.guardStage,
   cloudLayer: "esm-factory",
   cloudLayerCount: 2,
   cloudProtocol: footballCloud.protocol.join(","),
   eventLayer: "esm-factory",
   recordEditLayer: "esm-model-and-controller",
   knockoutEditLayer: "esm-model-and-adapter",
+  knockoutInputGuardLayer: "esm-controller",
   coreLayerCount: 6,
   renderLayer: "esm",
   renderLayerCount: 5,
