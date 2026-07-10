@@ -69,7 +69,11 @@ function run() {
   assert.ok(reviewRuntime.includes('import { createFootballRecordEdit } from "./record-edit.js";'));
   assert.ok(reviewRuntime.includes("cloudProvider: () => window.FootballLabCloud"));
   assert.ok(applicationRuntime.includes('import { createFootballEvents } from "./events.js";'));
-  assert.equal(applicationRuntime.includes("cloud: footballCloud"), false, "事件控制器不得持有誤導性的固定 cloud 參數");
+  assert.doesNotMatch(
+    applicationRuntime,
+    /createFootballEvents\(\{[\s\S]*?\bcloud\s*:/,
+    "事件控制器建立參數不得持有固定 cloud"
+  );
 
   assert.equal(fs.existsSync(LEGACY_RECORD_EDIT), false, "舊全域紀錄編輯模組應自 source 移除");
   assert.equal(fs.existsSync(LEGACY_CLOUD), false, "舊全域雲端模組應自 source 移除");
