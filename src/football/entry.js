@@ -3,6 +3,7 @@
 // 主要流程複雜度：
 // - 模組解析與執行：時間 O(M)、空間 O(M)，M = 29 個相依模組。
 // - 啟動完整性檢查：時間 O(G)、空間 O(G)，G = 必要全域 API 數。
+// - 版本文案同步：時間／空間 O(1)。
 //
 // 更快替代方案比較：
 // - 舊版：瀏覽器動態建立 29 個 script，雖可平行預載，仍需維護隱性執行順序。
@@ -41,6 +42,7 @@ import "../../JS/football-performance-trends.js";
 import "../../JS/football-layout-optimizer.js";
 
 const MODULE_COUNT = 29;
+const INTERFACE_VERSION = "1.7.6";
 const REQUIRED_GLOBALS = Object.freeze([
   "FOOTBALL_LAB_DATA",
   "FootballLabCore",
@@ -57,13 +59,35 @@ function assertRequiredGlobals() {
   }
 }
 
+/**
+ * 統一模型版本與介面版本的顯示責任。
+ * 時間／空間複雜度 O(1)。
+ *
+ * 替代方案比較：
+ * - 各相容模組自行改 document.title 與 H1：後載模組可能把介面版本覆蓋成模型版本。
+ * - 本方案：所有相容模組完成後，由唯一入口寫入最終版本文案，避免版本漂移。
+ */
+function synchronizeVersionCopy() {
+  const modelVersion = String(window.FOOTBALL_LAB_DATA.modelVersion || "").trim();
+  const combinedLabel = `模型 v${modelVersion}｜介面 v${INTERFACE_VERSION}`;
+
+  document.title = `Evan Tarot｜世足賽事驗證｜模型 v${modelVersion}・介面 v${INTERFACE_VERSION}`;
+
+  const heroTitle = document.querySelector(".subpage-hero .hero-text h1");
+  if (heroTitle) heroTitle.textContent = "世足賽事驗證。";
+
+  const versionBadge = document.querySelector("#football-match-form .football-version");
+  if (versionBadge) versionBadge.textContent = combinedLabel;
+}
+
 assertRequiredGlobals();
+synchronizeVersionCopy();
 
 window.FootballLabBundle = Object.freeze({
   ready: true,
   moduleCount: MODULE_COUNT,
   modelVersion: window.FOOTBALL_LAB_DATA.modelVersion,
-  interfaceVersion: "1.7.6",
+  interfaceVersion: INTERFACE_VERSION,
   loadedAt: new Date().toISOString(),
 });
 
