@@ -4,27 +4,28 @@
 // ==============================
 //
 // 主要函式複雜度：
-// - normalizeSiteNavigation：O(n)，n = 導覽連結數
-// - normalizeLostItemLabContext：O(1)
-// - loadSiteAccountScript / loadArticleCommentsScript / loadAdminNavigationScript：O(1)
-// - bindCorePageEvents：O(1)
-// - DOMContentLoaded 初始化：O(n)
-// 空間複雜度：O(1)
+// - loadScriptOnce：時間／空間 O(1)（不含網路等待）
+// - normalizeSiteNavigation：時間 O(n)，空間 O(1)，n = 導覽連結數
+// - normalizeLostItemLabContext：時間／空間 O(1)
+// - bindCorePageEvents：時間／空間 O(1)
+// - DOMContentLoaded 初始化：時間 O(n)，空間 O(1)
 //
 // 更快替代方案比較：
 // - 阻塞法：先等待 Google 登入模組完成，再綁定尋物、預約與其他核心功能。
-// - 優化法：核心表單立即可用，帳戶、管理入口與留言模組獨立載入，避免第三方登入拖慢整頁操作。
+// - 本實作：核心表單立即可用，帳戶、管理入口與留言模組獨立載入。
+// - 無限等待：既有 script 若已錯過 load 事件，Promise 可能永久 pending。
+// - 本實作：保存載入狀態、加入逾時、失敗後移除 Promise 快取並允許重試。
 // ==============================
 
 const MAIN_ASSET_PROMISES = new Map();
+const MAIN_ASSET_TIMEOUT_MS = 12000;
 const PODCAST_URL = "https://podcasts.apple.com/tw/podcast/%E6%9C%89%E9%BB%9E%E5%81%8F/id1896598359";
 
 /**
- * 載入一次 JavaScript；同一 marker 共用同一 Promise。
- * 時間複雜度：O(1)
- * 空間複雜度：O(1)
+ * 載入一次 JavaScript；同一 marker 在成功或等待期間共用同一 Promise。
+ * 時間／空間複雜度 O(1)（不含網路等待）。
  */
-function loadScriptOnce({ src, marker, isReady }) {
+function loadScriptOnce({ src, marker, isReady, timeoutMs = MAIN_ASSET_TIMEOUT_MS }) {
   if (typeof isReady === "function" && isReady()) return Promise.resolve(true);
   if (MAIN_ASSET_PROMISES.has(marker)) return MAIN_ASSET_PROMISES.get(marker);
 
@@ -32,31 +33,71 @@ function loadScriptOnce({ src, marker, isReady }) {
     const selector = `script[data-main-asset="${marker}"]`;
     let script = document.querySelector(selector);
     let settled = false;
+    let timer = 0;
 
     const finish = (success) => {
       if (settled) return;
       settled = true;
+      window.clearTimeout(timer);
+      if (!success) MAIN_ASSET_PROMISES.delete(marker);
       resolve(Boolean(success));
     };
 
-    const handleLoad = () => finish(typeof isReady !== "function" || isReady());
-    const handleError = () => finish(false);
+    const verifyReady = () => {
+      const ready = typeof isReady !== "function" || Boolean(isReady());
+      if (!ready && script) script.dataset.loadState = "error";
+      finish(ready);
+    };
 
-    if (!script) {
+    const handleLoad = () => {
+      if (script) script.dataset.loadState = "loaded";
+      verifyReady();
+    };
+
+    const handleError = () => {
+      if (script) script.dataset.loadState = "error";
+      finish(false);
+    };
+
+    const installScript = () => {
       script = document.createElement("script");
       script.src = src;
+      script.async = true;
       script.dataset.mainAsset = marker;
+      script.dataset.loadState = "loading";
       script.addEventListener("load", handleLoad, { once: true });
       script.addEventListener("error", handleError, { once: true });
       document.head.appendChild(script);
+    };
+
+    timer = window.setTimeout(() => {
+      const ready = typeof isReady === "function" && Boolean(isReady());
+      if (!ready && script) script.dataset.loadState = "error";
+      if (!ready) console.error(`[main] 模組載入逾時：${src}`);
+      finish(ready);
+    }, Math.max(1, Number(timeoutMs) || MAIN_ASSET_TIMEOUT_MS));
+
+    if (!script) {
+      installScript();
+      return;
+    }
+
+    if (script.dataset.loadState === "error") {
+      script.remove();
+      installScript();
+      return;
+    }
+
+    if (script.dataset.loadState === "loaded") {
+      window.queueMicrotask(verifyReady);
       return;
     }
 
     script.addEventListener("load", handleLoad, { once: true });
     script.addEventListener("error", handleError, { once: true });
-    window.setTimeout(() => {
+    window.queueMicrotask(() => {
       if (typeof isReady === "function" && isReady()) finish(true);
-    }, 0);
+    });
   });
 
   MAIN_ASSET_PROMISES.set(marker, promise);
@@ -126,8 +167,7 @@ function createNavLink(href, text) {
 
 /**
  * 將 Podcast 文字入口統一放在預約前，點擊後另開 Apple Podcast。
- * 時間複雜度：O(n)，n = 導覽連結數
- * 空間複雜度：O(1)
+ * 時間複雜度 O(n)，空間複雜度 O(1)。
  */
 function normalizePodcastNavigation(nav) {
   const bookingLink = nav.querySelector('a[href="services.html#booking"]');
@@ -150,8 +190,7 @@ function normalizePodcastNavigation(nav) {
 
 /**
  * 文章與實驗室保持獨立；塔羅尋物、世足驗證與占卜時間流均歸入實驗室。
- * 時間複雜度：O(n)
- * 空間複雜度：O(1)
+ * 時間複雜度 O(n)，空間複雜度 O(1)。
  */
 function normalizeSiteNavigation() {
   const nav = document.querySelector(".nav");
@@ -197,8 +236,7 @@ function normalizeSiteNavigation() {
 
 /**
  * 將塔羅尋物標示為實驗室內的實驗物件。
- * 時間複雜度：O(1)
- * 空間複雜度：O(1)
+ * 時間／空間複雜度 O(1)。
  */
 function normalizeLostItemLabContext() {
   if (!document.getElementById("lost-item-tool")) return;
@@ -241,8 +279,7 @@ function normalizeLostItemLabContext() {
 
 /**
  * 核心表單不等待 Google 登入或第三方資源。
- * 時間複雜度：O(1)
- * 空間複雜度：O(1)
+ * 時間／空間複雜度 O(1)。
  */
 function bindCorePageEvents() {
   const lostItemForm = document.getElementById("lost-item-form");
@@ -309,6 +346,11 @@ function initOptionalArticleComments(accountReadyPromise) {
       console.error("[main] 文章留言模組初始化失敗：", error);
     });
 }
+
+window.EvanMainRuntime = Object.freeze({
+  loadScriptOnce,
+  normalizeSiteNavigation,
+});
 
 document.addEventListener("DOMContentLoaded", () => {
   normalizeSiteNavigation();
