@@ -5,18 +5,21 @@ const path = require("node:path");
 const ROOT = path.resolve(__dirname, "..");
 const DIST = path.join(ROOT, "dist");
 const ENTRY = path.join(ROOT, "src", "football", "entry.js");
+const DIRECT_ENERGY = path.join(ROOT, "JS", "football-direct-energy.js");
 const RUNTIME = path.join(DIST, "JS", "football-lab.js");
 const SOURCE_MAP = `${RUNTIME}.map`;
 
 /**
  * 驗證世足 ES Module entry、正式 bundle、具名核心與 sourcemap。
- * 時間／空間複雜度 O(B)，B 為入口、bundle 與 map 的總大小。
+ * 時間／空間複雜度 O(B)，B 為入口、相容模組、bundle 與 map 的總大小。
  *
  * 替代方案比較：只檢查 bundle 存在無法證明依賴是否納入；
- * 本測試同時核對 27 個相容 side-effect imports、2 個具名核心 imports 與 map sources。
+ * 本測試同時核對 27 個相容 side-effect imports、2 個具名核心 imports、
+ * 不可變資料契約與 map sources。
  */
 function run() {
   const entry = fs.readFileSync(ENTRY, "utf8");
+  const directEnergy = fs.readFileSync(DIRECT_ENERGY, "utf8");
   const sideEffectImports = [...entry.matchAll(/^import\s+["'][^"']+["'];$/gm)];
   const namedImports = [...entry.matchAll(/^import\s+\{[^}]+\}\s+from\s+["'][^"']+["'];$/gm)];
   assert.equal(sideEffectImports.length, 27, "世足入口應保留 27 個相容 side-effect imports");
@@ -25,6 +28,12 @@ function run() {
   assert.ok(entry.includes('import { footballCore } from "./core.js";'));
   assert.equal(entry.includes('import "../../JS/football-data.js";'), false);
   assert.equal(entry.includes('import "../../JS/football-core.js";'), false);
+
+  assert.doesNotMatch(
+    directEnergy,
+    /(?:FOOTBALL_LAB_DATA|\bdata)\.positionMap\s*=/,
+    "相容模組不得重新指定具名資料層的 positionMap"
+  );
 
   assert.ok(fs.existsSync(RUNTIME), "dist 缺少 football-lab.js bundle");
   assert.ok(fs.existsSync(SOURCE_MAP), "dist 缺少 football-lab.js.map");
