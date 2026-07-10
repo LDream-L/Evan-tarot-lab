@@ -17,7 +17,7 @@ const PUBLIC_PAGES = [
   { path: "/articles.html", title: "Evan Tarot｜塔羅記事 / 文章", marker: "main h1" },
   { path: "/lab.html", title: "Evan Tarot｜塔羅實驗室", marker: "#projects" },
   { path: "/timeflow.html", title: "Evan Tarot｜主題時間流", marker: "#divination-map-app" },
-  { path: "/football-lab.html", title: "Evan Tarot｜世足賽事驗證 v1.7.6", marker: "#football-match-form" },
+  { path: "/football-lab.html", title: "Evan Tarot｜世足賽事驗證｜模型 v1.6.0・介面 v1.7.6", marker: "#football-match-form" },
 ];
 
 /** 頁面巡覽：時間 O(P)，額外空間 O(1)。 */
@@ -49,11 +49,15 @@ test("實驗室提供三個主要工具入口", async ({ page }) => {
   await expect(page.locator('a[href="timeflow.html"]').first()).toBeVisible();
 });
 
-test("世足 29 個模組由單一 bundle 完整啟動", async ({ page }) => {
+test("世足 29 個模組由單一 bundle 完整啟動且版本顯示一致", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
   expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(29);
+  expect(await page.evaluate(() => window.FootballLabBundle.modelVersion)).toBe("1.6.0");
+  expect(await page.evaluate(() => window.FootballLabBundle.interfaceVersion)).toBe("1.7.6");
   expect(await page.evaluate(() => Boolean(window.FOOTBALL_LAB_DATA && window.FootballLabCore))).toBe(true);
+  await expect(page.locator(".subpage-hero .hero-text h1")).toHaveText("世足賽事驗證。");
+  await expect(page.locator("#football-match-form .football-version")).toHaveText("模型 v1.6.0｜介面 v1.7.6");
   await expect(page.locator('script[src*="JS/football-lab.js"]')).toHaveCount(1);
   await expect(page.locator('script[src*="football-data.js"]')).toHaveCount(0);
   await expect(page.locator('#football-layout-final-style')).toHaveCount(1);
