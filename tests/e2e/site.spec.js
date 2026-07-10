@@ -85,7 +85,19 @@ test("世足 29 個模組完整啟動且資料、核心、評分使用具名 imp
     && window.FootballLabCore
     && window.FootballStrictScoring
   ))).toBe(true);
-  expect(await page.evaluate(() => window.FOOTBALL_LAB_DATA === window.FootballLabCore.data)).toBe(true);
+  expect(await page.evaluate(() => {
+    const baseData = window.FOOTBALL_LAB_DATA;
+    const runtimeData = window.FootballLabCore.data;
+    return Boolean(
+      runtimeData
+      && Object.isFrozen(runtimeData)
+      && runtimeData.modelVersion === baseData.modelVersion
+      && runtimeData.storageKey === baseData.storageKey
+      && runtimeData.deck === baseData.deck
+      && runtimeData.positionMap === baseData.positionMap
+      && runtimeData.positionSets === baseData.positionSets
+    );
+  })).toBe(true);
   expect(await page.evaluate(() => (
     window.FootballStrictScoring.baseCore.data === window.FOOTBALL_LAB_DATA
     && window.FootballStrictScoring.core.data === window.FOOTBALL_LAB_DATA
