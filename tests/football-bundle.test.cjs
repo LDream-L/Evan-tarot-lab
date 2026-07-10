@@ -13,19 +13,26 @@ const RECORD_EDIT_MODEL = path.join(ROOT, "src", "football", "record-edit-model.
 const RECORD_EDIT = path.join(ROOT, "src", "football", "record-edit.js");
 const KNOCKOUT_EDIT_MODEL = path.join(ROOT, "src", "football", "record-knockout-edit-model.js");
 const KNOCKOUT_EDIT = path.join(ROOT, "src", "football", "record-knockout-edit.js");
+const KNOCKOUT_INPUT_GUARD = path.join(ROOT, "src", "football", "record-knockout-input-guard.js");
 const CLOUD = path.join(ROOT, "src", "football", "cloud.js");
 const EVENTS = path.join(ROOT, "src", "football", "events.js");
 const RENDER = path.join(ROOT, "src", "football", "render.js");
 const ENERGY_ADAPTER = path.join(ROOT, "src", "football", "energy-adapter.js");
-const LEGACY_KNOCKOUT_EDIT = path.join(ROOT, "JS", "football-record-knockout-edit.js");
-const LEGACY_RECORD_EDIT = path.join(ROOT, "JS", "football-record-edit.js");
-const LEGACY_CLOUD = path.join(ROOT, "JS", "football-cloud.js");
-const LEGACY_EVENTS = path.join(ROOT, "JS", "football-events.js");
-const LEGACY_RENDER = path.join(ROOT, "JS", "football-render.js");
-const LEGACY_ENERGY = path.join(ROOT, "JS", "football-direct-energy.js");
-const LEGACY_SCORING = path.join(ROOT, "JS", "football-strict-scoring.js");
 const RUNTIME = path.join(DIST, "JS", "football-lab.js");
 const SOURCE_MAP = `${RUNTIME}.map`;
+
+const REMOVED_GLOBAL_FILES = [
+  "JS/football-data.js",
+  "JS/football-core.js",
+  "JS/football-strict-scoring.js",
+  "JS/football-render.js",
+  "JS/football-direct-energy.js",
+  "JS/football-events.js",
+  "JS/football-cloud.js",
+  "JS/football-record-edit.js",
+  "JS/football-record-knockout-edit.js",
+  "JS/football-record-knockout-input-guard.js",
+];
 
 /** 時間／空間複雜度 O(B)，B 為 source 長度。 */
 function stripComments(source) {
@@ -45,59 +52,54 @@ function run() {
   const recordEdit = fs.readFileSync(RECORD_EDIT, "utf8");
   const knockoutEditModel = fs.readFileSync(KNOCKOUT_EDIT_MODEL, "utf8");
   const knockoutEdit = fs.readFileSync(KNOCKOUT_EDIT, "utf8");
+  const knockoutInputGuard = fs.readFileSync(KNOCKOUT_INPUT_GUARD, "utf8");
   const cloud = fs.readFileSync(CLOUD, "utf8");
   const events = fs.readFileSync(EVENTS, "utf8");
+  const render = fs.readFileSync(RENDER, "utf8");
+  const energyAdapter = fs.readFileSync(ENERGY_ADAPTER, "utf8");
+
   const executableCloud = stripComments(cloud);
   const executableEvents = stripComments(events);
   const executableRecordEditModel = stripComments(recordEditModel);
   const executableRecordEdit = stripComments(recordEdit);
   const executableKnockoutEditModel = stripComments(knockoutEditModel);
   const executableKnockoutEdit = stripComments(knockoutEdit);
-  const render = fs.readFileSync(RENDER, "utf8");
-  const energyAdapter = fs.readFileSync(ENERGY_ADAPTER, "utf8");
+  const executableKnockoutInputGuard = stripComments(knockoutInputGuard);
 
-  const entrySideEffects = [...entry.matchAll(/^import\s+["'][^"']+["'];$/gm)];
-  const entryNamedImports = [...entry.matchAll(/^import\s+\{[^}]+\}\s+from\s+["'][^"']+["'];$/gm)];
-  const workflowSideEffects = [...workflowRuntime.matchAll(/^import\s+["'][^"']+["'];$/gm)];
-  const workflowNamedImports = [...workflowRuntime.matchAll(/^import\s+\{[^}]+\}\s+from\s+["'][^"']+["'];$/gm)];
-  const applicationNamedImports = [...applicationRuntime.matchAll(/^import\s+\{[^}]+\}\s+from\s+["'][^"']+["'];$/gm)];
-  const reviewSideEffects = [...reviewRuntime.matchAll(/^import\s+["'][^"']+["'];$/gm)];
-  const reviewNamedImports = [...reviewRuntime.matchAll(/^import\s+\{[^}]+\}\s+from\s+["'][^"']+["'];$/gm)];
-  const knockoutSideEffects = [...knockoutEditRuntime.matchAll(/^import\s+["'][^"']+["'];$/gm)];
-  const knockoutNamedImports = [...knockoutEditRuntime.matchAll(/^import\s+\{[^}]+\}\s+from\s+["'][^"']+["'];$/gm)];
+  const sideEffects = (source) => [...source.matchAll(/^import\s+["'][^"']+["'];$/gm)];
+  const namedImports = (source) => [...source.matchAll(/^import\s+\{[^}]+\}\s+from\s+["'][^"']+["'];$/gm)];
 
-  assert.equal(entrySideEffects.length, 6, "世足入口應只保留 6 個頂層相容 imports");
-  assert.equal(entryNamedImports.length, 10, "世足入口應使用 10 個具名 import 宣告");
-  assert.equal(workflowSideEffects.length, 4, "workflow runtime 應固定載入 4 個流程相容模組");
-  assert.equal(workflowNamedImports.length, 1, "workflow runtime 只應具名匯入能量轉接層");
-  assert.equal(applicationNamedImports.length, 3, "application runtime 應具名匯入 workflow、雲端與事件工廠");
-  assert.equal(reviewSideEffects.length, 8, "review runtime 應固定載入 8 個紀錄 UX 相容模組");
-  assert.equal(reviewNamedImports.length, 3, "review runtime 應具名匯入 application、編輯模型與控制器");
-  assert.equal(knockoutSideEffects.length, 2, "決勝 runtime 應固定載入 2 個牌面／控制相容模組");
-  assert.equal(knockoutNamedImports.length, 3, "決勝 runtime 應具名匯入 review、純模型與轉接層");
+  assert.equal(sideEffects(entry).length, 5, "世足入口應只保留 5 個頂層相容 imports");
+  assert.equal(namedImports(entry).length, 10, "世足入口應使用 10 個具名 import 宣告");
+  assert.equal(sideEffects(workflowRuntime).length, 4, "workflow runtime 應固定載入 4 個流程相容模組");
+  assert.equal(namedImports(workflowRuntime).length, 1, "workflow runtime 只應具名匯入能量轉接層");
+  assert.equal(namedImports(applicationRuntime).length, 3, "application runtime 應具名匯入 workflow、雲端與事件工廠");
+  assert.equal(sideEffects(reviewRuntime).length, 8, "review runtime 應固定載入 8 個紀錄 UX 相容模組");
+  assert.equal(namedImports(reviewRuntime).length, 3, "review runtime 應具名匯入 application、編輯模型與控制器");
+  assert.equal(sideEffects(knockoutEditRuntime).length, 2, "決勝 runtime 應固定載入 2 個牌面／控制相容模組");
+  assert.equal(namedImports(knockoutEditRuntime).length, 4, "決勝 runtime 應具名匯入 review、純模型、轉接層與 guard");
 
   assert.ok(entry.includes('from "./knockout-edit-runtime.js";'));
-  assert.equal(entry.includes('import "../../JS/football-record-knockout-edit.js";'), false);
-  assert.ok(knockoutEditRuntime.includes('import { footballRecordKnockoutEditModel } from "./record-knockout-edit-model.js";'));
-  assert.ok(knockoutEditRuntime.includes('import { createFootballRecordKnockoutEdit } from "./record-knockout-edit.js";'));
-  assert.ok(knockoutEditRuntime.includes('import "../../JS/football-card-layout-unifier.js";'));
-  assert.ok(knockoutEditRuntime.includes('import "../../JS/football-record-card-controls.js";'));
+  assert.equal(entry.includes('import "../../JS/football-record-knockout-input-guard.js";'), false);
+  assert.ok(entry.includes("footballRecordKnockoutInputGuard"));
+  assert.ok(knockoutEditRuntime.includes('from "./record-knockout-input-guard.js";'));
+  assert.ok(knockoutEditRuntime.includes("inputGuard: footballRecordKnockoutInputGuard"));
   assert.ok(reviewRuntime.includes("cloudProvider: () => window.FootballLabCloud"));
   assert.ok(applicationRuntime.includes('import { createFootballEvents } from "./events.js";'));
   const eventsArguments = applicationRuntime.match(/createFootballEvents\(\{([\s\S]*?)\}\);/)?.[1] || "";
   assert.ok(eventsArguments, "找不到 createFootballEvents 參數區塊");
   assert.doesNotMatch(eventsArguments, /\bcloud\s*:/, "事件控制器建立參數不得持有固定 cloud");
 
-  assert.equal(fs.existsSync(LEGACY_KNOCKOUT_EDIT), false, "舊全域決勝編輯模組應自 source 移除");
-  assert.equal(fs.existsSync(LEGACY_RECORD_EDIT), false, "舊全域紀錄編輯模組應自 source 移除");
-  assert.equal(fs.existsSync(LEGACY_CLOUD), false, "舊全域雲端模組應自 source 移除");
-  assert.equal(fs.existsSync(LEGACY_EVENTS), false, "舊全域事件模組應自 source 移除");
-  assert.equal(fs.existsSync(LEGACY_SCORING), false, "舊全域嚴格評分補丁應自 source 移除");
-  assert.equal(fs.existsSync(LEGACY_RENDER), false, "舊全域 Render 應自 source 移除");
-  assert.equal(fs.existsSync(LEGACY_ENERGY), false, "舊單張能量混合模組應自 source 移除");
+  REMOVED_GLOBAL_FILES.forEach((relativePath) => {
+    assert.equal(fs.existsSync(path.join(ROOT, relativePath)), false, `舊全域檔仍存在：${relativePath}`);
+  });
 
   assert.doesNotMatch(executableRecordEdit, /window\.FootballLab(?:Core|Render)/, "基礎編輯控制器不得猜測全域核心或 Render");
   assert.doesNotMatch(executableKnockoutEdit, /window\.FootballLab(?:Core|Render)/, "決勝編輯轉接層不得猜測全域核心或 Render");
+  assert.doesNotMatch(executableKnockoutInputGuard, /window\.FootballLab(?:Core|Render)/, "guard 不得猜測全域核心或 Render");
+  assert.doesNotMatch(executableKnockoutInputGuard, /resultsFor|hasDraw|consensusWinner/, "guard 不得重複推導決勝規則");
+  assert.match(executableKnockoutInputGuard, /new Map\(/, "guard 應以 Map 保存欄位值");
+  assert.match(executableKnockoutInputGuard, /requestAnimationFrame/, "guard 應等待轉接層完成 DOM 更新");
   assert.match(knockoutEdit, /createFootballRecordKnockoutEdit/, "決勝編輯層應提供可注入工廠");
   assert.match(knockoutEditModel, /buildKnockoutRecord/, "決勝路徑規則應集中於純模型");
   assert.doesNotMatch(executableRecordEditModel, /\b(?:window|document|localStorage)\b/, "基礎純模型不得依賴瀏覽器全域");
@@ -135,26 +137,16 @@ function run() {
     "src/football/knockout-edit-runtime.js",
     "src/football/record-knockout-edit-model.js",
     "src/football/record-knockout-edit.js",
+    "src/football/record-knockout-input-guard.js",
     "JS/football-records-ux.js",
     "JS/football-knockout-enhancements.js",
     "JS/football-direct-energy-ux.js",
-    "JS/football-record-knockout-input-guard.js",
     "JS/football-layout-optimizer.js",
   ].forEach((suffix) => {
     assert.ok(sources.some((value) => value.endsWith(suffix)), `sourcemap 缺少 ${suffix}`);
   });
 
-  [
-    "JS/football-data.js",
-    "JS/football-core.js",
-    "JS/football-strict-scoring.js",
-    "JS/football-render.js",
-    "JS/football-direct-energy.js",
-    "JS/football-events.js",
-    "JS/football-cloud.js",
-    "JS/football-record-edit.js",
-    "JS/football-record-knockout-edit.js",
-  ].forEach((suffix) => {
+  REMOVED_GLOBAL_FILES.forEach((suffix) => {
     assert.equal(sources.some((value) => value.endsWith(suffix)), false, `sourcemap 不得包含 ${suffix}`);
   });
   assert.ok(Array.isArray(sourceMap.sourcesContent), "sourcemap 缺少 sourcesContent");
@@ -164,6 +156,7 @@ function run() {
   assert.ok(html.includes('id="football-layout-final-style"'), "正式頁面缺少最終世足樣式");
   assert.equal((html.match(/JS\/football-lab\.js/g) || []).length, 1, "正式頁面應只載入一個世足入口");
   assert.equal(html.includes("JS/football-record-knockout-edit.js"), false, "正式頁面不得載入舊決勝編輯檔");
+  assert.equal(html.includes("JS/football-record-knockout-input-guard.js"), false, "正式頁面不得載入舊 guard");
 
   console.log("football-bundle tests passed");
 }
