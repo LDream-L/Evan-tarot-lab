@@ -17,6 +17,19 @@ const RUNTIME = path.join(DIST, "JS", "football-lab.js");
 const SOURCE_MAP = `${RUNTIME}.map`;
 
 /**
+ * 移除區塊與整行註解後再檢查可執行內容。
+ * 時間／空間複雜度 O(B)，B 為 source 長度。
+ *
+ * 替代方案比較：直接掃描原字串會把「禁止使用某 API」的文件註解誤判為實際引用；
+ * 本專案目前沒有正規表示式字面值包含註解符號，先以輕量剝除避免引入完整 parser。
+ */
+function stripComments(source) {
+  return source
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    .replace(/^\s*\/\/.*$/gm, "");
+}
+
+/**
  * 驗證世足 ES Module entry、流程執行層、事件工廠與 sourcemap。
  * 時間／空間複雜度 O(B)，B 為入口、相容模組、bundle 與 map 的總大小。
  *
@@ -28,6 +41,7 @@ function run() {
   const entry = fs.readFileSync(ENTRY, "utf8");
   const workflowRuntime = fs.readFileSync(WORKFLOW_RUNTIME, "utf8");
   const events = fs.readFileSync(EVENTS, "utf8");
+  const executableEvents = stripComments(events);
   const render = fs.readFileSync(RENDER, "utf8");
   const energyAdapter = fs.readFileSync(ENERGY_ADAPTER, "utf8");
 
@@ -63,7 +77,7 @@ function run() {
   assert.equal(fs.existsSync(LEGACY_ENERGY), false, "舊單張能量混合模組應自 source 移除");
 
   assert.doesNotMatch(
-    events,
+    executableEvents,
     /window\.FootballLab(?:Core|Render)/,
     "具名事件模組不得自行猜測全域核心或 Render"
   );
