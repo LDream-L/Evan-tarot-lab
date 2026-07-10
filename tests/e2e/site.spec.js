@@ -85,10 +85,12 @@ test("預約表單保留原生必填驗證並切換可配合時間", async ({ pa
 
   const availability = page.locator("#booking-availability-field");
   await expect(availability).toBeVisible();
+  await page.locator('textarea[name="availability"]').fill("平日 19:00 後");
   expect(await form.evaluate((element) => element.checkValidity())).toBe(true);
 
   await page.locator('select[name="mode"]').selectOption("text");
   await expect(availability).toBeHidden();
+  expect(await page.locator('textarea[name="availability"]').inputValue()).toBe("");
 });
 
 test("時間流未登入時仍呈現瀏覽介面", async ({ page }) => {
