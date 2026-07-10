@@ -4,14 +4,15 @@
 // ==============================
 //
 // 主要函式複雜度：
-// - loadScriptReliable：時間 O(1)，空間 O(1)（不含網路等待）
-// - sanitizeLinks：時間 O(a)，空間 O(1)，a = 本次掃描連結數
-// - installTimeflowJsonImport：初始化 O(1)，匯入 O(n)，n = 備份資料量
-// - initAccessibleDialog：單次開啟 O(m)，空間 O(m)，m = 顯示文字長度
+// - loadScriptReliable：時間／空間 O(1)（不含網路等待）
+// - sanitizeLinks：時間 O(a)，空間 O(1)，a = 掃描連結數
+// - renderArticleFallbackImmediately：時間 O(c + n)，空間 O(c)
+// - installTimeflowJsonImport：初始化 O(1)，匯入時間／空間 O(n)
+// - createDialog：時間／空間 O(m)，m = 顯示文字長度
 //
 // 替代方案比較：
-// - 各頁各自修補：容易產生版本分歧，新增頁面時也會漏載。
-// - 共用防護模組：所有載入 utils.js 的頁面套用同一套安全與可靠性規則。
+// - 各頁分別修補：容易漏頁並產生版本分歧。
+// - 共用防護模組：所有載入 utils.js 的頁面套用同一套規則。
 // ==============================
 
 (function initSiteHardening() {
@@ -23,18 +24,15 @@
   const SCRIPT_TIMEOUT_MS = 12000;
   const SAFE_PROTOCOLS = new Set(["http:", "https:", "mailto:", "tel:"]);
 
-  /**
-   * 可靠載入單一模組；既有 script 已完成、失敗或逾時時均會結束 Promise。
-   * 時間複雜度：O(1)
-   * 空間複雜度：O(1)
-   */
+  /** 可靠載入單一模組，任何路徑最終都會完成 Promise。時間／空間 O(1)。 */
   function loadScriptReliable({ src, marker, isReady }) {
     if (typeof isReady === "function" && isReady()) return Promise.resolve(true);
     if (SCRIPT_PROMISES.has(marker)) return SCRIPT_PROMISES.get(marker);
 
     const promise = new Promise((resolve) => {
-      const selector = `script[data-hardening-asset="${CSS.escape(marker)}"]`;
-      let script = document.querySelector(selector);
+      const baseSrc = src.split("?")[0];
+      let script = document.querySelector(`script[data-hardening-asset="${marker}"]`)
+        || document.querySelector(`script[src^="${baseSrc}"]`);
       let settled = false;
       let timeoutId = 0;
 
@@ -46,10 +44,7 @@
         resolve(Boolean(success));
       };
 
-      const verifyReady = () => {
-        const ready = typeof isReady !== "function" || Boolean(isReady());
-        finish(ready);
-      };
+      const verify = () => finish(typeof isReady !== "function" || Boolean(isReady()));
 
       if (!script) {
         script = document.createElement("script");
@@ -59,22 +54,15 @@
         script.dataset.loadState = "loading";
         script.addEventListener("load", () => {
           script.dataset.loadState = "loaded";
-          verifyReady();
+          verify();
         }, { once: true });
         script.addEventListener("error", () => {
           script.dataset.loadState = "error";
           finish(false);
         }, { once: true });
         document.head.appendChild(script);
-      } else if (script.dataset.loadState === "loaded") {
-        queueMicrotask(verifyReady);
-      } else if (script.dataset.loadState === "error") {
-        script.remove();
-        SCRIPT_PROMISES.delete(marker);
-        finish(false);
-        return;
       } else {
-        script.addEventListener("load", verifyReady, { once: true });
+        script.addEventListener("load", verify, { once: true });
         script.addEventListener("error", () => finish(false), { once: true });
         queueMicrotask(() => {
           if (typeof isReady === "function" && isReady()) finish(true);
@@ -82,8 +70,9 @@
       }
 
       timeoutId = window.setTimeout(() => {
-        console.error(`[site-hardening] 模組載入逾時：${src}`);
-        finish(typeof isReady === "function" && isReady());
+        const ready = typeof isReady === "function" && Boolean(isReady());
+        if (!ready) console.error(`[site-hardening] 模組載入逾時：${src}`);
+        finish(ready);
       }, SCRIPT_TIMEOUT_MS);
     });
 
@@ -91,30 +80,34 @@
     return promise;
   }
 
-  /**
-   * 以可完成 Promise 的無障礙彈窗取代舊版彈窗。
-   * 時間複雜度：O(m)
-   * 空間複雜度：O(m)
-   */
+  /** 建立會正常完成 Promise、支援焦點循環的彈窗。時間／空間 O(m)。 */
   function initAccessibleDialog() {
     let active = null;
 
-    function closeActive(result) {
+    function settleActive(result, animate = true) {
       if (!active) return;
       const current = active;
       active = null;
-      current.backdrop.classList.add("is-leaving");
-      window.setTimeout(() => {
+
+      const finish = () => {
         current.backdrop.remove();
         current.resolve(result);
         current.returnFocus?.focus?.();
-      }, 120);
+      };
+
+      if (!animate) {
+        finish();
+        return;
+      }
+
+      current.backdrop.classList.add("is-leaving");
+      window.setTimeout(finish, 120);
     }
 
     function createDialog({ type = "alert", title = "提示", message = "", defaultValue = "", placeholder = "" }) {
       if (active) {
-        const replacementResult = active.type === "alert" ? true : active.type === "prompt" ? null : false;
-        closeActive(replacementResult);
+        const previousResult = active.type === "prompt" ? null : active.type === "alert" ? true : false;
+        settleActive(previousResult, false);
       }
 
       return new Promise((resolve) => {
@@ -176,6 +169,7 @@
           cancelButton.textContent = "取消";
           actions.appendChild(cancelButton);
         }
+
         const okButton = document.createElement("button");
         okButton.type = "button";
         okButton.className = "btn primary";
@@ -186,32 +180,36 @@
         document.body.appendChild(backdrop);
 
         active = { backdrop, resolve, returnFocus, type };
-
         const cancelResult = type === "prompt" ? null : type === "alert" ? true : false;
-        okButton.addEventListener("click", () => closeActive(type === "prompt" ? input.value : true));
-        cancelButton?.addEventListener("click", () => closeActive(cancelResult));
+
+        okButton.addEventListener("click", () => settleActive(type === "prompt" ? input.value : true));
+        cancelButton?.addEventListener("click", () => settleActive(cancelResult));
         backdrop.addEventListener("click", (event) => {
-          if (event.target === backdrop) closeActive(cancelResult);
+          if (event.target === backdrop) settleActive(cancelResult);
         });
         backdrop.addEventListener("keydown", (event) => {
           if (event.key === "Escape") {
             event.preventDefault();
-            closeActive(cancelResult);
-          } else if (event.key === "Enter" && type === "prompt") {
+            settleActive(cancelResult);
+            return;
+          }
+          if (event.key === "Enter" && type === "prompt") {
             event.preventDefault();
-            closeActive(input.value);
-          } else if (event.key === "Tab") {
-            const focusable = Array.from(dialog.querySelectorAll("button, input")).filter((element) => !element.disabled);
-            if (!focusable.length) return;
-            const first = focusable[0];
-            const last = focusable[focusable.length - 1];
-            if (event.shiftKey && document.activeElement === first) {
-              event.preventDefault();
-              last.focus();
-            } else if (!event.shiftKey && document.activeElement === last) {
-              event.preventDefault();
-              first.focus();
-            }
+            settleActive(input.value);
+            return;
+          }
+          if (event.key !== "Tab") return;
+
+          const focusable = Array.from(dialog.querySelectorAll("button, input")).filter((element) => !element.disabled);
+          if (!focusable.length) return;
+          const first = focusable[0];
+          const last = focusable[focusable.length - 1];
+          if (event.shiftKey && document.activeElement === first) {
+            event.preventDefault();
+            last.focus();
+          } else if (!event.shiftKey && document.activeElement === last) {
+            event.preventDefault();
+            first.focus();
           }
         });
 
@@ -227,46 +225,31 @@
     }
 
     window.EvanDialog = Object.freeze({
-      alert(message, title = "提示") {
-        return createDialog({ type: "alert", title, message });
-      },
-      confirm(message, title = "確認操作") {
-        return createDialog({ type: "confirm", title, message });
-      },
-      prompt(message, defaultValue = "", title = "輸入內容", placeholder = "") {
-        return createDialog({ type: "prompt", title, message, defaultValue, placeholder });
-      },
+      alert: (message, title = "提示") => createDialog({ type: "alert", title, message }),
+      confirm: (message, title = "確認操作") => createDialog({ type: "confirm", title, message }),
+      prompt: (message, defaultValue = "", title = "輸入內容", placeholder = "") =>
+        createDialog({ type: "prompt", title, message, defaultValue, placeholder }),
     });
   }
 
-  /**
-   * 移除 javascript:、data: 等不應由動態資料產生的連結。
-   * 時間複雜度：O(a)
-   * 空間複雜度：O(1)
-   */
+  /** 移除 javascript:、data: 等危險動態連結。時間 O(a)，空間 O(1)。 */
   function sanitizeLinks(root = document) {
-    const anchors = root instanceof HTMLAnchorElement
-      ? [root]
-      : root.querySelectorAll?.("a[href]") || [];
+    const anchors = root instanceof HTMLAnchorElement ? [root] : root.querySelectorAll?.("a[href]") || [];
 
     anchors.forEach((anchor) => {
       const rawHref = String(anchor.getAttribute("href") || "").trim();
       if (!rawHref || rawHref.startsWith("#") || rawHref.startsWith("/") || rawHref.startsWith("./") || rawHref.startsWith("../")) return;
 
-      let parsed;
       try {
-        parsed = new URL(rawHref, window.location.href);
+        const parsed = new URL(rawHref, window.location.href);
+        if (SAFE_PROTOCOLS.has(parsed.protocol)) return;
       } catch (error) {
-        anchor.removeAttribute("href");
-        anchor.setAttribute("aria-disabled", "true");
-        return;
+        // 由下方統一停用。
       }
 
-      if (!SAFE_PROTOCOLS.has(parsed.protocol)) {
-        console.warn("[site-hardening] 已移除不安全連結：", rawHref);
-        anchor.removeAttribute("href");
-        anchor.setAttribute("aria-disabled", "true");
-      }
+      console.warn("[site-hardening] 已移除不安全連結：", rawHref);
+      anchor.removeAttribute("href");
+      anchor.setAttribute("aria-disabled", "true");
     });
   }
 
@@ -282,7 +265,31 @@
     observer.observe(document.documentElement, { childList: true, subtree: true });
   }
 
-  /** 匯入時間流 JSON：時間／空間 O(n)，n = 備份資料量。 */
+  /** 先顯示內建文章，再由雲端資料完成後刷新。時間 O(c + n)，空間 O(c)。 */
+  function renderArticleFallbackImmediately() {
+    const api = window.EvanArticles;
+    const bar = document.getElementById("article-category-bar");
+    const list = document.getElementById("article-list");
+    if (!api || !bar || !list) return;
+
+    if (!bar.children.length) {
+      const fragment = document.createDocumentFragment();
+      api.categories.forEach((category) => {
+        const button = document.createElement("button");
+        button.className = `article-category-pill${category.id === "all" ? " is-active" : ""}`;
+        button.type = "button";
+        button.dataset.category = category.id;
+        button.setAttribute("aria-pressed", String(category.id === "all"));
+        button.textContent = category.label;
+        fragment.appendChild(button);
+      });
+      bar.replaceChildren(fragment);
+    }
+
+    if (!list.children.length) api.renderArticles?.();
+  }
+
+  /** 匯入時間流 JSON。初始化 O(1)，匯入時間／空間 O(n)。 */
   function installTimeflowJsonImport() {
     const exportButton = document.getElementById("map-export-json");
     if (!exportButton || document.getElementById("map-import-json")) return;
@@ -357,16 +364,19 @@
       footballStorage.textContent = "資料會先保存在本機 localStorage；登入資料庫擁有者帳號後，可同步至專用 Google Sheets。CSV 可直接用 Excel 開啟，JSON 用於完整備份與還原。";
     }
 
-    const practiceRemember = document.getElementById("practice-remember-device")?.closest("label");
-    if (practiceRemember) {
-      const textNode = Array.from(practiceRemember.childNodes).find((node) => node.nodeType === Node.TEXT_NODE);
-      if (textNode) textNode.textContent = " 記住接收網址（私人金鑰只保留在目前瀏覽器工作階段）";
+    const rememberInput = document.getElementById("practice-remember-device");
+    const rememberLabel = rememberInput?.closest("label");
+    if (rememberInput && rememberLabel) {
+      rememberLabel.replaceChildren(
+        rememberInput,
+        document.createTextNode(" 記住接收網址（私人金鑰只保留在目前瀏覽器工作階段）")
+      );
     }
   }
 
   async function ensureOptionalModules() {
     const accountLoaded = await loadScriptReliable({
-      src: "JS/site-account.js?v=20260710-hardening-v1",
+      src: "JS/site-account.js?v=20260710-hardening-v2",
       marker: "site-account",
       isReady: () => Boolean(window.EvanSiteAccount),
     });
@@ -380,7 +390,7 @@
     }
 
     const adminLoaded = await loadScriptReliable({
-      src: "JS/admin-navigation.js?v=20260710-hardening-v1",
+      src: "JS/admin-navigation.js?v=20260710-hardening-v2",
       marker: "admin-navigation",
       isReady: () => Boolean(window.EvanAdminNavigation),
     });
@@ -397,6 +407,7 @@
   function boot() {
     initAccessibleDialog();
     observeDynamicLinks();
+    renderArticleFallbackImmediately();
     installTimeflowJsonImport();
     updateOutdatedCopy();
     ensureOptionalModules();
@@ -405,6 +416,7 @@
   window.EvanSiteHardening = Object.freeze({
     loadScriptReliable,
     sanitizeLinks,
+    renderArticleFallbackImmediately,
     installTimeflowJsonImport,
   });
 
