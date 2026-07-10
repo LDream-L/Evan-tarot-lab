@@ -73,6 +73,17 @@ function createRuntime() {
 }
 
 /**
+ * 將 VM realm 的陣列轉成目前測試 realm 的純值陣列。
+ * 時間／空間複雜度 O(n)。
+ *
+ * 替代方案比較：直接 deepStrictEqual 會連原型來源一起比較；
+ * Array.from 只保留要驗證的值，避免把 VM 實作細節誤判成資料錯誤。
+ */
+function toHostArray(values, selector = (value) => value) {
+  return Array.from(values, selector);
+}
+
+/**
  * 核心契約驗證：固定案例，時間／空間 O(1)。
  */
 function run() {
@@ -96,7 +107,7 @@ function run() {
   assert.equal(api.modeIncludesDirect("dual"), true);
   assert.equal(api.modeIncludesStructure("direct"), false);
   assert.deepEqual(
-    api.getExpectedPositions("dual").map((item) => item.key),
+    toHostArray(api.getExpectedPositions("dual"), (item) => item.key),
     ["directResult", "homeAttack", "awayDefense", "awayAttack", "homeDefense"]
   );
 
@@ -129,7 +140,7 @@ function run() {
   assert.equal(structureEvaluation.structureExactHit, true);
   assert.equal(structureEvaluation.structureAbsoluteError, 0);
 
-  assert.deepEqual(api.getRecords(), []);
+  assert.equal(api.getRecords().length, 0);
   assert.equal(api.calculateStats().total, 0);
   assert.equal(runtime.storage.has(api.footballData.storageKey), false);
 
