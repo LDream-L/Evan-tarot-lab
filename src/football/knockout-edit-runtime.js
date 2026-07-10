@@ -1,15 +1,15 @@
 // 世足賽事驗證｜決勝階段編輯執行層
 //
-// 載入順序：review runtime → 牌面版面／紀錄控制 → 決勝純模型與轉接層。
-// 輸入保留 guard 由正式入口在本層完成後載入。
+// 載入順序：review runtime → 牌面版面／紀錄控制 → 決勝純模型與轉接層
+// → 輸入保留控制器。正式入口只讀取完成後的具名 runtime。
 //
 // 主要流程複雜度：
-// - 固定 2 個相容 UX 模組＋1 個具名控制器：時間／空間 O(1)。
+// - 固定 2 個相容 UX 模組＋2 個具名控制器：時間／空間 O(1)。
 // - 啟動契約：時間／空間 O(1)。
 //
 // 更快替代方案比較：
-// - 由舊 IIFE 自行抓取任意全域核心，載入順序不可見。
-// - 本層固定 review 核心、Render 與基礎 editor，再注入決勝控制器。
+// - 由舊 IIFE 自行抓取任意全域核心並重複推導顯示，載入順序不可見。
+// - 本層固定 review 核心、Render、基礎 editor 與決勝 editor，再注入單純的輸入保留控制器。
 
 import {
   footballReviewRuntime,
@@ -19,6 +19,7 @@ import "../../JS/football-card-layout-unifier.js";
 import "../../JS/football-record-card-controls.js";
 import { footballRecordKnockoutEditModel } from "./record-knockout-edit-model.js";
 import { createFootballRecordKnockoutEdit } from "./record-knockout-edit.js";
+import { createFootballRecordKnockoutInputGuard } from "./record-knockout-input-guard.js";
 
 const knockoutCore = footballReviewRuntime.core;
 const knockoutRender = footballReviewRuntime.render;
@@ -40,16 +41,25 @@ export const footballRecordKnockoutEdit = createFootballRecordKnockoutEdit({
   autoInit: true,
 });
 
+export const footballRecordKnockoutInputGuard = createFootballRecordKnockoutInputGuard({
+  core: knockoutCore,
+  knockoutEditor: footballRecordKnockoutEdit,
+  autoBind: true,
+});
+
 export const footballKnockoutEditRuntime = Object.freeze({
   stage: "knockout-record-edit-ready",
+  guardStage: "knockout-input-preservation-ready",
   review: footballReviewRuntime,
   core: knockoutCore,
   render: knockoutRender,
   baseEditor: footballRecordEdit,
   model: footballRecordKnockoutEditModel,
   editor: footballRecordKnockoutEdit,
+  inputGuard: footballRecordKnockoutInputGuard,
 });
 
 window.FootballRecordKnockoutEditModel = footballRecordKnockoutEditModel;
 window.FootballLabRecordKnockoutEdit = footballRecordKnockoutEdit;
+window.FootballLabRecordKnockoutInputGuard = footballRecordKnockoutInputGuard;
 window.FootballKnockoutEditRuntime = footballKnockoutEditRuntime;
