@@ -72,15 +72,35 @@ test("驗證方法與隱私頁互相連結且保留核心界線", async ({ page 
   await expect(page.locator('a[href="methodology.html"]').last()).toBeVisible();
 });
 
-test("世足 29 個模組由單一 bundle 完整啟動且兩個核心使用具名 imports", async ({ page }) => {
+test("世足 29 個模組完整啟動且資料、核心、評分使用具名 imports", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
   expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(29);
-  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(2);
+  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(3);
   expect(await page.evaluate(() => window.FootballLabBundle.modelVersion)).toBe("1.6.0");
   expect(await page.evaluate(() => window.FootballLabBundle.interfaceVersion)).toBe("1.7.6");
-  expect(await page.evaluate(() => Boolean(window.FOOTBALL_LAB_DATA && window.FootballLabCore))).toBe(true);
+  expect(await page.evaluate(() => window.FootballLabBundle.scoringPolicy)).toBe("individual-goals-plus-exact-score");
+  expect(await page.evaluate(() => Boolean(
+    window.FOOTBALL_LAB_DATA
+    && window.FootballLabCore
+    && window.FootballStrictScoring
+  ))).toBe(true);
   expect(await page.evaluate(() => window.FOOTBALL_LAB_DATA === window.FootballLabCore.data)).toBe(true);
+  expect(await page.evaluate(() => (
+    window.FootballStrictScoring.baseCore.data === window.FOOTBALL_LAB_DATA
+    && window.FootballStrictScoring.core.data === window.FOOTBALL_LAB_DATA
+  ))).toBe(true);
+
+  const strictEvaluation = await page.evaluate(() => window.FootballLabCore.calculateEvaluation({
+    match: { mode: "structure" },
+    prediction: { structureHomeGoals: 0, structureAwayGoals: 1, advance: "" },
+    actual: { homeGoals: 0, awayGoals: 2, advance: "" },
+  }));
+  expect(strictEvaluation.scoringPolicy).toBe("individual-goals-plus-exact-score");
+  expect(strictEvaluation.structureHomeGoalMatched).toBe(true);
+  expect(strictEvaluation.structureAwayGoalMatched).toBe(false);
+  expect(strictEvaluation.structureExactHit).toBe(false);
+
   await expect(page.locator(".subpage-hero .hero-text h1")).toHaveText("世足賽事驗證。");
   await expect(page.locator("#football-match-form .football-version")).toHaveText("模型 v1.6.0｜介面 v1.7.6");
   await expect(page.locator('script[src*="JS/football-lab.js"]')).toHaveCount(1);
