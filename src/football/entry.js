@@ -1,14 +1,14 @@
 // 世足賽事驗證｜ES Module 正式入口
 //
 // 主要流程複雜度：
-// - 模組解析與執行：時間 O(M)、空間 O(M)，M = 32 個相依元件。
+// - 模組解析與執行：時間 O(M)、空間 O(M)，M = 34 個相依元件。
 // - 啟動完整性檢查：時間／空間 O(G)，G = 必要契約數。
 // - 版本文案同步：時間／空間 O(1)。
 //
 // 更快替代方案比較：
-// - 舊版雲端與事件在點擊時各自猜測 window 核心、帳號與登入物件。
-// - 本階段先固定 workflow 核心快照，再建立具名雲端實例與事件控制器；登入物件仍動態讀取。
-// - 單一巨大布林式雖為 O(G)，但失敗時無法定位；本版保留同等成本並回報具名失敗契約。
+// - 舊版紀錄編輯在點擊時自行讀取全域核心、Render 與雲端，規則與 DOM 混在同一檔。
+// - 本階段以 review runtime 固定核心／Render，規則移到純模型，雲端保留動態 provider。
+// - 具名契約逐項回報失敗名稱，與單一巨大布林式同為 O(G)，但可直接定位回歸層。
 
 import "../../JS/cloud-config.js";
 import "../../JS/site-account.js";
@@ -27,15 +27,10 @@ import {
   footballCloud,
   footballEvents,
 } from "./application-runtime.js";
-import "../../JS/football-records-ux.js";
-import "../../JS/football-hit-ux.js";
-import "../../JS/football-strict-hit-ux.js";
-import "../../JS/football-record-display-ux.js";
-import "../../JS/football-knockout-enhancements.js";
-import "../../JS/football-knockout-record-ux.js";
-import "../../JS/football-team-name-ux.js";
-import "../../JS/football-direct-energy-ux.js";
-import "../../JS/football-record-edit.js";
+import {
+  footballReviewRuntime,
+  footballRecordEdit,
+} from "./review-runtime.js";
 import "../../JS/football-card-layout-unifier.js";
 import "../../JS/football-record-card-controls.js";
 import "../../JS/football-record-knockout-edit.js";
@@ -44,8 +39,8 @@ import "../../JS/football-record-status-visibility-fix.js";
 import "../../JS/football-performance-trends.js";
 import "../../JS/football-layout-optimizer.js";
 
-const MODULE_COUNT = 32;
-const NAMED_MODULE_COUNT = 10;
+const MODULE_COUNT = 34;
+const NAMED_MODULE_COUNT = 13;
 const INTERFACE_VERSION = "1.7.6";
 
 /** 時間／空間複雜度 O(1)。 */
@@ -78,6 +73,7 @@ const footballCoreLineage = Object.freeze({
   scored: scoredFootballCore,
   energy: footballEnergyAdapter.core,
   workflow: footballWorkflowRuntime.core,
+  review: footballReviewRuntime.core,
   final: window.FootballLabCore,
 });
 
@@ -86,15 +82,14 @@ const footballRenderLineage = Object.freeze({
   base: footballRender,
   energy: footballEnergyAdapter.ui,
   workflow: footballWorkflowRuntime.render,
+  review: footballReviewRuntime.render,
   final: window.FootballLabRender,
 });
 
-/**
- * 淘汰賽相容層只包裝寫入內容，不得分叉核心、登入、狀態與後端協定。
- * 時間／空間複雜度 O(1)。
- */
+/** 時間／空間複雜度 O(1)。 */
 const footballCloudLineage = Object.freeze({
   base: footballCloud,
+  review: footballReviewRuntime.cloudFinal,
   final: window.FootballLabCloud,
 });
 
@@ -113,6 +108,8 @@ function assertCoreContracts() {
     ["footballApplicationRuntime", Boolean(footballApplicationRuntime)],
     ["footballCloud", Boolean(footballCloud)],
     ["footballEvents", Boolean(footballEvents)],
+    ["footballReviewRuntime", Boolean(footballReviewRuntime)],
+    ["footballRecordEdit", Boolean(footballRecordEdit)],
   ]);
 
   assertContractGroup("世足資料與評分契約", [
@@ -164,9 +161,26 @@ function assertCoreContracts() {
     ["events-bound", footballEvents.isBound()],
   ]);
 
+  assertContractGroup("世足紀錄編輯執行層契約", [
+    ["review-global", window.FootballReviewRuntime === footballReviewRuntime],
+    ["review-stage", footballReviewRuntime.stage === "record-edit-ready"],
+    ["review-application", footballReviewRuntime.application === footballApplicationRuntime],
+    ["review-core", footballReviewRuntime.core === footballRecordEdit.core],
+    ["review-render", footballReviewRuntime.render === footballRecordEdit.ui],
+    ["review-cloud-base", footballReviewRuntime.cloudBase === footballCloud],
+    ["review-cloud-final", footballReviewRuntime.cloudFinal === window.FootballLabCloud],
+    ["review-model-global", window.FootballRecordEditModel === footballReviewRuntime.model],
+    ["review-editor-global", window.FootballLabRecordEdit === footballRecordEdit],
+    ["review-editor-link", footballReviewRuntime.editor === footballRecordEdit],
+    ["review-editor-bound", footballRecordEdit.isBound()],
+    ["review-editor-open", typeof footballRecordEdit.open === "function"],
+    ["review-editor-refresh", typeof footballRecordEdit.refresh === "function"],
+  ]);
+
   const finalCloud = footballCloudLineage.final;
   assertContractGroup("世足雲端包裝血統契約", [
     ["cloud-lineage-base", footballCloudLineage.base === footballCloud],
+    ["cloud-lineage-review", footballCloudLineage.review === footballReviewRuntime.cloudFinal],
     ["cloud-lineage-final", finalCloud === window.FootballLabCloud],
     ["cloud-wrapper-present", Boolean(finalCloud)],
     ["cloud-wrapper-separated", finalCloud !== footballCloud],
@@ -189,10 +203,12 @@ function assertCoreContracts() {
     ["lineage-scored-core", footballCoreLineage.scored === scoredFootballCore],
     ["lineage-energy-core", footballCoreLineage.energy === footballEnergyAdapter.core],
     ["lineage-workflow-core", footballCoreLineage.workflow === footballWorkflowRuntime.core],
+    ["lineage-review-core", footballCoreLineage.review === footballReviewRuntime.core],
     ["lineage-final-core", runtimeCore === window.FootballLabCore],
     ["lineage-base-render", footballRenderLineage.base === footballRender],
     ["lineage-energy-render", footballRenderLineage.energy === footballEnergyAdapter.ui],
     ["lineage-workflow-render", footballRenderLineage.workflow === footballWorkflowRuntime.render],
+    ["lineage-review-render", footballRenderLineage.review === footballReviewRuntime.render],
     ["lineage-final-render", runtimeRender === window.FootballLabRender],
     ["render-base-energy-separated", footballRenderLineage.base !== footballRenderLineage.energy],
     ["render-energy-workflow-separated", footballRenderLineage.energy !== footballRenderLineage.workflow],
@@ -214,10 +230,8 @@ function synchronizeVersionCopy() {
   const combinedLabel = `模型 v${modelVersion}｜介面 v${INTERFACE_VERSION}`;
 
   document.title = `Evan Tarot｜世足賽事驗證｜模型 v${modelVersion}・介面 v${INTERFACE_VERSION}`;
-
   const heroTitle = document.querySelector(".subpage-hero .hero-text h1");
   if (heroTitle) heroTitle.textContent = "世足賽事驗證。";
-
   const versionBadge = document.querySelector("#football-match-form .football-version");
   if (versionBadge) versionBadge.textContent = combinedLabel;
 }
@@ -240,13 +254,15 @@ window.FootballLabBundle = Object.freeze({
   energyModelKey: footballEnergyModel.modelKey,
   workflowStage: footballWorkflowRuntime.stage,
   applicationStage: footballApplicationRuntime.stage,
+  reviewStage: footballReviewRuntime.stage,
   cloudLayer: "esm-factory",
   cloudLayerCount: 2,
   cloudProtocol: footballCloud.protocol.join(","),
   eventLayer: "esm-factory",
-  coreLayerCount: 5,
+  recordEditLayer: "esm-model-and-controller",
+  coreLayerCount: 6,
   renderLayer: "esm",
-  renderLayerCount: 4,
+  renderLayerCount: 5,
   loadedAt: new Date().toISOString(),
 });
 

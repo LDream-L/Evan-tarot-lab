@@ -3,13 +3,14 @@
 // 正式依賴：cloud-config／site-account → workflow runtime 核心快照
 // → 具名 footballCloud → 具名事件控制器。
 //
-// 主要流程複雜度：
+// 主要函式複雜度：
 // - 模組初始化：時間／空間 O(1)。
 // - 契約檢查：時間／空間 O(1)。
 //
 // 更快替代方案比較：
-// - 由同步按鈕或事件送出時臨時讀取 window 核心，會依賴不可見的載入順序。
-// - 本層只在 workflow 完成後建立一次固定快照，後續同步與事件共用同一核心與雲端實例。
+// - 核心與 Render 固定於 workflow 完成後，避免事件層讀到較早版本。
+// - 雲端不能固定在事件建立時；事件送出會動態讀取最終 FootballLabCloud，
+//   才能沿用後載的淘汰賽摘要包裝。
 
 import { footballWorkflowRuntime } from "./workflow-runtime.js";
 import { createFootballCloud } from "./cloud.js";
@@ -35,14 +36,12 @@ export const footballCloud = createFootballCloud({
   autoInit: true,
 });
 
-// 相容介面必須先存在，事件層在實際送出時才透過同一實例呼叫 API。
 window.FootballLabCloud = footballCloud;
 window.FootballCloudModule = footballCloud;
 
 export const footballEvents = createFootballEvents({
   core: runtimeCore,
   ui: runtimeRender,
-  cloud: footballCloud,
   autoBind: true,
 });
 

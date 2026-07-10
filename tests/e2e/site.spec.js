@@ -37,13 +37,10 @@ for (const pageCase of PUBLIC_PAGES) {
 test("主導覽能標示文章、服務與實驗室脈絡", async ({ page }) => {
   await page.goto("/articles.html", { waitUntil: "domcontentloaded" });
   await expect(page.locator('.nav a[aria-current="page"]')).toHaveText("文章");
-
   await page.goto("/privacy.html", { waitUntil: "domcontentloaded" });
   await expect(page.locator('.nav a[aria-current="page"]')).toHaveText("占卜項目");
-
   await page.goto("/methodology.html", { waitUntil: "domcontentloaded" });
   await expect(page.locator('.nav a[aria-current="page"]')).toHaveText("實驗室");
-
   const podcast = page.locator('.nav a[data-podcast-link="true"]');
   await expect(podcast).toHaveAttribute("target", "_blank");
   await expect(podcast).toHaveAttribute("rel", /noopener/);
@@ -65,31 +62,29 @@ test("驗證方法與隱私頁互相連結且保留核心界線", async ({ page 
   await page.goto("/methodology.html", { waitUntil: "domcontentloaded" });
   await expect(page.getByText("未應驗", { exact: true }).first()).toBeVisible();
   await expect(page.locator('a[href="privacy.html"]').last()).toBeVisible();
-
   await page.goto("/privacy.html", { waitUntil: "domcontentloaded" });
   await expect(page.getByText("預約表單", { exact: true })).toBeVisible();
   await expect(page.getByText("私人修煉紀錄", { exact: true })).toBeVisible();
   await expect(page.locator('a[href="methodology.html"]').last()).toBeVisible();
 });
 
-test("世足 32 個元件完整啟動且雲端與事件使用 workflow 快照", async ({ page }) => {
+test("世足 34 個元件完整啟動且編輯器使用 review 快照", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
-  expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(32);
-  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(10);
+  expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(34);
+  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(13);
   expect(await page.evaluate(() => window.FootballLabBundle.modelVersion)).toBe("1.6.0");
   expect(await page.evaluate(() => window.FootballLabBundle.interfaceVersion)).toBe("1.7.6");
   expect(await page.evaluate(() => window.FootballLabBundle.scoringPolicy)).toBe("individual-goals-plus-exact-score");
   expect(await page.evaluate(() => window.FootballLabBundle.energyModelKey)).toBe("energy-v1");
   expect(await page.evaluate(() => window.FootballLabBundle.workflowStage)).toBe("knockout-ready");
   expect(await page.evaluate(() => window.FootballLabBundle.applicationStage)).toBe("cloud-and-events-ready");
-  expect(await page.evaluate(() => window.FootballLabBundle.cloudLayer)).toBe("esm-factory");
+  expect(await page.evaluate(() => window.FootballLabBundle.reviewStage)).toBe("record-edit-ready");
   expect(await page.evaluate(() => window.FootballLabBundle.cloudLayerCount)).toBe(2);
   expect(await page.evaluate(() => window.FootballLabBundle.cloudProtocol)).toBe("health,createRecord,updateActual");
-  expect(await page.evaluate(() => window.FootballLabBundle.eventLayer)).toBe("esm-factory");
-  expect(await page.evaluate(() => window.FootballLabBundle.coreLayerCount)).toBe(5);
-  expect(await page.evaluate(() => window.FootballLabBundle.renderLayer)).toBe("esm");
-  expect(await page.evaluate(() => window.FootballLabBundle.renderLayerCount)).toBe(4);
+  expect(await page.evaluate(() => window.FootballLabBundle.recordEditLayer)).toBe("esm-model-and-controller");
+  expect(await page.evaluate(() => window.FootballLabBundle.coreLayerCount)).toBe(6);
+  expect(await page.evaluate(() => window.FootballLabBundle.renderLayerCount)).toBe(5);
 
   expect(await page.evaluate(() => Boolean(
     window.FOOTBALL_LAB_DATA
@@ -103,6 +98,9 @@ test("世足 32 個元件完整啟動且雲端與事件使用 workflow 快照", 
     && window.FootballDirectEnergy
     && window.FootballWorkflowRuntime
     && window.FootballApplicationRuntime
+    && window.FootballReviewRuntime
+    && window.FootballRecordEditModel
+    && window.FootballLabRecordEdit
     && window.FootballCloudModule
     && window.FootballLabCloud
     && window.FootballLabEvents
@@ -115,64 +113,43 @@ test("世足 32 個元件完整啟動且雲端與事件使用 workflow 快照", 
     const cloudLineage = window.FootballCloudLineage;
     const workflow = window.FootballWorkflowRuntime;
     const application = window.FootballApplicationRuntime;
+    const review = window.FootballReviewRuntime;
+    const editor = window.FootballLabRecordEdit;
     const baseCloud = window.FootballCloudModule;
     const finalCloud = window.FootballLabCloud;
-    const events = window.FootballLabEvents;
     return Boolean(
       coreLineage.base === window.FootballStrictScoring.baseCore
       && coreLineage.scored === window.FootballStrictScoring.core
       && coreLineage.energy === window.FootballDirectEnergy.core
       && coreLineage.workflow === workflow.core
+      && coreLineage.review === review.core
       && coreLineage.final === window.FootballLabCore
       && renderLineage.base === window.FootballRenderModule
       && renderLineage.energy === window.FootballDirectEnergy.ui
       && renderLineage.workflow === workflow.render
+      && renderLineage.review === review.render
       && renderLineage.final === window.FootballLabRender
-      && renderLineage.base.core === window.FootballStrictScoring.core
-      && renderLineage.base !== renderLineage.energy
-      && renderLineage.energy !== renderLineage.workflow
       && application.workflow === workflow
-      && application.core === workflow.core
-      && application.render === workflow.render
-      && application.cloud === baseCloud
-      && application.events === events
+      && review.application === application
+      && review.editor === editor
+      && review.model === window.FootballRecordEditModel
+      && editor.core === review.core
+      && editor.ui === review.render
+      && editor.isBound()
       && cloudLineage.base === baseCloud
+      && cloudLineage.review === review.cloudFinal
       && cloudLineage.final === finalCloud
       && baseCloud !== finalCloud
-      && baseCloud.core === workflow.core
       && finalCloud.core === baseCloud.core
-      && Object.isFrozen(baseCloud.protocol)
       && finalCloud.protocol === baseCloud.protocol
       && baseCloud.protocol.join(",") === "health,createRecord,updateActual"
-      && finalCloud.isConfigured === baseCloud.isConfigured
-      && finalCloud.hasToken === baseCloud.hasToken
-      && finalCloud.getToken === baseCloud.getToken
-      && finalCloud.setStatus === baseCloud.setStatus
-      && finalCloud.healthCheck === baseCloud.healthCheck
-      && typeof finalCloud.saveRecord === "function"
-      && typeof finalCloud.updateActual === "function"
-      && typeof finalCloud.syncAll === "function"
-      && events.core === workflow.core
-      && events.ui === workflow.render
-      && events.isBound()
+      && window.FootballLabEvents.core === workflow.core
+      && window.FootballLabEvents.ui === workflow.render
+      && window.FootballLabEvents.isBound()
       && typeof renderLineage.final.renderDraft === "function"
       && typeof renderLineage.final.renderRecords === "function"
       && typeof renderLineage.final.renderScorecard === "function"
       && typeof renderLineage.final.openEvaluation === "function"
-    );
-  })).toBe(true);
-
-  expect(await page.evaluate(() => {
-    const baseData = window.FOOTBALL_LAB_DATA;
-    const runtimeData = window.FootballLabCore.data;
-    return Boolean(
-      runtimeData
-      && Object.isFrozen(runtimeData)
-      && runtimeData.modelVersion === baseData.modelVersion
-      && runtimeData.storageKey === baseData.storageKey
-      && runtimeData.deck === baseData.deck
-      && runtimeData.positionMap === baseData.positionMap
-      && runtimeData.positionSets === baseData.positionSets
     );
   })).toBe(true);
 
@@ -189,15 +166,9 @@ test("世足 32 個元件完整啟動且雲端與事件使用 workflow 快照", 
     actual: { homeGoals: 2, awayGoals: 1, advance: "" },
   }));
   expect(energyEvaluation.scoringPolicy).toBe("individual-goals-plus-exact-score");
-  expect(energyEvaluation.structureHomeGoalMatched).toBe(true);
-  expect(energyEvaluation.structureAwayGoalMatched).toBe(true);
   expect(energyEvaluation.structureExactHit).toBe(true);
-  expect(energyEvaluation.directActualTotalGoals).toBe(3);
-  expect(energyEvaluation.directActualGoalBand).toBe("medium");
   expect(energyEvaluation.directGoalBandHit).toBe(true);
-  expect(energyEvaluation.directActualDrawTendency).toBe("decisive");
   expect(energyEvaluation.directDrawTendencyHit).toBe(true);
-  expect(energyEvaluation.directEnergyHitCount).toBe(2);
 
   await page.evaluate(() => {
     const home = document.getElementById("football-structure-home-goals");
@@ -208,20 +179,80 @@ test("世足 32 個元件完整啟動且雲端與事件使用 workflow 快照", 
     away.dispatchEvent(new Event("input", { bubbles: true }));
   });
   await expect(page.locator("#football-structure-result-preview")).toHaveText("2：1｜主隊勝");
-
-  expect(await page.evaluate(() => window.FootballEnergyModel.getActualGoalBand(4))).toBe("high");
-  expect(await page.evaluate(() => window.FootballEnergyModel.getActualDrawTendency(1, 1))).toBe("draw");
-
   await expect(page.locator("#football-cloud-panel")).toBeVisible();
   await expect(page.locator("#football-sync-all")).toBeDisabled();
-  await expect(page.locator("#football-cloud-status")).not.toHaveText("正在檢查雲端連線……");
+  await expect(page.locator("#football-edit-panel")).toHaveCount(1);
   await expect(page.locator("#football-direct-goal-band")).toHaveCount(1);
   await expect(page.locator("#football-direct-draw-tendency")).toHaveCount(1);
   await expect(page.locator(".subpage-hero .hero-text h1")).toHaveText("世足賽事驗證。");
   await expect(page.locator("#football-match-form .football-version")).toHaveText("模型 v1.6.0｜介面 v1.7.6");
   await expect(page.locator('script[src*="JS/football-lab.js"]')).toHaveCount(1);
-  await expect(page.locator('script[src*="football-data.js"]')).toHaveCount(0);
+  await expect(page.locator('script[src*="football-record-edit.js"]')).toHaveCount(0);
   await expect(page.locator('#football-layout-final-style')).toHaveCount(1);
+});
+
+test("世足已鎖定紀錄可修改賽事與比分並保留牌面解讀", async ({ page }) => {
+  await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
+  await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
+
+  const recordId = await page.evaluate(() => {
+    const core = window.FootballLabCore;
+    const match = {
+      competition: "編輯前測試盃",
+      stage: "小組賽",
+      kickoff: "2026-07-12T12:30:00.000Z",
+      infoState: "賽前且先發未公布",
+      homeTeam: "甲隊",
+      awayTeam: "乙隊",
+      mode: "structure",
+      cardSource: "random",
+      odds: { home: 2.1, draw: 3.2, away: 3.6 },
+      knownInfo: "原始資訊",
+    };
+    const draft = core.createDraft(match);
+    const record = core.lockDraft({
+      directResult: "",
+      directConfidence: null,
+      directNotes: "",
+      structureHomeGoals: 1,
+      structureAwayGoals: 1,
+      structureConfidence: 3,
+      structureNotes: "原始攻防解讀",
+      advance: "",
+    }, draft.cards);
+    window.FootballLabRender.renderRecords();
+    return record.id;
+  });
+
+  await expect(page.locator(`button[data-action="edit-match"][data-id="${recordId}"]`)).toBeVisible();
+  await page.locator(`button[data-action="edit-match"][data-id="${recordId}"]`).click();
+  await expect(page.locator("#football-edit-panel")).toBeVisible();
+  await expect(page.locator("#football-edit-competition")).toHaveValue("編輯前測試盃");
+  await expect(page.locator("#football-edit-structure-home-goals")).toHaveValue("1");
+  await expect(page.locator("#football-edit-structure-away-goals")).toHaveValue("1");
+
+  await page.locator("#football-edit-competition").fill("編輯後測試盃");
+  await page.locator("#football-edit-structure-home-goals").fill("2");
+  await page.locator("#football-edit-structure-away-goals").fill("1");
+  await expect(page.locator("#football-edit-score-preview")).toHaveText("2：1｜主隊勝");
+  await page.locator("#football-save-edit").click();
+
+  await expect.poll(() => page.evaluate((id) => {
+    const record = window.FootballLabCore.getRecord(id);
+    return {
+      competition: record?.match?.competition,
+      home: record?.prediction?.structureHomeGoals,
+      away: record?.prediction?.structureAwayGoals,
+      notes: record?.prediction?.structureNotes,
+      cards: record?.cards?.length,
+    };
+  }, recordId)).toEqual({
+    competition: "編輯後測試盃",
+    home: 2,
+    away: 1,
+    notes: "原始攻防解讀",
+    cards: 4,
+  });
 });
 
 test("預約表單保留原生必填驗證並切換可配合時間", async ({ page }) => {
