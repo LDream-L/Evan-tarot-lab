@@ -1,5 +1,6 @@
 const fs = require("node:fs");
 const path = require("node:path");
+const esbuild = require("esbuild");
 
 const ROOT = path.resolve(__dirname, "..");
 const DIST = path.join(ROOT, "dist");
@@ -11,6 +12,7 @@ const EXCLUDED_DIRECTORIES = new Set([
   "node_modules",
   "playwright-report",
   "scripts",
+  "src",
   "test-results",
   "tests",
 ]);
@@ -33,6 +35,12 @@ const NAVIGATION_PAGES = new Map([
   ["football-lab.html", "lab"],
   ["timeflow.html", "lab"],
   ["practice.html", "lab"],
+]);
+
+const TIMEFLOW_RUNTIME = new Map([
+  ["ui.js", "timeflow-v5-ui.js"],
+  ["actions.js", "timeflow-v5-actions.js"],
+  ["bootstrap.js", "divination-map.js"],
 ]);
 
 const PODCAST_URL = "https://podcasts.apple.com/tw/podcast/%E6%9C%89%E9%BB%9E%E5%81%8F/id1896598359";
@@ -132,12 +140,49 @@ function copyProductionTree(sourceDirectory, targetDirectory, relativeDirectory 
 }
 
 /**
+ * 由可閱讀 source 產生時間流正式執行檔與 linked sourcemap。
+ * 時間／空間複雜度 O(B)，B 為三個 source 的總位元組數。
+ *
+ * 替代方案比較：
+ * - 直接維護單行壓縮檔：檔案小，但難以 code review、追蹤差異與除錯。
+ * - 只發布可閱讀 source：維護容易，但傳輸量較大且暴露完整註解。
+ * - 本方案：main 維護可閱讀 source，dist 發布壓縮檔與 sourcemap，兼顧維護與載入。
+ */
+function buildTimeflowRuntime() {
+  const sourceDirectory = path.join(ROOT, "src", "timeflow");
+  const outputDirectory = path.join(DIST, "JS");
+  fs.mkdirSync(outputDirectory, { recursive: true });
+
+  TIMEFLOW_RUNTIME.forEach((outputName, sourceName) => {
+    const sourcePath = path.join(sourceDirectory, sourceName);
+    const outputPath = path.join(outputDirectory, outputName);
+    if (!fs.existsSync(sourcePath)) {
+      throw new Error(`[build] 缺少時間流 source：src/timeflow/${sourceName}`);
+    }
+
+    esbuild.buildSync({
+      entryPoints: [sourcePath],
+      outfile: outputPath,
+      bundle: false,
+      minify: true,
+      sourcemap: "linked",
+      sourcesContent: true,
+      legalComments: "inline",
+      charset: "utf8",
+      target: ["es2020"],
+      logLevel: "silent",
+    });
+  });
+}
+
+/**
  * 完整建置入口。
- * 時間 O(F+B)，空間 O(D)。
+ * 時間 O(F+B)，空間 O(D+B)。
  */
 function build() {
   fs.rmSync(DIST, { recursive: true, force: true });
   copyProductionTree(ROOT, DIST);
+  buildTimeflowRuntime();
   fs.writeFileSync(path.join(DIST, ".nojekyll"), "", "utf8");
 
   const builtPages = [...NAVIGATION_PAGES.keys()].filter((fileName) =>
@@ -147,7 +192,9 @@ function build() {
     throw new Error(`[build] 預期 ${NAVIGATION_PAGES.size} 個導覽頁，實際 ${builtPages.length} 個`);
   }
 
-  console.log(`[build] 已產生 dist/，共統一 ${builtPages.length} 個頁面的主導覽`);
+  console.log(
+    `[build] 已產生 dist/：統一 ${builtPages.length} 個頁面導覽，並建置 ${TIMEFLOW_RUNTIME.size} 個時間流執行檔`
+  );
 }
 
 build();

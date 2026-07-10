@@ -25,6 +25,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install build dependencies
+        run: npm install --no-audit --no-fund
+
       - name: Validate required site files
         shell: bash
         run: |
@@ -38,6 +46,9 @@ jobs:
             package.json
             playwright.config.cjs
             scripts/build-site.cjs
+            src/timeflow/ui.js
+            src/timeflow/actions.js
+            src/timeflow/bootstrap.js
             JS/main.js
             JS/utils.js
             JS/site-hardening.js
@@ -61,6 +72,9 @@ jobs:
           set -euo pipefail
           node --check playwright.config.cjs
           node --check scripts/build-site.cjs
+          node --check src/timeflow/ui.js
+          node --check src/timeflow/actions.js
+          node --check src/timeflow/bootstrap.js
           node --check JS/main.js
           node --check JS/utils.js
           node --check JS/site-hardening.js
@@ -159,6 +173,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22
+
+      - name: Install build dependencies
+        run: npm install --no-audit --no-fund
 
       - name: Ensure Pages uses workflow publishing
         env:
