@@ -34,14 +34,15 @@ jobs:
           set -euo pipefail
           required=(
             index.html services.html privacy.html articles.html lab.html methodology.html
-            timeflow.html football-lab.html trust.css
+            timeflow.html football-lab.html trust.css site-shell.css
             package.json playwright.config.cjs
             scripts/build-site.cjs scripts/build-football.cjs
             src/timeflow/ui.js src/timeflow/actions.js src/timeflow/bootstrap.js
             src/football/entry.js
             JS/main.js JS/utils.js JS/site-hardening.js JS/booking-verified.js
             JS/timeflow-v5-core.js JS/timeflow-v5-layout.js
-            tests/build-site.test.cjs tests/football-bundle.test.cjs tests/e2e/site.spec.js
+            tests/build-site.test.cjs tests/football-bundle.test.cjs
+            tests/e2e/site.spec.js tests/e2e/accessibility.spec.js
             tests/main-loader.test.cjs tests/timeflow-core.test.cjs tests/timeflow-layout.test.cjs tests/site-smoke.sh
           )
           for file in "${required[@]}"; do
@@ -69,6 +70,7 @@ jobs:
           node --check tests/build-site.test.cjs
           node --check tests/football-bundle.test.cjs
           node --check tests/e2e/site.spec.js
+          node --check tests/e2e/accessibility.spec.js
           node --check tests/main-loader.test.cjs
           node --check tests/timeflow-core.test.cjs
           node --check tests/timeflow-layout.test.cjs
@@ -111,7 +113,7 @@ jobs:
         run: npm install --no-audit --no-fund
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-      - name: Run Playwright E2E against dist
+      - name: Run Playwright and axe against dist
         run: npm run test:e2e
       - name: Upload Playwright failure report
         if: failure()
