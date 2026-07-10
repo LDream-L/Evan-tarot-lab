@@ -37,6 +37,7 @@ jobs:
             timeflow.html
             JS/utils.js
             JS/site-hardening.js
+            JS/booking-verified.js
           )
           for file in "${required[@]}"; do
             test -f "$file" || { echo "Missing required file: $file"; exit 1; }
@@ -49,6 +50,7 @@ jobs:
           node --check JS/utils.js
           node --check JS/site-hardening.js
           node --check JS/booking.js
+          node --check JS/booking-verified.js
           node --check JS/practice-auth.js
 
   deploy:

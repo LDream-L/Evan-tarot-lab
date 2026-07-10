@@ -158,7 +158,7 @@
             <textarea name="message" placeholder="可以寫：目前狀況、你最在意的是什麼、希望占卜幫你釐清什麼。" rows="4"></textarea>
           </label>
           <button class="btn primary full" type="submit">送出預約需求</button>
-          <p class="tool-note-small">因 Apps Script 跨網域限制，網站只能確認請求已送出，無法在前端確認是否完成入庫；若 24 小時內未收到回覆，請改由 IG 或 Email 聯絡。</p>
+          <p class="tool-note-small">後端確認成功時會顯示預約編號；若橋接服務暫時無法回傳結果，表單會保留並顯示「等待確認」，不會誤報為已完成入庫。</p>
           <p aria-live="polite" class="tool-feedback-message hidden" id="booking-message"></p>
         </form>
       </div>
@@ -175,6 +175,7 @@
   <script src="JS/utils.js?v=20260710-hardening-v1"></script>
   <script src="JS/cloud-config.js?v=20260629-booking-v1"></script>
   <script src="JS/booking.js?v=20260710-booking-reliability-v1"></script>
+  <script src="JS/booking-verified.js?v=20260710-verified-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
   <script src="JS/main.js?v=20260702-podcast-nav-v2"></script>
 </body>
