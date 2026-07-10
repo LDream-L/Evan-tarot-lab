@@ -114,7 +114,7 @@ function createHarness() {
   };
 }
 
-(function testConcurrentSuccess() {
+async function testConcurrentSuccess() {
   const harness = createHarness();
   let ready = false;
 
@@ -138,11 +138,9 @@ function createHarness() {
   ready = true;
   harness.scripts.get("module-a").emit("load");
 
-  return Promise.all([first, second]).then((results) => {
-    assert.deepEqual(results, [true, true]);
-    assert.equal(harness.scripts.get("module-a").dataset.loadState, "loaded");
-  });
-})();
+  assert.deepEqual(await Promise.all([first, second]), [true, true]);
+  assert.equal(harness.scripts.get("module-a").dataset.loadState, "loaded");
+}
 
 async function testFailureThenRetry() {
   const harness = createHarness();
@@ -237,6 +235,7 @@ async function testTimeoutCompletesAndAllowsRetry() {
 }
 
 async function run() {
+  await testConcurrentSuccess();
   await testFailureThenRetry();
   await testExistingLoadedButNotReady();
   await testTimeoutCompletesAndAllowsRetry();
