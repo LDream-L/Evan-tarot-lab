@@ -94,6 +94,13 @@ function applyStaticSiteShell(source, fileName) {
     return `<main id="main-content" tabindex="-1"${attributes}>`;
   });
 
+  if (!output.includes('src="JS/site-shell.js')) {
+    output = output.replace(
+      "</body>",
+      '  <script src="JS/site-shell.js?v=20260710-skip-focus-v1"></script>\n</body>'
+    );
+  }
+
   return output;
 }
 
