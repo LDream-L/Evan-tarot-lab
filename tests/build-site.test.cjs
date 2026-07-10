@@ -11,9 +11,11 @@ const EXPECTED_NAVIGATION = ["介紹", "占卜項目", "文章", "實驗室", "P
 const PAGE_CURRENT = new Map([
   ["index.html", "介紹"],
   ["services.html", "占卜項目"],
+  ["privacy.html", "占卜項目"],
   ["articles.html", "文章"],
   ["article.html", "文章"],
   ["lab.html", "實驗室"],
+  ["methodology.html", "實驗室"],
   ["lost-item.html", "實驗室"],
   ["football-lab.html", "實驗室"],
   ["timeflow.html", "實驗室"],
@@ -46,9 +48,6 @@ function extractNavigation(html) {
 /**
  * 驗證時間流 source → runtime → sourcemap 關係。
  * 時間／空間複雜度 O(B)，B 為三組 source 與 map 的總大小。
- *
- * 替代方案比較：只檢查檔案存在無法證明 map 指回正式 source；本測試會解析 map，
- * 確認 sources、sourcesContent 與壓縮執行檔的 linked 註記都完整。
  */
 function verifyTimeflowRuntime() {
   TIMEFLOW_RUNTIME.forEach((sourceName, runtimeName) => {
@@ -65,10 +64,7 @@ function verifyTimeflowRuntime() {
     const sourceMap = JSON.parse(fs.readFileSync(mapPath, "utf8"));
 
     assert.ok(source.split("\n").length > 20, `${sourceName} 不應是單行原始碼`);
-    assert.ok(
-      runtime.includes(`sourceMappingURL=${runtimeName}.map`),
-      `${runtimeName} 未連結 sourcemap`
-    );
+    assert.ok(runtime.includes(`sourceMappingURL=${runtimeName}.map`), `${runtimeName} 未連結 sourcemap`);
     assert.ok(
       sourceMap.sources.some((value) => String(value).endsWith(`src/timeflow/${sourceName}`)),
       `${runtimeName}.map 未指向 ${sourceName}`
@@ -81,8 +77,39 @@ function verifyTimeflowRuntime() {
 }
 
 /**
- * 建置驗證：時間 O(P×H+B)，空間 O(H+B)，P 為固定頁數。
+ * 驗證信任內容與實驗室存取分區。
+ * 時間／空間複雜度 O(H)，H 為三個頁面的總 HTML 長度。
+ *
+ * 替代方案比較：只檢查檔案存在無法防止頁面失去核心說明或交叉連結；
+ * 本測試鎖定最小必要文案與連結，不限制日後擴寫內容。
  */
+function verifyTrustArchitecture() {
+  const lab = fs.readFileSync(path.join(DIST, "lab.html"), "utf8");
+  const methodology = fs.readFileSync(path.join(DIST, "methodology.html"), "utf8");
+  const privacy = fs.readFileSync(path.join(DIST, "privacy.html"), "utf8");
+  const services = fs.readFileSync(path.join(DIST, "services.html"), "utf8");
+
+  assert.ok(lab.includes('id="lab-public-tools"'));
+  assert.ok(lab.includes('id="lab-research-workspace"'));
+  assert.ok(lab.includes('id="lab-private-tools"'));
+  assert.ok(lab.includes("模型 v1.6.0｜介面 v1.7.6"));
+  assert.ok(lab.includes('href="methodology.html"'));
+  assert.ok(lab.includes('href="privacy.html"'));
+
+  assert.ok(methodology.includes("保留第一次完整判讀"));
+  assert.ok(methodology.includes("未應驗"));
+  assert.ok(methodology.includes('href="privacy.html"'));
+
+  assert.ok(privacy.includes("localStorage"));
+  assert.ok(privacy.includes("Google Sheets"));
+  assert.ok(privacy.includes("查詢、更正或刪除"));
+  assert.ok(privacy.includes('href="methodology.html"'));
+
+  assert.ok(services.includes('href="privacy.html"'));
+  assert.ok(services.includes('href="methodology.html"'));
+}
+
+/** 建置驗證：時間 O(P×H+B)，空間 O(H+B)。 */
 function run() {
   execFileSync(process.execPath, [BUILD_SCRIPT], { cwd: ROOT, stdio: "inherit" });
 
@@ -90,11 +117,7 @@ function run() {
     const html = fs.readFileSync(path.join(DIST, fileName), "utf8");
     const links = extractNavigation(html);
 
-    assert.deepEqual(
-      links.map((link) => link.text),
-      EXPECTED_NAVIGATION,
-      `${fileName} 導覽順序不一致`
-    );
+    assert.deepEqual(links.map((link) => link.text), EXPECTED_NAVIGATION, `${fileName} 導覽順序不一致`);
 
     const currentLinks = links.filter((link) => link.attributes.includes('aria-current="page"'));
     assert.equal(currentLinks.length, 1, `${fileName} 應只有一個 aria-current`);
@@ -109,17 +132,14 @@ function run() {
   });
 
   const builtMain = fs.readFileSync(path.join(DIST, "JS", "main.js"), "utf8");
-  assert.equal(
-    builtMain.includes("  normalizeSiteNavigation();"),
-    false,
-    "正式 main.js 不應在 DOMContentLoaded 後重排導覽"
-  );
+  assert.equal(builtMain.includes("  normalizeSiteNavigation();"), false, "正式 main.js 不應在 DOMContentLoaded 後重排導覽");
   assert.ok(
     builtMain.includes("主導覽已由 scripts/build-site.cjs 在建置期靜態產生"),
     "正式 main.js 應保留建置期導覽註記"
   );
 
   verifyTimeflowRuntime();
+  verifyTrustArchitecture();
 
   assert.ok(fs.existsSync(path.join(DIST, ".nojekyll")), "dist 必須包含 .nojekyll");
   assert.equal(fs.existsSync(path.join(DIST, "package.json")), false, "不得發布 package.json");
