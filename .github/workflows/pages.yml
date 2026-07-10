@@ -38,10 +38,11 @@ jobs:
             package.json playwright.config.cjs
             scripts/build-site.cjs scripts/build-football.cjs
             src/timeflow/ui.js src/timeflow/actions.js src/timeflow/bootstrap.js
-            src/football/entry.js src/football/data.js src/football/core.js
+            src/football/entry.js src/football/data.js src/football/core.js src/football/scoring.js
             JS/main.js JS/utils.js JS/site-shell.js JS/site-hardening.js JS/booking-verified.js
             JS/timeflow-v5-core.js JS/timeflow-v5-layout.js
-            tests/build-site.test.cjs tests/football-bundle.test.cjs tests/football-core-esm.test.cjs
+            tests/build-site.test.cjs tests/football-bundle.test.cjs
+            tests/football-core-esm.test.cjs tests/football-scoring-esm.test.cjs
             tests/e2e/site.spec.js tests/e2e/accessibility.spec.js
             tests/main-loader.test.cjs tests/timeflow-core.test.cjs tests/timeflow-layout.test.cjs tests/site-smoke.sh
           )
@@ -61,6 +62,7 @@ jobs:
           node --check src/football/entry.js
           node --check src/football/data.js
           node --check src/football/core.js
+          node --check src/football/scoring.js
           node --check JS/main.js
           node --check JS/utils.js
           node --check JS/site-shell.js
@@ -73,6 +75,7 @@ jobs:
           node --check tests/build-site.test.cjs
           node --check tests/football-bundle.test.cjs
           node --check tests/football-core-esm.test.cjs
+          node --check tests/football-scoring-esm.test.cjs
           node --check tests/e2e/site.spec.js
           node --check tests/e2e/accessibility.spec.js
           node --check tests/main-loader.test.cjs
@@ -87,6 +90,8 @@ jobs:
         run: node tests/timeflow-layout.test.cjs
       - name: Run football named core tests
         run: node tests/football-core-esm.test.cjs
+      - name: Run football named scoring tests
+        run: node tests/football-scoring-esm.test.cjs
       - name: Build and verify production site
         run: npm run test:build
       - name: Verify football bundle
