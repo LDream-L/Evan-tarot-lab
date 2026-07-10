@@ -2,8 +2,18 @@
 // timeflow-v5-core.js
 // 主題時間流 v5：資料模型、遷移、日期與軟刪除
 // ==============================
-// 主要函式：normalizeState O(T+L+N+E) / rebuildIndexes O(T+L+N+E)，空間 O(T+L+N+E)。
-// 快速方案：以 Map / Set 取代每次線性搜尋；刪除使用批次標記，不重建整份資料。
+// 主要函式複雜度：
+// - normalizeState：時間／空間 O(T+L+N+E)
+// - rebuildIndexes：時間／空間 O(T+L+N+E)
+// - descendants：時間 O(D)、空間 O(D)，D 為實際後代時間線數
+// - sortNodes：時間 O(N log N)、空間 O(N)，日期鍵只計算一次
+//
+// 更快替代方案比較：
+// - 暴力法：每次查後代都反覆掃描全部時間線，最壞 O(L²)。
+// - 本實作：重建索引時預先建立 parent timeline → children 查表，查詢只走實際後代。
+// - 暴力排序：比較器內重複解析日期，排序期間會重算 O(N log N) 次。
+// - 本實作：decorate-sort-undecorate，先建立日期鍵再排序。
+// ==============================
 (function initTimeflowCore(TF) {
   "use strict";
 
@@ -28,7 +38,12 @@
 
   const ctx = TF.ctx = {
     state: null,
-    topicIndex: new Map(), timelineIndex: new Map(), nodeIndex: new Map(), linkIndex: new Map(),
+    topicIndex: new Map(),
+    timelineIndex: new Map(),
+    nodeIndex: new Map(),
+    linkIndex: new Map(),
+    childrenByTimelineId: new Map(),
+    childTimelinesByParentNodeId: new Map(),
   };
 
   const nowIso = () => window.nowTaipeiISO ? window.nowTaipeiISO() : new Date().toISOString();
@@ -160,24 +175,78 @@
     return { version: C.VERSION, topics, timelines, nodes, links: (Array.isArray(raw.links) ? raw.links : []).map(normalizeLink), ui: { zoom: clamp(Number(ui.zoom || .85), C.MIN_ZOOM, C.MAX_ZOOM), panX: Number(ui.panX || 0), panY: Number(ui.panY || 0), selectedId: String(ui.selectedId || ""), activeTopicId: String(ui.activeTopicId || fallbackTopic), activeTimelineId: String(ui.activeTimelineId || fallbackLine), viewMode: ui.viewMode === "all" ? "all" : "single", filterStatus: C.STATUSES[ui.filterStatus] ? ui.filterStatus : "all", filterCategory: C.CATEGORIES[ui.filterCategory] ? ui.filterCategory : "all", search: String(ui.search || "") } };
   }
 
+  /** 本機載入：時間 O(T+L+N+E)，空間 O(T+L+N+E)。 */
   function load() {
-    for (const key of [C.STORAGE_KEY, ...C.LEGACY_KEYS]) {
-      const text = localStorage.getItem(key); if (!text) continue;
-      try { const raw = JSON.parse(text), state = normalizeState(raw); if (key !== C.STORAGE_KEY || raw.version !== C.VERSION) localStorage.setItem(C.STORAGE_KEY, JSON.stringify(state)); return state; }
-      catch (error) { console.warn(`[timeflow] 無法讀取 ${key}`, error); }
+    try {
+      for (const key of [C.STORAGE_KEY, ...C.LEGACY_KEYS]) {
+        const text = window.localStorage.getItem(key);
+        if (!text) continue;
+        try {
+          const raw = JSON.parse(text);
+          const state = normalizeState(raw);
+          if (key !== C.STORAGE_KEY || raw.version !== C.VERSION) {
+            window.localStorage.setItem(C.STORAGE_KEY, JSON.stringify(state));
+          }
+          return state;
+        } catch (error) {
+          console.warn(`[timeflow] 無法讀取 ${key}`, error);
+        }
+      }
+    } catch (error) {
+      console.warn("[timeflow] 瀏覽器不允許讀取 localStorage，改用暫存資料。", error);
     }
     return initialState();
   }
 
-  function save() { ctx.state.version = C.VERSION; localStorage.setItem(C.STORAGE_KEY, JSON.stringify(ctx.state)); }
+  /** 本機儲存：時間／空間 O(S)，S 為序列化後資料量。 */
+  function save() {
+    ctx.state.version = C.VERSION;
+    try {
+      window.localStorage.setItem(C.STORAGE_KEY, JSON.stringify(ctx.state));
+      return true;
+    } catch (error) {
+      console.error("[timeflow] 無法儲存 localStorage。", error);
+      return false;
+    }
+  }
 
-  /** 查表建立：時間/空間 O(T+L+N+E)。 */
+  /** 查表建立：時間／空間 O(T+L+N+E)。 */
   function rebuildIndexes() {
-    const s = ctx.state;
-    ctx.topicIndex = new Map(s.topics.map((v) => [v.id, v]));
-    ctx.timelineIndex = new Map(s.timelines.map((v) => [v.id, v]));
-    ctx.nodeIndex = new Map(s.nodes.map((v) => [v.id, v]));
-    ctx.linkIndex = new Map(s.links.map((v) => [v.id, v]));
+    const state = ctx.state;
+    const topicIndex = new Map();
+    const timelineIndex = new Map();
+    const nodeIndex = new Map();
+    const linkIndex = new Map();
+
+    state.topics.forEach((item) => topicIndex.set(item.id, item));
+    state.timelines.forEach((item) => timelineIndex.set(item.id, item));
+    state.nodes.forEach((item) => nodeIndex.set(item.id, item));
+    state.links.forEach((item) => linkIndex.set(item.id, item));
+
+    const childrenByTimelineId = new Map();
+    const childTimelinesByParentNodeId = new Map();
+
+    state.timelines.forEach((line) => {
+      const parentNodeId = String(line.parentNodeId || "");
+      if (!parentNodeId) return;
+
+      const parentNode = nodeIndex.get(parentNodeId);
+      const parentTimelineId = String(parentNode?.timelineId || "");
+      if (!parentTimelineId || parentTimelineId === line.id) return;
+
+      if (!childrenByTimelineId.has(parentTimelineId)) childrenByTimelineId.set(parentTimelineId, []);
+      childrenByTimelineId.get(parentTimelineId).push(line.id);
+
+      if (!childTimelinesByParentNodeId.has(parentNodeId)) childTimelinesByParentNodeId.set(parentNodeId, []);
+      childTimelinesByParentNodeId.get(parentNodeId).push(line.id);
+    });
+
+    ctx.topicIndex = topicIndex;
+    ctx.timelineIndex = timelineIndex;
+    ctx.nodeIndex = nodeIndex;
+    ctx.linkIndex = linkIndex;
+    ctx.childrenByTimelineId = childrenByTimelineId;
+    ctx.childTimelinesByParentNodeId = childTimelinesByParentNodeId;
   }
 
   const activeTopics = () => ctx.state.topics.filter((v) => !v.deletedAt);
@@ -211,49 +280,81 @@
     const y = Number(node.dateValue); return { start: dayNumber(y, 1, 1), end: dayNumber(y, 12, 31), label: `${y}（月日不詳）` };
   }
 
-  const sortValue = (node) => dateRange(node).start ?? Number.POSITIVE_INFINITY;
-  function sortNodes(list) { return list.slice().sort((a, b) => sortValue(a) - sortValue(b) || String(a.createdAt).localeCompare(String(b.createdAt))); }
+  /** 日期排序：時間 O(N log N)，空間 O(N)。日期範圍只計算一次。 */
+  function sortNodes(list) {
+    return list
+      .map((node, originalIndex) => ({
+        node,
+        originalIndex,
+        start: dateRange(node).start ?? Number.POSITIVE_INFINITY,
+        createdAt: String(node.createdAt || ""),
+      }))
+      .sort((a, b) =>
+        a.start - b.start
+        || a.createdAt.localeCompare(b.createdAt)
+        || a.originalIndex - b.originalIndex
+      )
+      .map((entry) => entry.node);
+  }
+
   const parentLineId = (line) => line?.parentNodeId ? (ctx.nodeIndex.get(line.parentNodeId)?.timelineId || "") : "";
 
-  /** 子時間線查找：時間 O(L²) 最壞；一般資料量小。更快替代為 children Map，可在大量案例時啟用。 */
+  /** 後代查詢：時間 O(D)，空間 O(D)，D 為實際走訪的後代數。 */
   function descendants(rootId) {
-    const set = new Set([rootId]); let changed = true;
-    while (changed) { changed = false; ctx.state.timelines.forEach((line) => { if (!set.has(line.id) && set.has(parentLineId(line))) { set.add(line.id); changed = true; } }); }
-    return set;
+    const found = new Set([rootId]);
+    const queue = [rootId];
+
+    for (let cursor = 0; cursor < queue.length; cursor += 1) {
+      const parentId = queue[cursor];
+      const children = ctx.childrenByTimelineId.get(parentId) || [];
+      children.forEach((childId) => {
+        if (found.has(childId)) return;
+        found.add(childId);
+        queue.push(childId);
+      });
+    }
+
+    return found;
   }
 
   const markDeleted = (item, batch, at) => { item.deletedAt = at; item.deletedBatchId = batch; };
+
   function deleteNode(nodeId, includeChildren) {
     const node = ctx.nodeIndex.get(nodeId); if (!node) return;
     const batch = id("trash"), at = nowIso(), lineIds = new Set();
-    if (includeChildren) ctx.state.timelines.forEach((line) => { if (line.parentNodeId === nodeId) descendants(line.id).forEach((v) => lineIds.add(v)); });
+
+    if (includeChildren) {
+      const directChildren = ctx.childTimelinesByParentNodeId.get(nodeId) || [];
+      directChildren.forEach((lineId) => descendants(lineId).forEach((value) => lineIds.add(value)));
+    }
+
     markDeleted(node, batch, at);
     ctx.state.timelines.forEach((line) => { if (lineIds.has(line.id)) markDeleted(line, batch, at); });
-    ctx.state.nodes.forEach((v) => { if (lineIds.has(v.timelineId)) markDeleted(v, batch, at); });
-    const deletedNodeIds = new Set(ctx.state.nodes.filter((v) => v.deletedBatchId === batch).map((v) => v.id));
-    ctx.state.links.forEach((v) => { if (v.fromNodeId === nodeId || v.toNodeId === nodeId || deletedNodeIds.has(v.fromNodeId) || deletedNodeIds.has(v.toNodeId)) markDeleted(v, batch, at); });
+    ctx.state.nodes.forEach((value) => { if (lineIds.has(value.timelineId)) markDeleted(value, batch, at); });
+    const deletedNodeIds = new Set(ctx.state.nodes.filter((value) => value.deletedBatchId === batch).map((value) => value.id));
+    ctx.state.links.forEach((value) => { if (value.fromNodeId === nodeId || value.toNodeId === nodeId || deletedNodeIds.has(value.fromNodeId) || deletedNodeIds.has(value.toNodeId)) markDeleted(value, batch, at); });
     ctx.state.ui.selectedId = "";
   }
 
   function deleteTimeline(rootId) {
     const batch = id("trash"), at = nowIso(), lineIds = descendants(rootId);
-    ctx.state.timelines.forEach((v) => { if (lineIds.has(v.id)) markDeleted(v, batch, at); });
-    ctx.state.nodes.forEach((v) => { if (lineIds.has(v.timelineId)) markDeleted(v, batch, at); });
-    const nodeIds = new Set(ctx.state.nodes.filter((v) => v.deletedBatchId === batch).map((v) => v.id));
-    ctx.state.links.forEach((v) => { if (nodeIds.has(v.fromNodeId) || nodeIds.has(v.toNodeId)) markDeleted(v, batch, at); });
+    ctx.state.timelines.forEach((value) => { if (lineIds.has(value.id)) markDeleted(value, batch, at); });
+    ctx.state.nodes.forEach((value) => { if (lineIds.has(value.timelineId)) markDeleted(value, batch, at); });
+    const nodeIds = new Set(ctx.state.nodes.filter((value) => value.deletedBatchId === batch).map((value) => value.id));
+    ctx.state.links.forEach((value) => { if (nodeIds.has(value.fromNodeId) || nodeIds.has(value.toNodeId)) markDeleted(value, batch, at); });
   }
 
   function deleteTopic(topicId) {
-    const batch = id("trash"), at = nowIso(), lineIds = new Set(ctx.state.timelines.filter((v) => v.topicId === topicId).map((v) => v.id));
+    const batch = id("trash"), at = nowIso(), lineIds = new Set(ctx.state.timelines.filter((value) => value.topicId === topicId).map((value) => value.id));
     const topic = ctx.topicIndex.get(topicId); if (topic) markDeleted(topic, batch, at);
-    ctx.state.timelines.forEach((v) => { if (lineIds.has(v.id)) markDeleted(v, batch, at); });
-    ctx.state.nodes.forEach((v) => { if (lineIds.has(v.timelineId)) markDeleted(v, batch, at); });
-    const nodeIds = new Set(ctx.state.nodes.filter((v) => v.deletedBatchId === batch).map((v) => v.id));
-    ctx.state.links.forEach((v) => { if (nodeIds.has(v.fromNodeId) || nodeIds.has(v.toNodeId)) markDeleted(v, batch, at); });
+    ctx.state.timelines.forEach((value) => { if (lineIds.has(value.id)) markDeleted(value, batch, at); });
+    ctx.state.nodes.forEach((value) => { if (lineIds.has(value.timelineId)) markDeleted(value, batch, at); });
+    const nodeIds = new Set(ctx.state.nodes.filter((value) => value.deletedBatchId === batch).map((value) => value.id));
+    ctx.state.links.forEach((value) => { if (nodeIds.has(value.fromNodeId) || nodeIds.has(value.toNodeId)) markDeleted(value, batch, at); });
   }
 
   function restoreBatch(batch) {
-    [ctx.state.topics, ctx.state.timelines, ctx.state.nodes, ctx.state.links].forEach((list) => list.forEach((v) => { if (v.deletedBatchId === batch) { v.deletedAt = ""; v.deletedBatchId = ""; } }));
+    [ctx.state.topics, ctx.state.timelines, ctx.state.nodes, ctx.state.links].forEach((list) => list.forEach((value) => { if (value.deletedBatchId === batch) { value.deletedAt = ""; value.deletedBatchId = ""; } }));
   }
 
   Object.assign(TF, { C, nowIso, today, id, clamp, esc, truncate, rgba, tags, createTopic, createTimeline, createNode, initialState, normalizeState, load, save, rebuildIndexes, activeTopics, activeTimelines, activeNodes, topicTitle, topicColor, lineTitle, lineTopic, ensureSelection, dayNumber, dayParts, dateRange, sortNodes, parentLineId, descendants, deleteNode, deleteTimeline, deleteTopic, restoreBatch, normalizeLink });
