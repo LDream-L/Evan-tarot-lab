@@ -41,7 +41,8 @@ import "../../JS/football-performance-trends.js";
 import "../../JS/football-layout-optimizer.js";
 
 const MODULE_COUNT = 36;
-const NAMED_MODULE_COUNT = 17;
+// guard 是決勝編輯 runtime 的子控制器，不另計為頂層模型／執行層。
+const NAMED_MODULE_COUNT = 16;
 const INTERFACE_VERSION = "1.7.6";
 
 /** 時間／空間複雜度 O(1)。 */
