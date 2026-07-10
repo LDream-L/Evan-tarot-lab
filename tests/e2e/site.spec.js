@@ -101,7 +101,7 @@ test("預約表單保留原生必填驗證並切換可配合時間", async ({ pa
   expect(await form.evaluate((element) => element.checkValidity())).toBe(true);
   await page.locator('select[name="mode"]').selectOption("text");
   await expect(availability).toBeHidden();
-  await expect(page.locator('a[href="privacy.html"]')).toBeVisible();
+  await expect(page.getByRole("link", { name: "資料與隱私說明", exact: true })).toBeVisible();
 });
 
 test("時間流未登入時仍呈現瀏覽介面", async ({ page }) => {
