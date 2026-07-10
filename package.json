@@ -1,0 +1,12 @@
+{
+  "name": "evan-tarot-lab",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Evan Tarot 靜態網站與瀏覽器端回歸測試",
+  "scripts": {
+    "test:e2e": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.55.0"
+  }
+}
