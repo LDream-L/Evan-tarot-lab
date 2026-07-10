@@ -72,13 +72,15 @@ test("驗證方法與隱私頁互相連結且保留核心界線", async ({ page 
   await expect(page.locator('a[href="methodology.html"]').last()).toBeVisible();
 });
 
-test("世足 29 個模組由單一 bundle 完整啟動且版本顯示一致", async ({ page }) => {
+test("世足 29 個模組由單一 bundle 完整啟動且兩個核心使用具名 imports", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
   expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(29);
+  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(2);
   expect(await page.evaluate(() => window.FootballLabBundle.modelVersion)).toBe("1.6.0");
   expect(await page.evaluate(() => window.FootballLabBundle.interfaceVersion)).toBe("1.7.6");
   expect(await page.evaluate(() => Boolean(window.FOOTBALL_LAB_DATA && window.FootballLabCore))).toBe(true);
+  expect(await page.evaluate(() => window.FOOTBALL_LAB_DATA === window.FootballLabCore.data)).toBe(true);
   await expect(page.locator(".subpage-hero .hero-text h1")).toHaveText("世足賽事驗證。");
   await expect(page.locator("#football-match-form .football-version")).toHaveText("模型 v1.6.0｜介面 v1.7.6");
   await expect(page.locator('script[src*="JS/football-lab.js"]')).toHaveCount(1);

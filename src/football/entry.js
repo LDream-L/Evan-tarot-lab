@@ -2,19 +2,19 @@
 //
 // 主要流程複雜度：
 // - 模組解析與執行：時間 O(M)、空間 O(M)，M = 29 個相依模組。
-// - 啟動完整性檢查：時間 O(G)、空間 O(G)，G = 必要全域 API 數。
+// - 啟動完整性檢查：時間 O(G)、空間 O(G)，G = 必要核心 API 數。
 // - 版本文案同步：時間／空間 O(1)。
 //
 // 更快替代方案比較：
-// - 舊版：瀏覽器動態建立 29 個 script，雖可平行預載，仍需維護隱性執行順序。
-// - 本版：由 ES Module import 明確記錄相依順序，建置時合併成單一 bundle。
-// - 一次把所有 window API 改為具名 export：架構較純，但同時改動資料、UI、雲端與編輯層，回歸風險過高。
-// - 本階段保留既有 window API，只替換載入與建置邊界；後續再分層改為具名 export。
+// - 舊版：瀏覽器動態建立 29 個 script，並以 window 全域傳遞資料與核心函式。
+// - 本階段：資料層與計算核心使用具名 ES imports；其餘 27 個模組仍由 side-effect imports 相容載入。
+// - 一次改完全部模組：可立即消除全域，但資料、UI、編輯與雲端同步同時變更，回歸風險過高。
+// - 分層轉換：先建立真正的資料／核心 exports，再依評分、呈現、編輯與雲端層逐批遷移。
 
 import "../../JS/cloud-config.js";
 import "../../JS/site-account.js";
-import "../../JS/football-data.js";
-import "../../JS/football-core.js";
+import { footballData } from "./data.js";
+import { footballCore } from "./core.js";
 import "../../JS/football-strict-scoring.js";
 import "../../JS/football-render.js";
 import "../../JS/football-advance-visibility.js";
@@ -42,33 +42,28 @@ import "../../JS/football-performance-trends.js";
 import "../../JS/football-layout-optimizer.js";
 
 const MODULE_COUNT = 29;
+const NAMED_MODULE_COUNT = 2;
 const INTERFACE_VERSION = "1.7.6";
-const REQUIRED_GLOBALS = Object.freeze([
-  "FOOTBALL_LAB_DATA",
-  "FootballLabCore",
-]);
 
 /**
- * 確認所有基礎模組已完成執行。
- * 時間／空間複雜度 O(G)，G 為固定必要 API 數。
+ * 確認具名 imports 與相容 window API 指向同一物件。
+ * 時間／空間複雜度 O(1)。
  */
-function assertRequiredGlobals() {
-  const missing = REQUIRED_GLOBALS.filter((name) => !window[name]);
-  if (missing.length) {
-    throw new Error(`世足模組啟動不完整：${missing.join("、")}`);
+function assertCoreContracts() {
+  if (!footballData || !footballCore) {
+    throw new Error("世足資料層或核心模組尚未載入。");
+  }
+  if (window.FOOTBALL_LAB_DATA !== footballData) {
+    throw new Error("世足資料相容介面與 ES Module export 不一致。");
+  }
+  if (window.FootballLabCore !== footballCore) {
+    throw new Error("世足核心相容介面與 ES Module export 不一致。");
   }
 }
 
-/**
- * 統一模型版本與介面版本的顯示責任。
- * 時間／空間複雜度 O(1)。
- *
- * 替代方案比較：
- * - 各相容模組自行改 document.title 與 H1：後載模組可能把介面版本覆蓋成模型版本。
- * - 本方案：所有相容模組完成後，由唯一入口寫入最終版本文案，避免版本漂移。
- */
+/** 統一模型版本與介面版本顯示。時間／空間 O(1)。 */
 function synchronizeVersionCopy() {
-  const modelVersion = String(window.FOOTBALL_LAB_DATA.modelVersion || "").trim();
+  const modelVersion = String(footballData.modelVersion || "").trim();
   const combinedLabel = `模型 v${modelVersion}｜介面 v${INTERFACE_VERSION}`;
 
   document.title = `Evan Tarot｜世足賽事驗證｜模型 v${modelVersion}・介面 v${INTERFACE_VERSION}`;
@@ -80,13 +75,14 @@ function synchronizeVersionCopy() {
   if (versionBadge) versionBadge.textContent = combinedLabel;
 }
 
-assertRequiredGlobals();
+assertCoreContracts();
 synchronizeVersionCopy();
 
 window.FootballLabBundle = Object.freeze({
   ready: true,
   moduleCount: MODULE_COUNT,
-  modelVersion: window.FOOTBALL_LAB_DATA.modelVersion,
+  namedModuleCount: NAMED_MODULE_COUNT,
+  modelVersion: footballData.modelVersion,
   interfaceVersion: INTERFACE_VERSION,
   loadedAt: new Date().toISOString(),
 });
