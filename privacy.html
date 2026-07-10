@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Evan Tarot｜資料與隱私</title>
+  <meta name="description" content="Evan Tarot 網站的資料與隱私說明：瀏覽器儲存、Google 帳戶、Google Sheets、預約資料及更正與刪除方式。" />
+  <meta name="theme-color" content="#050518" />
+  <link rel="stylesheet" href="style.css?v=20260627-lab-layout-v1" />
+  <link rel="stylesheet" href="lab.css?v=20260627-lab-layout-v1" />
+  <link rel="stylesheet" href="trust.css?v=20260710-trust-architecture-v1" />
+</head>
+<body class="trust-page">
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="logo">
+        <span class="logo-main">Evan Tarot</span>
+        <span class="logo-sub">Tarot Lab ／ Systematic Divination</span>
+      </div>
+      <nav class="nav" aria-label="主選單">
+        <a href="index.html#intro">介紹</a>
+        <a href="services.html" aria-current="page">占卜項目</a>
+        <a href="articles.html">文章</a>
+        <a href="lab.html">實驗室</a>
+        <a data-podcast-link="true" href="https://podcasts.apple.com/tw/podcast/%E6%9C%89%E9%BB%9E%E5%81%8F/id1896598359" target="_blank" rel="noopener noreferrer" aria-label="前往 Apple Podcast 收聽《有點偏》（另開新分頁）">Podcast</a>
+        <a href="services.html#booking">預約</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero subpage-hero">
+      <div class="hero-bg-orbit" aria-hidden="true"></div>
+      <div class="container hero-inner">
+        <div class="hero-text">
+          <p class="trust-kicker">Data & Privacy</p>
+          <h1>先知道資料放在哪裡，再決定要不要使用。</h1>
+          <p>不同功能使用的資料位置不同：有些只留在瀏覽器，有些在登入後同步至 Google Sheets，預約則會寫入私人預約資料表。這一頁整理各功能的資料流與使用界線。</p>
+          <div class="hero-cta">
+            <a href="#data-map" class="btn primary">查看資料位置</a>
+            <a href="services.html#booking" class="btn ghost">前往預約</a>
+          </div>
+          <div class="hero-meta">
+            <span class="pill pill-soft">不公開聯絡資料</span>
+            <span class="pill pill-outline">登入功能可選</span>
+            <span class="pill pill-outline">可提出更正與刪除</span>
+          </div>
+        </div>
+
+        <aside class="hero-card" aria-label="資料處理原則">
+          <div class="hero-card-inner">
+            <p class="hero-tag">基本原則</p>
+            <ul>
+              <li>只收集功能所需資料</li>
+              <li>不出售個人資料</li>
+              <li>不把私人紀錄公開展示</li>
+            </ul>
+            <p class="hero-note">請勿在自由輸入欄位填入不必要的身分證號、金融帳號、密碼或第三人的敏感資料。</p>
+          </div>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section alt" id="data-map">
+      <div class="container trust-directory">
+        <div>
+          <p class="trust-kicker">Data Map</p>
+          <h2>各功能的資料位置</h2>
+          <p class="section-lead">「儲存在瀏覽器」與「同步到雲端」是兩件不同的事；清除瀏覽器資料不一定會刪除已同步的 Google Sheets 資料。</p>
+        </div>
+
+        <div class="trust-data-grid">
+          <article class="trust-data-card">
+            <h3>一般瀏覽</h3>
+            <p>閱讀首頁、服務、文章與實驗室介紹時，不需要登入 Google 帳戶。網站本身不以投放第三方廣告或出售瀏覽資料為目的。</p>
+            <ul>
+              <li>主要資料：頁面請求與瀏覽器必要快取</li>
+              <li>登入：不需要</li>
+              <li>公開顯示：只有網站原有內容</li>
+            </ul>
+          </article>
+
+          <article class="trust-data-card">
+            <h3>預約表單</h3>
+            <p>送出後由 Apps Script 寫入私人 Google Sheets，並產生預約編號。聯絡方式只用於確認是否承接、時間、形式與費用。</p>
+            <ul>
+              <li>可能包含：暱稱、聯絡方式、主題、形式、可配合時間與留言</li>
+              <li>系統欄位：booking ID、request ID、建立時間與狀態</li>
+              <li>公開顯示：不會公開在網站</li>
+            </ul>
+          </article>
+
+          <article class="trust-data-card">
+            <h3>塔羅尋物</h3>
+            <p>前端可能使用 localStorage 保存裝置識別或操作狀態；正式紀錄是否送往雲端，依工具當下顯示的同步狀態為準。</p>
+            <ul>
+              <li>用途：避免重複請求、保存操作狀態</li>
+              <li>瀏覽器資料：可由使用者清除</li>
+              <li>不應輸入：第三人的敏感身分資料</li>
+            </ul>
+          </article>
+
+          <article class="trust-data-card">
+            <h3>世足賽事驗證</h3>
+            <p>未登入時，紀錄先保存在 localStorage；登入資料庫擁有者帳號後，才可同步至專用 Google Sheets。</p>
+            <ul>
+              <li>內容：賽事、牌面、預測、結果與回顧</li>
+              <li>用途：個人模型驗證，不作公開投注推薦</li>
+              <li>雲端同步：僅限授權帳號</li>
+            </ul>
+          </article>
+
+          <article class="trust-data-card">
+            <h3>占卜時間流</h3>
+            <p>登入後正式資料同步至專用 Google Sheets；localStorage 作為本機快取與離線備援。下載 JSON 可由使用者自行保存。</p>
+            <ul>
+              <li>內容：主題、時間線、牌面、事件、連結與驗證結果</li>
+              <li>刪除：工具內先採軟刪除，可由回收區復原</li>
+              <li>離線備份：JSON 檔由使用者自行保管</li>
+            </ul>
+          </article>
+
+          <article class="trust-data-card">
+            <h3>私人修煉紀錄</h3>
+            <p>接收金鑰只保留在目前瀏覽器工作階段的 sessionStorage；練習內容送往私人 Google Sheets，不提供公開讀取接口。</p>
+            <ul>
+              <li>金鑰：關閉工作階段後失效</li>
+              <li>內容：個人練習、身體感受、直覺與回顧</li>
+              <li>定位：私人工具，不是公開服務</li>
+            </ul>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container trust-directory">
+        <div>
+          <p class="trust-kicker">Google Services</p>
+          <h2>Google 帳戶與第三方服務</h2>
+        </div>
+        <div class="trust-card-grid">
+          <article class="trust-card">
+            <h3>登入不是一般瀏覽的必要條件</h3>
+            <p>Google 登入主要用於辨識可操作雲端資料的帳號。外部登入元件失效時，公開頁面與不需雲端權限的功能仍應維持可讀。</p>
+          </article>
+          <article class="trust-card">
+            <h3>Google 會依其政策處理登入與服務資料</h3>
+            <p>Apps Script、Google Sheets、Google Identity Services 與 Gmail 通知屬於 Google 提供的服務；相關帳號與基礎服務資料也受 Google 自身條款與隱私政策約束。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt">
+      <div class="container trust-directory">
+        <div>
+          <p class="trust-kicker">Retention & Control</p>
+          <h2>保留、更正與刪除</h2>
+        </div>
+
+        <div class="trust-card-grid">
+          <article class="trust-card">
+            <h3>瀏覽器資料</h3>
+            <p>localStorage 會持續保留，直到使用者、瀏覽器或工具主動清除；sessionStorage 通常在該分頁或工作階段結束後移除。匯出的 JSON／CSV 則由下載者自行管理。</p>
+          </article>
+          <article class="trust-card">
+            <h3>雲端與預約資料</h3>
+            <p>Google Sheets 中的資料不會因清除瀏覽器快取而自動消失。資料會依聯絡、服務、驗證與必要紀錄需求保留；不再需要時可人工刪除。</p>
+          </article>
+          <article class="trust-card">
+            <h3>提出資料處理請求</h3>
+            <p>需要查詢、更正或刪除預約資料時，可透過預約表單留下原聯絡方式，並在「想說的話」註明資料處理請求及預約編號。無法確認身分時，可能需要補充可核對資訊。</p>
+          </article>
+          <article class="trust-card">
+            <h3>資料安全限制</h3>
+            <p>網站會降低不必要的資料暴露並限制雲端操作權限，但任何網路與雲端系統都不能承諾零風險。請只提供完成該功能真正需要的內容。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="container trust-directory">
+        <div>
+          <p class="trust-kicker">Before You Submit</p>
+          <h2>送出資料前，請先確認</h2>
+        </div>
+        <p class="trust-boundary">不要傳送帳號密碼、一次性驗證碼、完整信用卡資料、金融帳戶憑證、身分證件影像，或與占卜目的無關的醫療與第三人隱私。需要描述他人時，優先使用關係或代稱，而不是完整姓名與可識別資訊。</p>
+        <div class="trust-actions">
+          <a class="btn primary" href="services.html#booking">前往預約表單</a>
+          <a class="btn ghost" href="methodology.html">查看驗證方法</a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>Evan Tarot ｜資料與隱私</p>
+      <p class="footer-sub">只提供完成目的所需的資料，通常比事後補救更有效。</p>
+    </div>
+  </footer>
+
+  <script src="JS/utils.js?v=20260629-stability-v1"></script>
+  <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
+  <script src="JS/main.js?v=20260710-loader-timeout-v1"></script>
+</body>
+</html>
