@@ -66,6 +66,16 @@ function sharesCoreDataContract(runtimeData) {
 }
 
 /**
+ * 固定記錄基礎 Render、能量 Render 與所有相容 UX 完成後的最終 Render。
+ * 時間／空間複雜度 O(1)。
+ */
+const footballRenderLineage = Object.freeze({
+  base: footballRender,
+  energy: footballEnergyAdapter.ui,
+  final: window.FootballLabRender,
+});
+
+/**
  * 確認具名模型、Render、轉接層與最終相容核心共用同一份契約。
  * 時間／空間複雜度 O(1)。
  */
@@ -113,17 +123,23 @@ function assertCoreContracts() {
   }
 
   const runtimeCore = window.FootballLabCore;
-  const runtimeRender = window.FootballLabRender;
+  const runtimeRender = footballRenderLineage.final;
   if (
-    !runtimeCore
+    footballRenderLineage.base !== footballRender
+    || footballRenderLineage.energy !== footballEnergyAdapter.ui
+    || runtimeRender !== window.FootballLabRender
+    || footballRenderLineage.base === footballRenderLineage.energy
+    || !runtimeCore
     || !sharesCoreDataContract(runtimeCore.data)
     || typeof runtimeCore.calculateEvaluation !== "function"
     || typeof runtimeCore.calculateStats !== "function"
     || !runtimeRender
     || typeof runtimeRender.renderDraft !== "function"
     || typeof runtimeRender.renderRecords !== "function"
+    || typeof runtimeRender.renderScorecard !== "function"
+    || typeof runtimeRender.openEvaluation !== "function"
   ) {
-    throw new Error("世足最終相容核心或 Render 缺少必要 API。");
+    throw new Error("世足最終相容核心、Render 血統或必要 API 不一致。");
   }
 }
 
@@ -141,8 +157,9 @@ function synchronizeVersionCopy() {
   if (versionBadge) versionBadge.textContent = combinedLabel;
 }
 
-// 僅供相容層與瀏覽器測試確認基礎 Render；正式畫面仍使用能量包裝後的 FootballLabRender。
+// 僅供相容層、除錯與瀏覽器測試確認 Render 三層關係。
 window.FootballRenderModule = footballRender;
+window.FootballRenderLineage = footballRenderLineage;
 
 assertCoreContracts();
 synchronizeVersionCopy();
@@ -156,6 +173,7 @@ window.FootballLabBundle = Object.freeze({
   scoringPolicy: footballScoring.policy,
   energyModelKey: footballEnergyModel.modelKey,
   renderLayer: "esm",
+  renderLayerCount: 3,
   loadedAt: new Date().toISOString(),
 });
 
