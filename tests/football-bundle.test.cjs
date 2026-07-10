@@ -9,27 +9,36 @@ const RUNTIME = path.join(DIST, "JS", "football-lab.js");
 const SOURCE_MAP = `${RUNTIME}.map`;
 
 /**
- * 驗證世足 ES Module entry、正式 bundle 與 sourcemap。
+ * 驗證世足 ES Module entry、正式 bundle、具名核心與 sourcemap。
  * 時間／空間複雜度 O(B)，B 為入口、bundle 與 map 的總大小。
  *
- * 替代方案比較：只檢查 bundle 存在無法證明 29 個相依是否納入；
- * 本測試同時核對 import 數、代表性 sources、linked map 與正式 CSS。
+ * 替代方案比較：只檢查 bundle 存在無法證明依賴是否納入；
+ * 本測試同時核對 27 個相容 side-effect imports、2 個具名核心 imports 與 map sources。
  */
 function run() {
   const entry = fs.readFileSync(ENTRY, "utf8");
-  const imports = [...entry.matchAll(/^import\s+["'][^"']+["'];$/gm)];
-  assert.equal(imports.length, 29, "世足入口必須顯性匯入 29 個模組");
+  const sideEffectImports = [...entry.matchAll(/^import\s+["'][^"']+["'];$/gm)];
+  const namedImports = [...entry.matchAll(/^import\s+\{[^}]+\}\s+from\s+["'][^"']+["'];$/gm)];
+  assert.equal(sideEffectImports.length, 27, "世足入口應保留 27 個相容 side-effect imports");
+  assert.equal(namedImports.length, 2, "世足資料與核心必須使用 2 個具名 imports");
+  assert.ok(entry.includes('import { footballData } from "./data.js";'));
+  assert.ok(entry.includes('import { footballCore } from "./core.js";'));
+  assert.equal(entry.includes('import "../../JS/football-data.js";'), false);
+  assert.equal(entry.includes('import "../../JS/football-core.js";'), false);
 
   assert.ok(fs.existsSync(RUNTIME), "dist 缺少 football-lab.js bundle");
   assert.ok(fs.existsSync(SOURCE_MAP), "dist 缺少 football-lab.js.map");
 
   const runtime = fs.readFileSync(RUNTIME, "utf8");
   const sourceMap = JSON.parse(fs.readFileSync(SOURCE_MAP, "utf8"));
+  const sources = sourceMap.sources.map(String);
   assert.ok(runtime.includes("sourceMappingURL=football-lab.js.map"), "bundle 未連結 sourcemap");
-  assert.ok(sourceMap.sources.some((value) => String(value).endsWith("src/football/entry.js")));
-  assert.ok(sourceMap.sources.some((value) => String(value).endsWith("JS/football-data.js")));
-  assert.ok(sourceMap.sources.some((value) => String(value).endsWith("JS/football-core.js")));
-  assert.ok(sourceMap.sources.some((value) => String(value).endsWith("JS/football-layout-optimizer.js")));
+  assert.ok(sources.some((value) => value.endsWith("src/football/entry.js")));
+  assert.ok(sources.some((value) => value.endsWith("src/football/data.js")));
+  assert.ok(sources.some((value) => value.endsWith("src/football/core.js")));
+  assert.ok(sources.some((value) => value.endsWith("JS/football-layout-optimizer.js")));
+  assert.equal(sources.some((value) => value.endsWith("JS/football-data.js")), false);
+  assert.equal(sources.some((value) => value.endsWith("JS/football-core.js")), false);
   assert.ok(Array.isArray(sourceMap.sourcesContent) && sourceMap.sourcesContent.length >= 30);
 
   const html = fs.readFileSync(path.join(DIST, "football-lab.html"), "utf8");
