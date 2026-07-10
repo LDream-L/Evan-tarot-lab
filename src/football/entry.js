@@ -48,10 +48,7 @@ const MODULE_COUNT = 32;
 const NAMED_MODULE_COUNT = 10;
 const INTERFACE_VERSION = "1.7.6";
 
-/**
- * 後續層可建立新的不可變文案外殼，但不得分叉核心牌組、牌位與儲存契約。
- * 時間／空間複雜度 O(1)。
- */
+/** 時間／空間複雜度 O(1)。 */
 function sharesCoreDataContract(runtimeData) {
   return Boolean(
     runtimeData
@@ -64,10 +61,7 @@ function sharesCoreDataContract(runtimeData) {
   );
 }
 
-/**
- * 逐項驗證具名契約並回報失敗名稱。
- * 時間／空間複雜度 O(G)，G = 該群組契約數。
- */
+/** 時間／空間複雜度 O(G)，G = 該群組契約數。 */
 function assertContractGroup(groupName, checks) {
   const failed = checks.filter(([, passed]) => !passed).map(([name]) => name);
   if (!failed.length) return;
@@ -96,9 +90,15 @@ const footballRenderLineage = Object.freeze({
 });
 
 /**
- * 確認具名模型、workflow、雲端、事件與最終相容介面共用同一份契約。
- * 時間／空間複雜度 O(G)。
+ * 淘汰賽相容層只包裝寫入內容，不得分叉核心、登入、狀態與後端協定。
+ * 時間／空間複雜度 O(1)。
  */
+const footballCloudLineage = Object.freeze({
+  base: footballCloud,
+  final: window.FootballLabCloud,
+});
+
+/** 時間／空間複雜度 O(G)。 */
 function assertCoreContracts() {
   assertContractGroup("世足模組載入契約", [
     ["footballData", Boolean(footballData)],
@@ -154,7 +154,6 @@ function assertCoreContracts() {
     ["application-render", footballApplicationRuntime.render === footballWorkflowRuntime.render],
     ["application-cloud", footballApplicationRuntime.cloud === footballCloud],
     ["application-events", footballApplicationRuntime.events === footballEvents],
-    ["cloud-global", window.FootballLabCloud === footballCloud],
     ["cloud-module-global", window.FootballCloudModule === footballCloud],
     ["cloud-core", footballCloud.core === footballWorkflowRuntime.core],
     ["cloud-protocol-frozen", Object.isFrozen(footballCloud.protocol)],
@@ -163,6 +162,24 @@ function assertCoreContracts() {
     ["events-core", footballEvents.core === footballWorkflowRuntime.core],
     ["events-render", footballEvents.ui === footballWorkflowRuntime.render],
     ["events-bound", footballEvents.isBound()],
+  ]);
+
+  const finalCloud = footballCloudLineage.final;
+  assertContractGroup("世足雲端包裝血統契約", [
+    ["cloud-lineage-base", footballCloudLineage.base === footballCloud],
+    ["cloud-lineage-final", finalCloud === window.FootballLabCloud],
+    ["cloud-wrapper-present", Boolean(finalCloud)],
+    ["cloud-wrapper-separated", finalCloud !== footballCloud],
+    ["cloud-wrapper-core", finalCloud?.core === footballCloud.core],
+    ["cloud-wrapper-protocol", finalCloud?.protocol === footballCloud.protocol],
+    ["cloud-wrapper-config", finalCloud?.isConfigured === footballCloud.isConfigured],
+    ["cloud-wrapper-token", finalCloud?.hasToken === footballCloud.hasToken],
+    ["cloud-wrapper-get-token", finalCloud?.getToken === footballCloud.getToken],
+    ["cloud-wrapper-status", finalCloud?.setStatus === footballCloud.setStatus],
+    ["cloud-wrapper-health", finalCloud?.healthCheck === footballCloud.healthCheck],
+    ["cloud-wrapper-save", typeof finalCloud?.saveRecord === "function"],
+    ["cloud-wrapper-update", typeof finalCloud?.updateActual === "function"],
+    ["cloud-wrapper-sync", typeof finalCloud?.syncAll === "function"],
   ]);
 
   const runtimeCore = footballCoreLineage.final;
@@ -208,6 +225,7 @@ function synchronizeVersionCopy() {
 window.FootballRenderModule = footballRender;
 window.FootballCoreLineage = footballCoreLineage;
 window.FootballRenderLineage = footballRenderLineage;
+window.FootballCloudLineage = footballCloudLineage;
 
 assertCoreContracts();
 synchronizeVersionCopy();
@@ -223,6 +241,7 @@ window.FootballLabBundle = Object.freeze({
   workflowStage: footballWorkflowRuntime.stage,
   applicationStage: footballApplicationRuntime.stage,
   cloudLayer: "esm-factory",
+  cloudLayerCount: 2,
   cloudProtocol: footballCloud.protocol.join(","),
   eventLayer: "esm-factory",
   coreLayerCount: 5,
