@@ -41,8 +41,9 @@ jobs:
             src/football/entry.js src/football/data.js src/football/core.js src/football/scoring.js
             src/football/render.js src/football/energy-model.js src/football/energy-adapter.js
             src/football/workflow-runtime.js src/football/application-runtime.js src/football/review-runtime.js
-            src/football/cloud.js src/football/events.js
+            src/football/knockout-edit-runtime.js src/football/cloud.js src/football/events.js
             src/football/record-edit-model.js src/football/record-edit.js
+            src/football/record-knockout-edit-model.js src/football/record-knockout-edit.js
             JS/main.js JS/utils.js JS/site-shell.js JS/site-hardening.js JS/booking-verified.js
             JS/timeflow-v5-core.js JS/timeflow-v5-layout.js
             tests/build-site.test.cjs tests/football-bundle.test.cjs
@@ -50,6 +51,7 @@ jobs:
             tests/football-render-module.test.cjs tests/football-energy-model.test.cjs
             tests/football-cloud-module.test.cjs tests/football-events-module.test.cjs
             tests/football-record-edit-model.test.cjs tests/football-record-edit-controller.test.cjs
+            tests/football-record-knockout-edit-model.test.cjs tests/football-record-knockout-edit-controller.test.cjs
             tests/e2e/site.spec.js tests/e2e/accessibility.spec.js
             tests/main-loader.test.cjs tests/timeflow-core.test.cjs tests/timeflow-layout.test.cjs tests/site-smoke.sh
           )
@@ -76,10 +78,13 @@ jobs:
           node --check src/football/workflow-runtime.js
           node --check src/football/application-runtime.js
           node --check src/football/review-runtime.js
+          node --check src/football/knockout-edit-runtime.js
           node --check src/football/cloud.js
           node --check src/football/events.js
           node --check src/football/record-edit-model.js
           node --check src/football/record-edit.js
+          node --check src/football/record-knockout-edit-model.js
+          node --check src/football/record-knockout-edit.js
           node --check JS/main.js
           node --check JS/utils.js
           node --check JS/site-shell.js
@@ -99,6 +104,8 @@ jobs:
           node --check tests/football-events-module.test.cjs
           node --check tests/football-record-edit-model.test.cjs
           node --check tests/football-record-edit-controller.test.cjs
+          node --check tests/football-record-knockout-edit-model.test.cjs
+          node --check tests/football-record-knockout-edit-controller.test.cjs
           node --check tests/e2e/site.spec.js
           node --check tests/e2e/accessibility.spec.js
           node --check tests/main-loader.test.cjs
@@ -127,6 +134,10 @@ jobs:
         run: node tests/football-record-edit-model.test.cjs
       - name: Run football record edit controller tests
         run: node tests/football-record-edit-controller.test.cjs
+      - name: Run football knockout record edit model tests
+        run: node tests/football-record-knockout-edit-model.test.cjs
+      - name: Run football knockout record edit controller tests
+        run: node tests/football-record-knockout-edit-controller.test.cjs
       - name: Build and verify production site
         run: npm run test:build
       - name: Verify football bundle
