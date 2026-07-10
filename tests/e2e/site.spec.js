@@ -72,16 +72,20 @@ test("驗證方法與隱私頁互相連結且保留核心界線", async ({ page 
   await expect(page.locator('a[href="methodology.html"]').last()).toBeVisible();
 });
 
-test("世足 31 個元件完整啟動且流程事件使用具名依賴", async ({ page }) => {
+test("世足 32 個元件完整啟動且雲端與事件使用 workflow 快照", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
-  expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(31);
-  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(8);
+  expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(32);
+  expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(10);
   expect(await page.evaluate(() => window.FootballLabBundle.modelVersion)).toBe("1.6.0");
   expect(await page.evaluate(() => window.FootballLabBundle.interfaceVersion)).toBe("1.7.6");
   expect(await page.evaluate(() => window.FootballLabBundle.scoringPolicy)).toBe("individual-goals-plus-exact-score");
   expect(await page.evaluate(() => window.FootballLabBundle.energyModelKey)).toBe("energy-v1");
   expect(await page.evaluate(() => window.FootballLabBundle.workflowStage)).toBe("knockout-ready");
+  expect(await page.evaluate(() => window.FootballLabBundle.applicationStage)).toBe("cloud-and-events-ready");
+  expect(await page.evaluate(() => window.FootballLabBundle.cloudLayer)).toBe("esm-factory");
+  expect(await page.evaluate(() => window.FootballLabBundle.cloudLayerCount)).toBe(2);
+  expect(await page.evaluate(() => window.FootballLabBundle.cloudProtocol)).toBe("health,createRecord,updateActual");
   expect(await page.evaluate(() => window.FootballLabBundle.eventLayer)).toBe("esm-factory");
   expect(await page.evaluate(() => window.FootballLabBundle.coreLayerCount)).toBe(5);
   expect(await page.evaluate(() => window.FootballLabBundle.renderLayer)).toBe("esm");
@@ -94,9 +98,13 @@ test("世足 31 個元件完整啟動且流程事件使用具名依賴", async (
     && window.FootballRenderModule
     && window.FootballCoreLineage
     && window.FootballRenderLineage
+    && window.FootballCloudLineage
     && window.FootballEnergyModel
     && window.FootballDirectEnergy
     && window.FootballWorkflowRuntime
+    && window.FootballApplicationRuntime
+    && window.FootballCloudModule
+    && window.FootballLabCloud
     && window.FootballLabEvents
     && window.FootballLabRender
   ))).toBe(true);
@@ -104,7 +112,11 @@ test("世足 31 個元件完整啟動且流程事件使用具名依賴", async (
   expect(await page.evaluate(() => {
     const coreLineage = window.FootballCoreLineage;
     const renderLineage = window.FootballRenderLineage;
+    const cloudLineage = window.FootballCloudLineage;
     const workflow = window.FootballWorkflowRuntime;
+    const application = window.FootballApplicationRuntime;
+    const baseCloud = window.FootballCloudModule;
+    const finalCloud = window.FootballLabCloud;
     const events = window.FootballLabEvents;
     return Boolean(
       coreLineage.base === window.FootballStrictScoring.baseCore
@@ -119,7 +131,27 @@ test("世足 31 個元件完整啟動且流程事件使用具名依賴", async (
       && renderLineage.base.core === window.FootballStrictScoring.core
       && renderLineage.base !== renderLineage.energy
       && renderLineage.energy !== renderLineage.workflow
-      && workflow.events === events
+      && application.workflow === workflow
+      && application.core === workflow.core
+      && application.render === workflow.render
+      && application.cloud === baseCloud
+      && application.events === events
+      && cloudLineage.base === baseCloud
+      && cloudLineage.final === finalCloud
+      && baseCloud !== finalCloud
+      && baseCloud.core === workflow.core
+      && finalCloud.core === baseCloud.core
+      && Object.isFrozen(baseCloud.protocol)
+      && finalCloud.protocol === baseCloud.protocol
+      && baseCloud.protocol.join(",") === "health,createRecord,updateActual"
+      && finalCloud.isConfigured === baseCloud.isConfigured
+      && finalCloud.hasToken === baseCloud.hasToken
+      && finalCloud.getToken === baseCloud.getToken
+      && finalCloud.setStatus === baseCloud.setStatus
+      && finalCloud.healthCheck === baseCloud.healthCheck
+      && typeof finalCloud.saveRecord === "function"
+      && typeof finalCloud.updateActual === "function"
+      && typeof finalCloud.syncAll === "function"
       && events.core === workflow.core
       && events.ui === workflow.render
       && events.isBound()
@@ -180,6 +212,9 @@ test("世足 31 個元件完整啟動且流程事件使用具名依賴", async (
   expect(await page.evaluate(() => window.FootballEnergyModel.getActualGoalBand(4))).toBe("high");
   expect(await page.evaluate(() => window.FootballEnergyModel.getActualDrawTendency(1, 1))).toBe("draw");
 
+  await expect(page.locator("#football-cloud-panel")).toBeVisible();
+  await expect(page.locator("#football-sync-all")).toBeDisabled();
+  await expect(page.locator("#football-cloud-status")).not.toHaveText("正在檢查雲端連線……");
   await expect(page.locator("#football-direct-goal-band")).toHaveCount(1);
   await expect(page.locator("#football-direct-draw-tendency")).toHaveCount(1);
   await expect(page.locator(".subpage-hero .hero-text h1")).toHaveText("世足賽事驗證。");

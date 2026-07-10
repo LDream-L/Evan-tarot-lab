@@ -40,13 +40,14 @@ jobs:
             src/timeflow/ui.js src/timeflow/actions.js src/timeflow/bootstrap.js
             src/football/entry.js src/football/data.js src/football/core.js src/football/scoring.js
             src/football/render.js src/football/energy-model.js src/football/energy-adapter.js
-            src/football/workflow-runtime.js src/football/events.js
+            src/football/workflow-runtime.js src/football/application-runtime.js
+            src/football/cloud.js src/football/events.js
             JS/main.js JS/utils.js JS/site-shell.js JS/site-hardening.js JS/booking-verified.js
             JS/timeflow-v5-core.js JS/timeflow-v5-layout.js
             tests/build-site.test.cjs tests/football-bundle.test.cjs
             tests/football-core-esm.test.cjs tests/football-scoring-esm.test.cjs
             tests/football-render-module.test.cjs tests/football-energy-model.test.cjs
-            tests/football-events-module.test.cjs
+            tests/football-cloud-module.test.cjs tests/football-events-module.test.cjs
             tests/e2e/site.spec.js tests/e2e/accessibility.spec.js
             tests/main-loader.test.cjs tests/timeflow-core.test.cjs tests/timeflow-layout.test.cjs tests/site-smoke.sh
           )
@@ -71,6 +72,8 @@ jobs:
           node --check src/football/energy-model.js
           node --check src/football/energy-adapter.js
           node --check src/football/workflow-runtime.js
+          node --check src/football/application-runtime.js
+          node --check src/football/cloud.js
           node --check src/football/events.js
           node --check JS/main.js
           node --check JS/utils.js
@@ -87,6 +90,7 @@ jobs:
           node --check tests/football-scoring-esm.test.cjs
           node --check tests/football-render-module.test.cjs
           node --check tests/football-energy-model.test.cjs
+          node --check tests/football-cloud-module.test.cjs
           node --check tests/football-events-module.test.cjs
           node --check tests/e2e/site.spec.js
           node --check tests/e2e/accessibility.spec.js
@@ -108,6 +112,8 @@ jobs:
         run: node tests/football-render-module.test.cjs
       - name: Run football energy model tests
         run: node tests/football-energy-model.test.cjs
+      - name: Run football cloud module tests
+        run: node tests/football-cloud-module.test.cjs
       - name: Run football events module tests
         run: node tests/football-events-module.test.cjs
       - name: Build and verify production site

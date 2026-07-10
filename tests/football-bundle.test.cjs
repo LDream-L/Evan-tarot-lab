@@ -6,9 +6,12 @@ const ROOT = path.resolve(__dirname, "..");
 const DIST = path.join(ROOT, "dist");
 const ENTRY = path.join(ROOT, "src", "football", "entry.js");
 const WORKFLOW_RUNTIME = path.join(ROOT, "src", "football", "workflow-runtime.js");
+const APPLICATION_RUNTIME = path.join(ROOT, "src", "football", "application-runtime.js");
+const CLOUD = path.join(ROOT, "src", "football", "cloud.js");
 const EVENTS = path.join(ROOT, "src", "football", "events.js");
 const RENDER = path.join(ROOT, "src", "football", "render.js");
 const ENERGY_ADAPTER = path.join(ROOT, "src", "football", "energy-adapter.js");
+const LEGACY_CLOUD = path.join(ROOT, "JS", "football-cloud.js");
 const LEGACY_EVENTS = path.join(ROOT, "JS", "football-events.js");
 const LEGACY_RENDER = path.join(ROOT, "JS", "football-render.js");
 const LEGACY_ENERGY = path.join(ROOT, "JS", "football-direct-energy.js");
@@ -19,9 +22,6 @@ const SOURCE_MAP = `${RUNTIME}.map`;
 /**
  * 移除區塊與整行註解後再檢查可執行內容。
  * 時間／空間複雜度 O(B)，B 為 source 長度。
- *
- * 替代方案比較：直接掃描原字串會把「禁止使用某 API」的文件註解誤判為實際引用；
- * 本專案目前沒有正規表示式字面值包含註解符號，先以輕量剝除避免引入完整 parser。
  */
 function stripComments(source) {
   return source
@@ -30,17 +30,19 @@ function stripComments(source) {
 }
 
 /**
- * 驗證世足 ES Module entry、流程執行層、事件工廠與 sourcemap。
- * 時間／空間複雜度 O(B)，B 為入口、相容模組、bundle 與 map 的總大小。
+ * 驗證世足 ES Module entry、workflow、應用執行層、雲端與 sourcemap。
+ * 時間／空間複雜度 O(B)，B 為相關 source、bundle 與 map 總大小。
  *
- * 替代方案比較：只檢查 bundle 存在無法證明依賴是否納入；
- * 本測試同時核對入口 19 個相容 imports、7 個具名 imports、
- * workflow 內 4 個有序相容流程模組、事件依賴注入與舊全域檔移除。
+ * 替代方案比較：只檢查 bundle 存在無法證明依賴邊界；
+ * 本測試逐一核對具名來源、舊全域檔移除與未確認 action 不得進入可執行內容。
  */
 function run() {
   const entry = fs.readFileSync(ENTRY, "utf8");
   const workflowRuntime = fs.readFileSync(WORKFLOW_RUNTIME, "utf8");
+  const applicationRuntime = fs.readFileSync(APPLICATION_RUNTIME, "utf8");
+  const cloud = fs.readFileSync(CLOUD, "utf8");
   const events = fs.readFileSync(EVENTS, "utf8");
+  const executableCloud = stripComments(cloud);
   const executableEvents = stripComments(events);
   const render = fs.readFileSync(RENDER, "utf8");
   const energyAdapter = fs.readFileSync(ENERGY_ADAPTER, "utf8");
@@ -49,33 +51,43 @@ function run() {
   const namedImports = [...entry.matchAll(/^import\s+\{[^}]+\}\s+from\s+["'][^"']+["'];$/gm)];
   const workflowSideEffects = [...workflowRuntime.matchAll(/^import\s+["'][^"']+["'];$/gm)];
   const workflowNamedImports = [...workflowRuntime.matchAll(/^import\s+\{[^}]+\}\s+from\s+["'][^"']+["'];$/gm)];
+  const applicationNamedImports = [...applicationRuntime.matchAll(/^import\s+\{[^}]+\}\s+from\s+["'][^"']+["'];$/gm)];
 
-  assert.equal(sideEffectImports.length, 19, "世足入口應保留 19 個相容 side-effect imports");
-  assert.equal(namedImports.length, 7, "世足入口應使用 7 個具名 import 宣告");
+  assert.equal(sideEffectImports.length, 18, "世足入口應保留 18 個相容 side-effect imports");
+  assert.equal(namedImports.length, 8, "世足入口應使用 8 個具名 import 宣告");
   assert.equal(workflowSideEffects.length, 4, "workflow runtime 應固定載入 4 個流程相容模組");
-  assert.equal(workflowNamedImports.length, 2, "workflow runtime 應具名匯入能量轉接與事件工廠");
+  assert.equal(workflowNamedImports.length, 1, "workflow runtime 只應具名匯入能量轉接層");
+  assert.equal(applicationNamedImports.length, 3, "application runtime 應具名匯入 workflow、雲端與事件工廠");
 
-  assert.ok(entry.includes('import { footballData } from "./data.js";'));
-  assert.ok(entry.includes('import { footballCore } from "./core.js";'));
-  assert.ok(entry.includes('import { footballScoring, scoredFootballCore } from "./scoring.js";'));
-  assert.ok(entry.includes('import { footballRender } from "./render.js";'));
-  assert.ok(entry.includes('import { footballEnergyModel } from "./energy-model.js";'));
-  assert.ok(entry.includes('from "./energy-adapter.js";'));
-  assert.ok(entry.includes('from "./workflow-runtime.js";'));
+  assert.ok(entry.includes('from "./application-runtime.js";'));
+  assert.ok(applicationRuntime.includes('import { footballWorkflowRuntime } from "./workflow-runtime.js";'));
+  assert.ok(applicationRuntime.includes('import { createFootballCloud } from "./cloud.js";'));
+  assert.ok(applicationRuntime.includes('import { createFootballEvents } from "./events.js";'));
+  assert.ok(applicationRuntime.includes("core: runtimeCore"));
+  assert.ok(applicationRuntime.includes("window.FootballLabCloud = footballCloud"));
 
   assert.ok(workflowRuntime.includes('import "../../JS/football-advance-visibility.js";'));
   assert.ok(workflowRuntime.includes('import "../../JS/football-datetime-fix.js";'));
   assert.ok(workflowRuntime.includes('import "../../JS/football-knockout-flow.js";'));
   assert.ok(workflowRuntime.includes('import "../../JS/football-direct-energy-form.js";'));
-  assert.ok(workflowRuntime.includes('import { createFootballEvents } from "./events.js";'));
+  assert.equal(workflowRuntime.includes("createFootballEvents"), false);
 
+  assert.equal(entry.includes('import "../../JS/football-cloud.js";'), false);
   assert.equal(entry.includes('import "../../JS/football-events.js";'), false);
-  assert.equal(entry.includes('import "../../JS/football-knockout-flow.js";'), false);
+  assert.equal(fs.existsSync(LEGACY_CLOUD), false, "舊全域雲端模組應自 source 移除");
   assert.equal(fs.existsSync(LEGACY_EVENTS), false, "舊全域事件模組應自 source 移除");
   assert.equal(fs.existsSync(LEGACY_SCORING), false, "舊全域嚴格評分補丁應自 source 移除");
   assert.equal(fs.existsSync(LEGACY_RENDER), false, "舊全域 Render 應自 source 移除");
   assert.equal(fs.existsSync(LEGACY_ENERGY), false, "舊單張能量混合模組應自 source 移除");
 
+  assert.doesNotMatch(
+    executableCloud,
+    /window\.FootballLab(?:Core|Render)/,
+    "具名雲端模組不得於點擊時猜測全域核心或 Render"
+  );
+  assert.doesNotMatch(executableCloud, /listRecords/, "未確認的 listRecords 不得進入可執行雲端協定");
+  assert.match(executableCloud, /\["health",\s*"createRecord",\s*"updateActual"\]/);
+  assert.match(executableCloud, /const records = core\.getRecords\(\)/, "同步按鈕必須讀取注入的核心快照");
   assert.doesNotMatch(
     executableEvents,
     /window\.FootballLab(?:Core|Render)/,
@@ -106,6 +118,8 @@ function run() {
     "src/football/energy-model.js",
     "src/football/energy-adapter.js",
     "src/football/workflow-runtime.js",
+    "src/football/application-runtime.js",
+    "src/football/cloud.js",
     "src/football/events.js",
     "JS/football-advance-visibility.js",
     "JS/football-datetime-fix.js",
@@ -123,6 +137,7 @@ function run() {
     "JS/football-render.js",
     "JS/football-direct-energy.js",
     "JS/football-events.js",
+    "JS/football-cloud.js",
   ].forEach((suffix) => {
     assert.equal(sources.some((value) => value.endsWith(suffix)), false, `sourcemap 不得包含 ${suffix}`);
   });
