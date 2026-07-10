@@ -2,8 +2,10 @@
   "name": "evan-tarot-lab",
   "private": true,
   "version": "1.0.0",
-  "description": "Evan Tarot 靜態網站與瀏覽器端回歸測試",
+  "description": "Evan Tarot 靜態網站、正式建置與瀏覽器端回歸測試",
   "scripts": {
+    "build": "node scripts/build-site.cjs",
+    "test:build": "node tests/build-site.test.cjs",
     "test:e2e": "playwright test"
   },
   "devDependencies": {
