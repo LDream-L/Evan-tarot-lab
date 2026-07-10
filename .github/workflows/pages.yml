@@ -2,11 +2,9 @@ name: Validate and Deploy GitHub Pages
 
 on:
   pull_request:
-    branches:
-      - main
+    branches: [main]
   push:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -24,57 +22,41 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install build dependencies
         run: npm install --no-audit --no-fund
-
       - name: Validate required site files
         shell: bash
         run: |
           set -euo pipefail
           required=(
-            index.html
-            services.html
-            articles.html
-            lab.html
-            timeflow.html
-            package.json
-            playwright.config.cjs
-            scripts/build-site.cjs
-            src/timeflow/ui.js
-            src/timeflow/actions.js
-            src/timeflow/bootstrap.js
-            JS/main.js
-            JS/utils.js
-            JS/site-hardening.js
-            JS/booking-verified.js
-            JS/timeflow-v5-core.js
-            JS/timeflow-v5-layout.js
-            tests/build-site.test.cjs
-            tests/e2e/site.spec.js
-            tests/main-loader.test.cjs
-            tests/timeflow-core.test.cjs
-            tests/timeflow-layout.test.cjs
-            tests/site-smoke.sh
+            index.html services.html articles.html lab.html timeflow.html football-lab.html
+            package.json playwright.config.cjs
+            scripts/build-site.cjs scripts/build-football.cjs
+            src/timeflow/ui.js src/timeflow/actions.js src/timeflow/bootstrap.js
+            src/football/entry.js
+            JS/main.js JS/utils.js JS/site-hardening.js JS/booking-verified.js
+            JS/timeflow-v5-core.js JS/timeflow-v5-layout.js
+            tests/build-site.test.cjs tests/football-bundle.test.cjs tests/e2e/site.spec.js
+            tests/main-loader.test.cjs tests/timeflow-core.test.cjs tests/timeflow-layout.test.cjs tests/site-smoke.sh
           )
           for file in "${required[@]}"; do
             test -f "$file" || { echo "Missing required file: $file"; exit 1; }
           done
-
       - name: Check JavaScript syntax
         shell: bash
         run: |
           set -euo pipefail
           node --check playwright.config.cjs
           node --check scripts/build-site.cjs
+          node --check scripts/build-football.cjs
           node --check src/timeflow/ui.js
           node --check src/timeflow/actions.js
           node --check src/timeflow/bootstrap.js
+          node --check src/football/entry.js
           node --check JS/main.js
           node --check JS/utils.js
           node --check JS/site-hardening.js
@@ -84,24 +66,22 @@ jobs:
           node --check JS/timeflow-v5-core.js
           node --check JS/timeflow-v5-layout.js
           node --check tests/build-site.test.cjs
+          node --check tests/football-bundle.test.cjs
           node --check tests/e2e/site.spec.js
           node --check tests/main-loader.test.cjs
           node --check tests/timeflow-core.test.cjs
           node --check tests/timeflow-layout.test.cjs
           bash -n tests/site-smoke.sh
-
       - name: Run main loader tests
         run: node tests/main-loader.test.cjs
-
       - name: Run timeflow core tests
         run: node tests/timeflow-core.test.cjs
-
       - name: Run timeflow layout tests
         run: node tests/timeflow-layout.test.cjs
-
       - name: Build and verify production site
         run: npm run test:build
-
+      - name: Verify football bundle
+        run: node tests/football-bundle.test.cjs
       - name: Run local site smoke test against dist
         shell: bash
         run: |
@@ -109,20 +89,12 @@ jobs:
           python3 -m http.server 4173 --bind 127.0.0.1 --directory dist > /tmp/evan-site-server.log 2>&1 &
           server_pid=$!
           trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-
           for attempt in {1..20}; do
-            if curl --fail --silent http://127.0.0.1:4173/index.html > /dev/null; then
-              break
-            fi
-            if [[ "$attempt" == "20" ]]; then
-              cat /tmp/evan-site-server.log
-              exit 1
-            fi
+            if curl --fail --silent http://127.0.0.1:4173/index.html > /dev/null; then break; fi
+            if [[ "$attempt" == "20" ]]; then cat /tmp/evan-site-server.log; exit 1; fi
             sleep 0.25
           done
-
-          SMOKE_MAX_ATTEMPTS=3 SMOKE_SLEEP_SECONDS=1 \
-            bash tests/site-smoke.sh http://127.0.0.1:4173/
+          SMOKE_MAX_ATTEMPTS=3 SMOKE_SLEEP_SECONDS=1 bash tests/site-smoke.sh http://127.0.0.1:4173/
 
   e2e:
     runs-on: ubuntu-latest
@@ -130,21 +102,16 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
-      - name: Install Playwright test package
+      - name: Install dependencies
         run: npm install --no-audit --no-fund
-
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
-
       - name: Run Playwright E2E against dist
         run: npm run test:e2e
-
       - name: Upload Playwright failure report
         if: failure()
         uses: actions/upload-artifact@v4
@@ -162,66 +129,43 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     runs-on: ubuntu-latest
-    needs:
-      - validate
-      - e2e
+    needs: [validate, e2e]
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Install build dependencies
         run: npm install --no-audit --no-fund
-
       - name: Ensure Pages uses workflow publishing
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
-          gh api \
-            --method PUT \
-            "repos/${GITHUB_REPOSITORY}/pages" \
-            -f build_type=workflow
-
+          gh api --method PUT "repos/${GITHUB_REPOSITORY}/pages" -f build_type=workflow
       - name: Build production site
         run: npm run build
-
       - name: Add deployment identity
         shell: bash
         run: |
           python3 - <<'PY'
-          import json
-          import os
+          import json, os
           from pathlib import Path
-
-          payload = {
-              "sha": os.environ["GITHUB_SHA"],
-              "runId": os.environ["GITHUB_RUN_ID"],
-              "repository": os.environ["GITHUB_REPOSITORY"],
-          }
-          Path("dist/deploy-info.json").write_text(
-              json.dumps(payload, ensure_ascii=False, separators=(",", ":")),
-              encoding="utf-8",
-          )
+          payload = {"sha": os.environ["GITHUB_SHA"], "runId": os.environ["GITHUB_RUN_ID"], "repository": os.environ["GITHUB_REPOSITORY"]}
+          Path("dist/deploy-info.json").write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
           PY
-
       - name: Configure Pages
         uses: actions/configure-pages@v5
-
       - name: Upload production artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
-
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v4
-
       - name: Verify deployed commit and critical pages
         env:
           PAGE_URL: ${{ steps.deployment.outputs.page_url }}
