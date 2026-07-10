@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Evan Tarot｜占卜項目</title>
-  <meta name="description" content="Evan Tarot 目前開放的占卜形式與適合情境。" />
+  <meta name="description" content="Evan Tarot 目前開放的占卜形式、預約流程與服務界線。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-dialog-v6" />
 </head>
@@ -90,10 +90,35 @@
       </div>
     </section>
 
-    <section class="section" id="booking">
+    <section class="section" id="service-process">
       <div class="container">
-        <h2>預約占卜</h2>
-        <p class="section-lead">留下主題與聯絡方式，我會回覆可預約的時間，並確認文字或語音形式。</p>
+        <h2>預約流程與服務界線</h2>
+        <p class="section-lead">送出表單只是提出需求；雙方確認形式、費用、時間與交付內容後，預約才正式成立。</p>
+        <div class="card-grid">
+          <article class="card">
+            <h3>預約怎麼成立</h3>
+            <ul class="card-list">
+              <li>先送出主題、聯絡方式與希望形式</li>
+              <li>我會回覆是否適合承接與可安排時間</li>
+              <li>雙方確認細節後，才進入正式預約</li>
+            </ul>
+          </article>
+          <article class="card">
+            <h3>費用與交付</h3>
+            <p>費用、預計時間、文字或語音交付方式，以及可追問範圍，會在接受預約前一次確認。未確認前不產生付款義務。</p>
+          </article>
+          <article class="card">
+            <h3>占卜界線與隱私</h3>
+            <p>占卜用於整理情境、風險與選項，不替代醫療、法律、投資等專業意見，也不保證特定結果。預約資料只用於聯絡與本次服務；若需匿名整理成案例，會另外取得同意。</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section alt" id="booking">
+      <div class="container">
+        <h2>提出預約需求</h2>
+        <p class="section-lead">留下主題與聯絡方式，我會回覆是否適合承接、可安排時間，以及文字或語音形式。送出表單不代表預約已成立。</p>
         <form class="booking-form" id="booking-form">
           <div class="form-row">
             <label>暱稱<input name="name" placeholder="例如：小鹿、H、匿名也可以" required type="text" /></label>
@@ -124,7 +149,7 @@
             可配合的時間（可填多個時間段）
             <textarea
               name="availability"
-              placeholder="例如：平日 19:00 後、6/28 下午、週末皆可。"
+              placeholder="例如：平日 19:00 後、週末下午皆可。"
               rows="3"
             ></textarea>
           </label>
@@ -132,7 +157,8 @@
             想說的話（越具體越好，但一句話也可以）
             <textarea name="message" placeholder="可以寫：目前狀況、你最在意的是什麼、希望占卜幫你釐清什麼。" rows="4"></textarea>
           </label>
-          <button class="btn primary full" type="submit">送出預約意願</button>
+          <button class="btn primary full" type="submit">送出預約需求</button>
+          <p class="tool-note-small">因 Apps Script 跨網域限制，網站只能確認請求已送出，無法在前端確認是否完成入庫；若 24 小時內未收到回覆，請改由 IG 或 Email 聯絡。</p>
           <p aria-live="polite" class="tool-feedback-message hidden" id="booking-message"></p>
         </form>
       </div>
@@ -146,9 +172,9 @@
     </div>
   </footer>
 
-  <script src="JS/utils.js?v=20260629-stability-v1"></script>
+  <script src="JS/utils.js?v=20260710-hardening-v1"></script>
   <script src="JS/cloud-config.js?v=20260629-booking-v1"></script>
-  <script src="JS/booking.js?v=20260629-booking-v6"></script>
+  <script src="JS/booking.js?v=20260710-booking-reliability-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
   <script src="JS/main.js?v=20260702-podcast-nav-v2"></script>
 </body>
