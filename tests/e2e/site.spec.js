@@ -84,6 +84,7 @@ test("世足 32 個元件完整啟動且雲端與事件使用 workflow 快照", 
   expect(await page.evaluate(() => window.FootballLabBundle.workflowStage)).toBe("knockout-ready");
   expect(await page.evaluate(() => window.FootballLabBundle.applicationStage)).toBe("cloud-and-events-ready");
   expect(await page.evaluate(() => window.FootballLabBundle.cloudLayer)).toBe("esm-factory");
+  expect(await page.evaluate(() => window.FootballLabBundle.cloudLayerCount)).toBe(2);
   expect(await page.evaluate(() => window.FootballLabBundle.cloudProtocol)).toBe("health,createRecord,updateActual");
   expect(await page.evaluate(() => window.FootballLabBundle.eventLayer)).toBe("esm-factory");
   expect(await page.evaluate(() => window.FootballLabBundle.coreLayerCount)).toBe(5);
@@ -97,6 +98,7 @@ test("世足 32 個元件完整啟動且雲端與事件使用 workflow 快照", 
     && window.FootballRenderModule
     && window.FootballCoreLineage
     && window.FootballRenderLineage
+    && window.FootballCloudLineage
     && window.FootballEnergyModel
     && window.FootballDirectEnergy
     && window.FootballWorkflowRuntime
@@ -110,9 +112,11 @@ test("世足 32 個元件完整啟動且雲端與事件使用 workflow 快照", 
   expect(await page.evaluate(() => {
     const coreLineage = window.FootballCoreLineage;
     const renderLineage = window.FootballRenderLineage;
+    const cloudLineage = window.FootballCloudLineage;
     const workflow = window.FootballWorkflowRuntime;
     const application = window.FootballApplicationRuntime;
-    const cloud = window.FootballLabCloud;
+    const baseCloud = window.FootballCloudModule;
+    const finalCloud = window.FootballLabCloud;
     const events = window.FootballLabEvents;
     return Boolean(
       coreLineage.base === window.FootballStrictScoring.baseCore
@@ -130,12 +134,24 @@ test("世足 32 個元件完整啟動且雲端與事件使用 workflow 快照", 
       && application.workflow === workflow
       && application.core === workflow.core
       && application.render === workflow.render
-      && application.cloud === cloud
+      && application.cloud === baseCloud
       && application.events === events
-      && cloud === window.FootballCloudModule
-      && cloud.core === workflow.core
-      && Object.isFrozen(cloud.protocol)
-      && cloud.protocol.join(",") === "health,createRecord,updateActual"
+      && cloudLineage.base === baseCloud
+      && cloudLineage.final === finalCloud
+      && baseCloud !== finalCloud
+      && baseCloud.core === workflow.core
+      && finalCloud.core === baseCloud.core
+      && Object.isFrozen(baseCloud.protocol)
+      && finalCloud.protocol === baseCloud.protocol
+      && baseCloud.protocol.join(",") === "health,createRecord,updateActual"
+      && finalCloud.isConfigured === baseCloud.isConfigured
+      && finalCloud.hasToken === baseCloud.hasToken
+      && finalCloud.getToken === baseCloud.getToken
+      && finalCloud.setStatus === baseCloud.setStatus
+      && finalCloud.healthCheck === baseCloud.healthCheck
+      && typeof finalCloud.saveRecord === "function"
+      && typeof finalCloud.updateActual === "function"
+      && typeof finalCloud.syncAll === "function"
       && events.core === workflow.core
       && events.ui === workflow.render
       && events.isBound()
