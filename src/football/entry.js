@@ -1,15 +1,15 @@
 // 世足賽事驗證｜ES Module 正式入口
 //
 // 主要流程複雜度：
-// - 模組解析與執行：時間 O(M)、空間 O(M)，M = 31 個相依元件。
+// - 模組解析與執行：時間 O(M)、空間 O(M)，M = 32 個相依元件。
 // - 啟動完整性檢查：時間 O(G)、空間 O(G)，G = 必要核心 API 數。
 // - 版本文案同步：時間／空間 O(1)。
 //
 // 更快替代方案比較：
-// - 舊版：事件模組於載入時自行讀取 window 核心與 Render，依賴隱性順序。
-// - 本階段：淘汰賽後 workflow runtime 固定核心與 Render，再注入具名事件工廠。
-// - 一次改完全部模組：可立即消除全域，但編輯與雲端同步同時變更，回歸風險過高。
-// - 分層轉換：先固定模型、呈現、流程與事件邊界，再處理雲端及編輯層。
+// - 舊版雲端與事件在點擊時各自猜測 window 核心、帳號與登入物件。
+// - 本階段先固定 workflow 核心快照，再建立具名雲端實例與事件控制器；登入物件仍動態讀取。
+// - 一次改完編輯與全部 UX 可立即消除全域，但回歸範圍過大。
+// - 分層轉換先固定資料、模型、呈現、流程、事件與雲端邊界，再處理編輯層。
 
 import "../../JS/cloud-config.js";
 import "../../JS/site-account.js";
@@ -22,11 +22,12 @@ import {
   footballEnergyAdapter,
   energyFootballCore,
 } from "./energy-adapter.js";
+import { footballWorkflowRuntime } from "./workflow-runtime.js";
 import {
-  footballWorkflowRuntime,
+  footballApplicationRuntime,
+  footballCloud,
   footballEvents,
-} from "./workflow-runtime.js";
-import "../../JS/football-cloud.js";
+} from "./application-runtime.js";
 import "../../JS/football-records-ux.js";
 import "../../JS/football-hit-ux.js";
 import "../../JS/football-strict-hit-ux.js";
@@ -44,8 +45,8 @@ import "../../JS/football-record-status-visibility-fix.js";
 import "../../JS/football-performance-trends.js";
 import "../../JS/football-layout-optimizer.js";
 
-const MODULE_COUNT = 31;
-const NAMED_MODULE_COUNT = 8;
+const MODULE_COUNT = 32;
+const NAMED_MODULE_COUNT = 10;
 const INTERFACE_VERSION = "1.7.6";
 
 /**
@@ -88,7 +89,7 @@ const footballRenderLineage = Object.freeze({
 });
 
 /**
- * 確認具名模型、流程、事件與最終相容介面共用同一份契約。
+ * 確認具名模型、workflow、雲端、事件與最終相容介面共用同一份契約。
  * 時間／空間複雜度 O(1)。
  */
 function assertCoreContracts() {
@@ -102,9 +103,11 @@ function assertCoreContracts() {
     || !footballEnergyAdapter
     || !energyFootballCore
     || !footballWorkflowRuntime
+    || !footballApplicationRuntime
+    || !footballCloud
     || !footballEvents
   ) {
-    throw new Error("世足資料、核心、呈現、流程或事件模組尚未載入。");
+    throw new Error("世足資料、核心、呈現、流程、雲端或事件模組尚未載入。");
   }
   if (window.FOOTBALL_LAB_DATA !== footballData) {
     throw new Error("世足資料相容介面與 ES Module export 不一致。");
@@ -137,16 +140,31 @@ function assertCoreContracts() {
   }
   if (
     window.FootballWorkflowRuntime !== footballWorkflowRuntime
-    || window.FootballLabEvents !== footballEvents
-    || footballWorkflowRuntime.events !== footballEvents
-    || footballEvents.core !== footballWorkflowRuntime.core
-    || footballEvents.ui !== footballWorkflowRuntime.render
-    || !footballEvents.isBound()
     || footballWorkflowRuntime.stage !== "knockout-ready"
     || footballWorkflowRuntime.energyCore !== footballEnergyAdapter.core
     || footballWorkflowRuntime.energyRender !== footballEnergyAdapter.ui
   ) {
-    throw new Error("世足流程執行層與事件模組連結不一致。");
+    throw new Error("世足 workflow runtime 與能量層連結不一致。");
+  }
+  if (
+    window.FootballApplicationRuntime !== footballApplicationRuntime
+    || footballApplicationRuntime.stage !== "cloud-and-events-ready"
+    || footballApplicationRuntime.workflow !== footballWorkflowRuntime
+    || footballApplicationRuntime.core !== footballWorkflowRuntime.core
+    || footballApplicationRuntime.render !== footballWorkflowRuntime.render
+    || footballApplicationRuntime.cloud !== footballCloud
+    || footballApplicationRuntime.events !== footballEvents
+    || window.FootballLabCloud !== footballCloud
+    || window.FootballCloudModule !== footballCloud
+    || footballCloud.core !== footballWorkflowRuntime.core
+    || !Object.isFrozen(footballCloud.protocol)
+    || footballCloud.protocol.join(",") !== "health,createRecord,updateActual"
+    || window.FootballLabEvents !== footballEvents
+    || footballEvents.core !== footballWorkflowRuntime.core
+    || footballEvents.ui !== footballWorkflowRuntime.render
+    || !footballEvents.isBound()
+  ) {
+    throw new Error("世足應用執行層、雲端或事件相容介面連結不一致。");
   }
 
   const runtimeCore = footballCoreLineage.final;
@@ -208,6 +226,9 @@ window.FootballLabBundle = Object.freeze({
   scoringPolicy: footballScoring.policy,
   energyModelKey: footballEnergyModel.modelKey,
   workflowStage: footballWorkflowRuntime.stage,
+  applicationStage: footballApplicationRuntime.stage,
+  cloudLayer: "esm-factory",
+  cloudProtocol: footballCloud.protocol.join(","),
   eventLayer: "esm-factory",
   coreLayerCount: 5,
   renderLayer: "esm",
