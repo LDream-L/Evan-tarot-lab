@@ -62,6 +62,17 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure Pages uses workflow publishing
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          gh api \
+            --method PUT \
+            "repos/${GITHUB_REPOSITORY}/pages" \
+            -f build_type=workflow
+
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
