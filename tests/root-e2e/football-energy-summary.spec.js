@@ -71,6 +71,7 @@ test("單張能量非和局代碼不會顯示 undefined", async ({ page }) => {
   ).toBe(true);
 
   const records = page.locator("#football-records-body");
-  await expect(records).toContainText("單張：非和局｜攻防：1：0（主隊勝）");
+  await expect(records).toContainText("單張總進球 0–1 球｜非和局傾向");
+  await expect(records).toContainText("攻防1：0｜主隊勝");
   await expect(records).not.toContainText("undefined");
 });
