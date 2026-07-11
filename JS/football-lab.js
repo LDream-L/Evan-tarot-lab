@@ -1,108 +1,120 @@
-// 世足賽事驗證 v1.7.6｜相容載入器
-// 先平行預載模組，再依既有相依順序執行；所有動態模組完成後才套用最終樣式層。
-// 時間複雜度：O(m)，空間複雜度：O(m)，m = 模組數（目前 29）。
+// 世足賽事驗證｜repository 根目錄安全載入器
+//
+// GitHub Pages 正式流程會以 esbuild bundle 覆蓋 dist/JS/football-lab.js；
+// 本檔只負責 repository 根目錄、舊 Pages 發布來源或部署切換期間的相容啟動。
+//
+// 主要流程複雜度：
+// - 載入器本身：時間／空間 O(1)。
+// - ES Module 相依圖載入：時間／空間 O(M)，M 為正式入口的相依元件數。
+//
 // 更快替代方案比較：
-// - 原作法：29 個模組逐一下載、逐一執行，網路等待時間相加。
-// - 本作法：先平行預載全部檔案，再維持原順序執行；不改依賴關係與功能行為。
-(function loadFootballLabModules() {
+// - 舊版逐一請求 29 個 script，且其中多個檔案已移除，第一個 404 就會留下半初始化頁面。
+// - 本版只匯入一個正式 entry，由瀏覽器依 ES Module 相依圖載入；錯誤集中回報並可重試。
+(function bootstrapFootballLabRootEntry() {
   "use strict";
 
-  const version = "20260707-football-v176-workflow-card-e";
-  const layoutStyleHref = `football-layout-optimizer.css?v=${version}`;
-  const finalStyleHref = `football-layout-final.css?v=${version}`;
-  const modules = [
-    "JS/cloud-config.js",
-    "JS/site-account.js",
-    "JS/football-data.js",
-    "JS/football-core.js",
-    "JS/football-strict-scoring.js",
-    "JS/football-render.js",
-    "JS/football-advance-visibility.js",
-    "JS/football-datetime-fix.js",
-    "JS/football-knockout-flow.js",
-    "JS/football-direct-energy.js",
-    "JS/football-direct-energy-form.js",
-    "JS/football-events.js",
-    "JS/football-cloud.js",
-    "JS/football-records-ux.js",
-    "JS/football-hit-ux.js",
-    "JS/football-strict-hit-ux.js",
-    "JS/football-record-display-ux.js",
-    "JS/football-knockout-enhancements.js",
-    "JS/football-knockout-record-ux.js",
-    "JS/football-team-name-ux.js",
-    "JS/football-direct-energy-ux.js",
-    "JS/football-record-edit.js",
-    "JS/football-card-layout-unifier.js",
-    "JS/football-record-card-controls.js",
-    "JS/football-record-knockout-edit.js",
-    "JS/football-record-knockout-input-guard.js",
-    "JS/football-record-status-visibility-fix.js",
-    "JS/football-performance-trends.js",
-    "JS/football-layout-optimizer.js",
-  ];
+  const ROOT_LOADER_VERSION = "20260711-football-root-esm-v1";
+  const LOAD_TIMEOUT_MS = 15_000;
+  const currentScriptUrl = document.currentScript?.src || document.baseURI;
+  const entryBaseUrl = new URL("../src/football/entry.js", currentScriptUrl);
+  const finalStyleUrl = new URL("../football-layout-final.css", currentScriptUrl);
 
-  /** 時間 O(1)，空間 O(1)。 */
-  function ensureStylesheet({ id, href }) {
-    if (document.getElementById(id) || document.querySelector(`link[href^="${href.split("?")[0]}"]`)) return;
+  let loadPromise = null;
+  let attempt = 0;
+  let status = "idle";
+
+  /** 最終密度樣式只加入一次。時間／空間 O(1)。 */
+  function ensureFinalStylesheet() {
+    if (
+      document.getElementById("football-layout-final-style")
+      || document.querySelector('link[href*="football-layout-final.css"]')
+    ) {
+      return;
+    }
+
     const link = document.createElement("link");
-    link.id = id;
+    link.id = "football-layout-final-style";
     link.rel = "stylesheet";
-    link.href = href;
+    link.href = `${finalStyleUrl.href}?v=${ROOT_LOADER_VERSION}`;
     document.head.appendChild(link);
   }
 
-  /** 時間 O(1)，空間 O(1)。 */
-  function ensureLayoutStylesheet() {
-    ensureStylesheet({ id: "football-layout-optimizer-style", href: layoutStyleHref });
-  }
+  /** 顯示可操作的失敗狀態，不讓靜態頁看起來像沒有資料。時間／空間 O(1)。 */
+  function showLoadError(error) {
+    status = "error";
+    console.error("[football-lab] 正式模組載入失敗：", error);
 
-  /** 動態模組全部注入樣式後再載入，確保最終密度規則不被蓋回。時間 O(1)，空間 O(1)。 */
-  function ensureFinalStylesheet() {
-    ensureStylesheet({ id: "football-layout-final-style", href: finalStyleHref });
-  }
-
-  /** 平行發出下載請求；執行順序仍由 loadNext 控制。時間 O(m)，空間 O(m)。 */
-  function preloadModules() {
-    const fragment = document.createDocumentFragment();
-    modules.forEach((src) => {
-      const href = `${src}?v=${version}`;
-      if (document.querySelector(`link[rel="preload"][href="${href}"]`)) return;
-      const preload = document.createElement("link");
-      preload.rel = "preload";
-      preload.as = "script";
-      preload.href = href;
-      fragment.appendChild(preload);
-    });
-    document.head.appendChild(fragment);
-  }
-
-  /** 時間 O(1)，空間 O(1)。 */
-  function showLoadError(path) {
-    console.error(`[football-lab] 模組載入失敗：${path}`);
     const message = document.getElementById("football-match-message");
     if (!message) return;
-    message.textContent = "世足驗證模組載入失敗，請重新整理頁面。";
-    message.classList.remove("football-hidden");
+    message.textContent = "世足驗證模組載入失敗。請重新整理；若仍無法顯示，請清除本頁快取後再試。";
+    message.classList.remove("football-hidden", "is-success");
     message.classList.add("is-error");
   }
 
-  /** 依序執行以保留全域模組相依關係。時間 O(m)，空間 O(m)（事件回呼鏈）。 */
-  function loadNext(index) {
-    if (index >= modules.length) {
-      ensureFinalStylesheet();
-      return;
-    }
-    const path = modules[index];
-    const script = document.createElement("script");
-    script.src = `${path}?v=${version}`;
-    script.async = false;
-    script.onload = () => loadNext(index + 1);
-    script.onerror = () => showLoadError(path);
-    document.head.appendChild(script);
+  /** 建立單次逾時 Promise。時間／空間 O(1)。 */
+  function createTimeoutPromise() {
+    return new Promise((_, reject) => {
+      window.setTimeout(
+        () => reject(new Error(`世足模組載入超過 ${LOAD_TIMEOUT_MS / 1000} 秒。`)),
+        LOAD_TIMEOUT_MS
+      );
+    });
   }
 
-  ensureLayoutStylesheet();
-  preloadModules();
-  loadNext(0);
+  /**
+   * 載入正式 ES Module 入口；同時呼叫共用同一 Promise，失敗後可重試。
+   * 載入時間／空間 O(M)，M 為正式相依元件數；額外 loader 空間 O(1)。
+   */
+  function load() {
+    if (window.FootballLabBundle?.ready) {
+      status = "ready";
+      return Promise.resolve(window.FootballLabBundle);
+    }
+    if (loadPromise) return loadPromise;
+
+    ensureFinalStylesheet();
+    attempt += 1;
+    status = "loading";
+
+    const entryUrl = new URL(entryBaseUrl.href);
+    entryUrl.searchParams.set("v", ROOT_LOADER_VERSION);
+    entryUrl.searchParams.set("attempt", String(attempt));
+
+    loadPromise = Promise.race([
+      import(entryUrl.href),
+      createTimeoutPromise(),
+    ])
+      .then(() => {
+        if (!window.FootballLabBundle?.ready) {
+          throw new Error("正式入口已完成，但 FootballLabBundle 尚未就緒。");
+        }
+        status = "ready";
+        return window.FootballLabBundle;
+      })
+      .catch((error) => {
+        loadPromise = null;
+        showLoadError(error);
+        throw error;
+      });
+
+    return loadPromise;
+  }
+
+  /** 清除本次失敗狀態後重試。時間／空間 O(1)。 */
+  function retry() {
+    loadPromise = null;
+    return load();
+  }
+
+  window.FootballLabRootLoader = Object.freeze({
+    version: ROOT_LOADER_VERSION,
+    load,
+    retry,
+    getStatus: () => status,
+    getAttemptCount: () => attempt,
+  });
+
+  load().catch(() => {
+    // showLoadError 已提供畫面與 console 診斷，避免產生未處理 rejection。
+  });
 })();

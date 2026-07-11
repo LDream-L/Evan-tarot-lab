@@ -6,7 +6,8 @@
   "scripts": {
     "build": "node scripts/build-site.cjs",
     "test:build": "node tests/build-site.test.cjs",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:root": "playwright test --config=playwright.root.config.cjs"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.10.2",
