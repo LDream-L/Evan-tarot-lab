@@ -10,8 +10,9 @@ const GUARD = path.join(ROOT, "src", "football", "record-knockout-input-guard.js
 const LEGACY_GUARD = path.join(ROOT, "JS", "football-record-knockout-input-guard.js");
 const RUNTIME = path.join(DIST, "JS", "football-lab.js");
 const SOURCE_MAP = `${RUNTIME}.map`;
+const FOOTBALL_SCRIPT_VERSION = "20260711-football-root-esm-v1";
 
-/** 時間／空間複雜度 O(B)，B 為受檢 source 與 sourcemap 大小。 */
+/** 時間／空間複雜度 O(B)，B 為受檢 source、HTML 與 sourcemap 大小。 */
 function run() {
   const entry = fs.readFileSync(ENTRY, "utf8");
   const knockoutRuntime = fs.readFileSync(KNOCKOUT_RUNTIME, "utf8");
@@ -44,7 +45,11 @@ function run() {
   assert.ok(Array.isArray(sourceMap.sourcesContent), "sourcemap 缺少 sourcesContent");
   assert.equal(sourceMap.sourcesContent.length, sources.length, "每個 source 都必須保留原始內容");
 
+  const sourceHtml = fs.readFileSync(path.join(ROOT, "football-lab.html"), "utf8");
   const html = fs.readFileSync(path.join(DIST, "football-lab.html"), "utf8");
+  const versionedEntry = `JS/football-lab.js?v=${FOOTBALL_SCRIPT_VERSION}`;
+  assert.ok(sourceHtml.includes(versionedEntry), "repository 根目錄未更新世足入口快取版本");
+  assert.ok(html.includes(versionedEntry), "正式頁面未保留世足入口快取版本");
   assert.equal((html.match(/JS\/football-lab\.js/g) || []).length, 1, "正式頁面應只載入一個世足入口");
   assert.equal(html.includes("JS/football-record-knockout-input-guard.js"), false, "正式頁面不得載入舊 guard");
 
