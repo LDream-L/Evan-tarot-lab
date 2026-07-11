@@ -100,10 +100,13 @@
     const currentPage = window.location.pathname.split("/").pop() || "index.html";
     if (nav) {
       ADMIN_LINKS.forEach((definition) => {
-        const link = createAdminLink(definition);
-        const anchor = nav.querySelector(definition.anchor);
-        if (anchor) anchor.insertAdjacentElement("afterend", link);
-        else nav.appendChild(link);
+        let link = nav.querySelector(`a[href="${definition.href}"]`);
+        if (!link) {
+          link = createAdminLink(definition);
+          const anchor = nav.querySelector(definition.anchor);
+          if (anchor) anchor.insertAdjacentElement("afterend", link);
+          else nav.appendChild(link);
+        }
 
         if (currentPage === definition.href) {
           nav.querySelectorAll('[aria-current="page"]').forEach((element) => {
