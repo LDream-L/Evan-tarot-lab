@@ -1,0 +1,7 @@
+User-agent: *
+Allow: /
+Disallow: /article-admin.html
+Disallow: /service-admin.html
+Disallow: /practice.html
+
+Sitemap: https://ldream-l.github.io/Evan-tarot-lab/sitemap.xml
