@@ -1,0 +1,92 @@
+/* ===== 服務管理後台：沿用文章後台元件 ===== */
+#service-admin-form {
+  display: grid;
+  gap: 15px;
+  margin-top: 18px;
+}
+
+.service-admin-workspace {
+  grid-template-columns: minmax(250px, 0.75fr) minmax(520px, 1.55fr) minmax(340px, 0.95fr);
+}
+
+.service-admin-preview-card {
+  display: grid;
+  gap: 12px;
+}
+
+.service-admin-preview-card h3,
+.service-admin-preview-card p,
+.service-admin-preview-card ul,
+.service-admin-preview-card dl {
+  margin: 0;
+}
+
+.service-admin-preview-label {
+  color: var(--accent-strong);
+  font-size: 0.76rem;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+}
+
+.service-admin-preview-list {
+  display: grid;
+  gap: 5px;
+  padding-left: 20px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.service-admin-preview-details {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid rgba(139, 123, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(5, 6, 24, 0.54);
+}
+
+.service-admin-preview-details div {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+}
+
+.service-admin-preview-details dt {
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.service-admin-preview-details dd {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+}
+
+.service-admin-preview-note {
+  padding-top: 10px;
+  border-top: 1px dashed rgba(139, 123, 255, 0.25);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+@media (max-width: 1320px) {
+  .service-admin-workspace {
+    grid-template-columns: 280px minmax(0, 1fr);
+  }
+
+  .service-admin-workspace .article-admin-preview-panel {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 820px) {
+  .service-admin-workspace {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .article-admin-grid.two-columns,
+  .article-admin-grid.three-columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
