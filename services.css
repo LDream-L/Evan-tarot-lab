@@ -72,14 +72,6 @@
   margin-top: auto;
 }
 
-.service-list[data-source="fallback"]::after {
-  content: "目前顯示網站內建服務資料；雲端服務恢復後會自動更新。";
-  grid-column: 1 / -1;
-  color: var(--text-muted);
-  font-size: 0.76rem;
-  text-align: center;
-}
-
 @media (max-width: 560px) {
   .service-detail-row {
     grid-template-columns: 46px minmax(0, 1fr);
