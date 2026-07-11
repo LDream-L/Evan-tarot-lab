@@ -1,0 +1,55 @@
+name: Record Pages Deployment Status
+
+on:
+  workflow_run:
+    workflows: ["Validate and Deploy GitHub Pages"]
+    types: [requested, completed]
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  record-status:
+    if: >-
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Record Pages deployment status
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ACTION: ${{ github.event.action }}
+          CONCLUSION: ${{ github.event.workflow_run.conclusion }}
+          DEPLOY_SHA: ${{ github.event.workflow_run.head_sha }}
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          state="pending"
+          description="GitHub Pages deployment is running"
+
+          if [[ "$ACTION" == "completed" ]]; then
+            case "$CONCLUSION" in
+              success)
+                state="success"
+                description="GitHub Pages deployment and public smoke test passed"
+                ;;
+              cancelled|skipped)
+                state="error"
+                description="GitHub Pages deployment did not complete"
+                ;;
+              *)
+                state="failure"
+                description="GitHub Pages deployment or public verification failed"
+                ;;
+            esac
+          fi
+
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/statuses/${DEPLOY_SHA}" \
+            -f state="$state" \
+            -f context="deployment/github-pages" \
+            -f description="$description" \
+            -f target_url="$RUN_URL"
