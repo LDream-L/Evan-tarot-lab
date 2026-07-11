@@ -32,6 +32,15 @@ const COMMENTS_CONFIG = Object.freeze({
   profileHeaders: ["subject", "userKey", "email", "nickname", "updatedAt", "status"],
 });
 
+const ADMIN_ACTIONS = new Set([
+  "adminarticles",
+  "savearticle",
+  "deletearticle",
+  "adminservices",
+  "saveservice",
+  "deleteservice",
+]);
+
 const LOST_ITEM_CONFIG = Object.freeze({
   version: "5.0.0",
   cardSheetName: "CardDB",
@@ -216,15 +225,7 @@ function doPost(e) {
       return jsonOutput_({ success: true, isAdmin: isAdmin_(googleUser.email) });
     }
 
-    const adminActions = new Set([
-      "adminarticles",
-      "savearticle",
-      "deletearticle",
-      "adminservices",
-      "saveservice",
-      "deleteservice",
-    ]);
-    if (adminActions.has(action)) {
+    if (ADMIN_ACTIONS.has(action)) {
       if (!isAdmin_(googleUser.email)) {
         return jsonOutput_({ success: false, error: "此 Google 帳戶沒有管理權限。" });
       }
