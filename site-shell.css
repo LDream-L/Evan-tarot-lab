@@ -2,6 +2,11 @@
    Evan Tarot｜正式頁首、品牌與鍵盤導覽
    ======================================== */
 
+/* 原生 hidden 屬性必須優先於卡片、Grid 等元件的 display 規則。 */
+[hidden] {
+  display: none !important;
+}
+
 .skip-link {
   position: fixed;
   top: 0.75rem;
