@@ -211,7 +211,7 @@ function listAdminServices_() {
 /** 儲存單一服務。時間 O(n)，空間 O(n)。 */
 function saveService_(rawService, rawOriginalId) {
   const service = normalizeServiceInput_(rawService);
-  const originalId = sanitizeServiceId_(rawOriginalId) || service.id;
+  const originalId = sanitizeServiceId_(rawOriginalId);
   const sheet = getServicesSheet_();
   const lastRow = sheet.getLastRow();
   const idValues = lastRow > 1
@@ -226,7 +226,7 @@ function saveService_(rawService, rawOriginalId) {
     if (rowId === service.id) duplicateRow = index + 2;
   }
 
-  if (duplicateRow && duplicateRow !== targetRow) {
+  if (duplicateRow && (!targetRow || duplicateRow !== targetRow)) {
     throw new Error(`服務 ID「${service.id}」已存在。`);
   }
 
