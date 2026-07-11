@@ -1,17 +1,17 @@
 // ==============================
 // admin-navigation.js
-// 後端驗證管理員後，才顯示文章管理入口
+// 後端驗證管理員後，才顯示內容管理入口與私人實驗物件
 // ==============================
 //
 // 主要函式複雜度：
-// - verifyAdmin：O(1)
-// - ensureAdminEntries：O(n)，n = 導覽連結數
+// - verifyAdmin：O(1)（不含網路等待）
+// - ensureAdminEntries：O(n + r)，n = 導覽連結數、r = 管理員限定節點數
 // - waitForAuthModules：O(a)，a = 固定載入檢查次數上限
 // 空間複雜度：O(1)
 //
 // 更快替代方案比較：
 // - 只在前端判斷帳號：速度快，但可被偽造，不能作為權限依據。
-// - 本實作：等待登入模組完成後，向 Apps Script 驗證，通過才顯示入口。
+// - 本實作：向 Apps Script 驗證 Google Token；通過後才建立管理入口並解除私人項目的 hidden 狀態。
 // ==============================
 
 (function defineAdminNavigation() {
@@ -22,15 +22,21 @@
   const REQUEST_TIMEOUT_MS = 12000;
   const AUTH_WAIT_ATTEMPTS = 120;
   const AUTH_WAIT_INTERVAL_MS = 100;
+  const ADMIN_LINKS = Object.freeze([
+    Object.freeze({ key: "service-admin", href: "service-admin.html", label: "服務管理", anchor: 'a[href="services.html"]' }),
+    Object.freeze({ key: "article-admin", href: "article-admin.html", label: "文章管理", anchor: 'a[href="articles.html"]' }),
+  ]);
+
   let initialized = false;
   let verificationSequence = 0;
   let isAdmin = false;
 
   function getApiUrl() {
     return String(
-      window.EVAN_CLOUD_CONFIG?.articlesApiUrl ||
-      window.EVAN_CLOUD_CONFIG?.commentsApiUrl ||
-      ""
+      window.EVAN_CLOUD_CONFIG?.servicesApiUrl
+      || window.EVAN_CLOUD_CONFIG?.articlesApiUrl
+      || window.EVAN_CLOUD_CONFIG?.commentsApiUrl
+      || ""
     ).trim();
   }
 
@@ -56,45 +62,65 @@
     return false;
   }
 
-  function removeAdminEntries() {
-    document.querySelectorAll('[data-admin-navigation="article-admin"]').forEach((element) => {
-      element.remove();
+  function syncAdminOnlyContent() {
+    document.querySelectorAll("[data-admin-only-lab-item]").forEach((element) => {
+      element.hidden = !isAdmin;
     });
+
+    const count = document.getElementById("lab-project-count");
+    const countLabel = document.getElementById("lab-project-count-label");
+    if (count) count.textContent = isAdmin ? "4" : "3";
+    if (countLabel) countLabel.textContent = isAdmin ? "個實驗物件" : "個公開／研究項目";
+
+    window.dispatchEvent(new CustomEvent("evan-admin-status-change", {
+      detail: Object.freeze({ isAdmin }),
+    }));
+  }
+
+  function removeAdminEntries() {
+    document.querySelectorAll("[data-admin-navigation]").forEach((element) => element.remove());
+    syncAdminOnlyContent();
+  }
+
+  function createAdminLink(definition, className = "") {
+    const link = document.createElement("a");
+    link.href = definition.href;
+    link.textContent = definition.label;
+    link.dataset.adminNavigation = definition.key;
+    if (className) link.className = className;
+    return link;
   }
 
   function ensureAdminEntries() {
-    removeAdminEntries();
+    document.querySelectorAll("[data-admin-navigation]").forEach((element) => element.remove());
+    syncAdminOnlyContent();
     if (!isAdmin) return;
 
     const nav = document.querySelector(".nav");
+    const currentPage = window.location.pathname.split("/").pop() || "index.html";
     if (nav) {
-      const link = document.createElement("a");
-      link.href = "article-admin.html";
-      link.textContent = "文章管理";
-      link.dataset.adminNavigation = "article-admin";
+      ADMIN_LINKS.forEach((definition) => {
+        const link = createAdminLink(definition);
+        const anchor = nav.querySelector(definition.anchor);
+        if (anchor) anchor.insertAdjacentElement("afterend", link);
+        else nav.appendChild(link);
 
-      const articleLink = nav.querySelector('a[href="articles.html"]');
-      const labLink = nav.querySelector('a[href="lab.html"]');
-      if (articleLink) articleLink.insertAdjacentElement("afterend", link);
-      else nav.insertBefore(link, labLink || null);
-
-      const currentPage = window.location.pathname.split("/").pop() || "index.html";
-      if (currentPage === "article-admin.html") {
-        nav.querySelectorAll('[aria-current="page"]').forEach((element) => {
-          element.removeAttribute("aria-current");
-        });
-        link.setAttribute("aria-current", "page");
-      }
+        if (currentPage === definition.href) {
+          nav.querySelectorAll('[aria-current="page"]').forEach((element) => {
+            element.removeAttribute("aria-current");
+          });
+          link.setAttribute("aria-current", "page");
+        }
+      });
     }
 
     const accountActions = document.querySelector("#site-account-menu .site-account-actions");
     if (accountActions) {
-      const link = document.createElement("a");
-      link.href = "article-admin.html";
-      link.className = "btn primary";
-      link.textContent = "文章管理";
-      link.dataset.adminNavigation = "article-admin";
-      accountActions.prepend(link);
+      const fragment = document.createDocumentFragment();
+      ADMIN_LINKS.forEach((definition) => {
+        fragment.appendChild(createAdminLink(definition, "btn primary"));
+      });
+      accountActions.prepend(fragment);
     }
   }
 
@@ -141,6 +167,7 @@
   async function init() {
     if (initialized) return isAdmin;
     initialized = true;
+    syncAdminOnlyContent();
 
     const modulesReady = await waitForAuthModules();
     if (!modulesReady) {
@@ -158,6 +185,7 @@
     init,
     refresh: () => verifyAdmin(window.EvanGoogleAuth?.getState?.() || {}),
     isAdmin: () => isAdmin,
+    syncAdminOnlyContent,
   });
 
   if (document.readyState === "loading") {
