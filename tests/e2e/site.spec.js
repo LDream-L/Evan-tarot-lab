@@ -46,16 +46,17 @@ test("主導覽能標示文章、服務與實驗室脈絡", async ({ page }) => 
   await expect(podcast).toHaveAttribute("rel", /noopener/);
 });
 
-test("實驗室清楚分為公開、研究與私人層級", async ({ page }) => {
+test("一般訪客只看到公開與研究實驗層級", async ({ page }) => {
   await page.goto("/lab.html", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#lab-public-tools")).toBeVisible();
   await expect(page.locator("#lab-research-workspace")).toBeVisible();
-  await expect(page.locator("#lab-private-tools")).toBeVisible();
+  await expect(page.locator("#lab-private-tools")).toBeHidden();
   await expect(page.getByText("模型 v1.6.0｜介面 v1.7.6", { exact: true })).toBeVisible();
   await expect(page.locator('a[href="lost-item.html"]').first()).toBeVisible();
   await expect(page.locator('a[href="football-lab.html"]').first()).toBeVisible();
   await expect(page.locator('a[href="timeflow.html"]').first()).toBeVisible();
-  await expect(page.locator('a[href="practice.html"]').first()).toBeVisible();
+  await expect(page.locator('[data-admin-only-lab-item="private-practice"]')).toBeHidden();
+  await expect(page.locator("#lab-project-count")).toHaveText("3");
 });
 
 test("驗證方法與隱私頁互相連結且保留核心界線", async ({ page }) => {

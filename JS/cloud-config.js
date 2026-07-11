@@ -20,6 +20,7 @@ window.EVAN_CLOUD_CONFIG = Object.freeze({
   commentsApiUrl: EVAN_CLOUD_API_URL,
   lostItemApiUrl: EVAN_CLOUD_API_URL,
   articlesApiUrl: EVAN_CLOUD_API_URL,
+  servicesApiUrl: EVAN_CLOUD_API_URL,
   bookingApiUrl: "https://script.google.com/macros/s/AKfycbykVXhAk-hZhga2vcDjUj6vD0fq6y12DG0dzPmjlTi4crqP1qiLGFOaIzo1lCswbA0I/exec",
   footballApiUrl: "https://script.google.com/macros/s/AKfycbxDiCjFB7IufBQRIOI121idnoy1raHe4FdkNgMWZa6VGQ4KdQJWdsAyl7sSsq7hzdx5/exec",
   googleClientId: "932432791893-tuj2pi0gv8v1v5oiscahueludlrpmsnv.apps.googleusercontent.com",

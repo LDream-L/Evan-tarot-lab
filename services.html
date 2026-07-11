@@ -4,9 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Evan Tarot｜占卜項目</title>
-  <meta name="description" content="Evan Tarot 目前開放的占卜形式、預約流程、服務界線與資料隱私。" />
+  <meta name="description" content="Evan Tarot 目前開放的占卜形式、費用與交付資訊、預約流程、服務界線及資料隱私。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-dialog-v6" />
+  <link rel="stylesheet" href="services.css?v=20260711-service-catalog-v1" />
   <link rel="stylesheet" href="trust.css?v=20260710-trust-architecture-v1" />
 </head>
 <body>
@@ -40,7 +41,7 @@
           </div>
           <div class="hero-meta">
             <span class="pill pill-soft">占卜服務</span>
-            <span class="pill pill-outline">人際 / 職涯 / 深度主題</span>
+            <span class="pill pill-outline">費用與交付公開說明</span>
             <span class="pill pill-outline">服務界線與隱私</span>
           </div>
         </div>
@@ -61,31 +62,40 @@
     <section class="section alt" id="services">
       <div class="container">
         <h2>目前開放的占卜形式</h2>
-        <p class="section-lead">每一場占卜都會以「現況 → 問題 → 可行調整」為主軸，整理可執行的下一步。</p>
-        <div class="card-grid">
-          <article class="card">
+        <p class="section-lead">每一場占卜都會以「現況 → 問題 → 可行調整」為主軸；各項目的費用、時間、交付與追問範圍以本頁最新資料為準。</p>
+        <div class="card-grid service-list" id="service-list" aria-live="polite" aria-busy="true" data-source="fallback">
+          <article class="card service-card" data-service-id="relationship">
             <h3>人際 / 感情動態占卜</h3>
-            <p>釐清你與某個對象的互動狀態：他在想什麼？你現在適合前進、暫停，還是把重心拉回自己？</p>
-            <ul class="card-list">
-              <li>適合：曖昧、忽冷忽熱、斷聯、合作對象</li>
-              <li>重點：雙方狀態、現在能做什麼、不該做什麼</li>
-            </ul>
+            <p>釐清你與某個對象的互動狀態，整理目前適合前進、暫停，或把重心拉回自己的方向。</p>
+            <p class="service-list-label">適合情境</p>
+            <ul class="card-list service-card-list"><li>曖昧</li><li>忽冷忽熱</li><li>斷聯</li><li>合作對象</li></ul>
+            <dl class="service-details">
+              <div class="service-detail-row"><dt>費用</dt><dd>費用於確認承接時說明</dd></div>
+              <div class="service-detail-row"><dt>交付</dt><dd>文字或語音</dd></div>
+            </dl>
+            <button class="btn ghost service-booking-button" type="button" data-service-booking="relationship">選擇這個項目</button>
           </article>
-          <article class="card">
+          <article class="card service-card" data-service-id="career">
             <h3>工作 / 職涯路線占卜</h3>
-            <p>看工作場域氛圍、你在其中的位置，評估跳槽 / 續留 / 轉向的風險與機會。</p>
-            <ul class="card-list">
-              <li>適合：轉職前後、升遷機會、團隊磨合</li>
-              <li>重點：階段性課題、決策方向</li>
-            </ul>
+            <p>整理工作場域氛圍、你在其中的位置，以及跳槽、續留或轉向的風險與機會。</p>
+            <p class="service-list-label">適合情境</p>
+            <ul class="card-list service-card-list"><li>轉職前後</li><li>升遷機會</li><li>團隊磨合</li></ul>
+            <dl class="service-details">
+              <div class="service-detail-row"><dt>費用</dt><dd>費用於確認承接時說明</dd></div>
+              <div class="service-detail-row"><dt>交付</dt><dd>文字或語音</dd></div>
+            </dl>
+            <button class="btn ghost service-booking-button" type="button" data-service-booking="career">選擇這個項目</button>
           </article>
-          <article class="card">
+          <article class="card service-card" data-service-id="deep-topic">
             <h3>主題深度占卜</h3>
-            <p>針對你當下最在意的一個核心主題，做較完整的牌陣與路線規劃，可合併人際、工作與自我。</p>
-            <ul class="card-list">
-              <li>適合：卡很久的大問題，不知道從哪切入</li>
-              <li>可搭配：紀錄建議、後續追蹤</li>
-            </ul>
+            <p>針對目前最在意的一個核心主題，進行較完整的牌陣與路線整理，可合併人際、工作與自我。</p>
+            <p class="service-list-label">適合情境</p>
+            <ul class="card-list service-card-list"><li>卡很久的大問題</li><li>不知道從哪裡切入</li><li>多個面向互相影響</li></ul>
+            <dl class="service-details">
+              <div class="service-detail-row"><dt>費用</dt><dd>費用於確認承接時說明</dd></div>
+              <div class="service-detail-row"><dt>交付</dt><dd>文字或語音</dd></div>
+            </dl>
+            <button class="btn ghost service-booking-button" type="button" data-service-booking="deep-topic">選擇這個項目</button>
           </article>
         </div>
       </div>
@@ -106,7 +116,7 @@
           </article>
           <article class="card">
             <h3>費用與交付</h3>
-            <p>費用、預計時間、文字或語音交付方式，以及可追問範圍，會在接受預約前一次確認。未確認前不產生付款義務。</p>
+            <p>公開項目會顯示目前的費用、時間、交付與追問範圍；個別問題若需調整，會在接受預約前再次確認。未確認前不產生付款義務。</p>
           </article>
           <article class="card">
             <h3>占卜界線與隱私</h3>
@@ -134,10 +144,15 @@
               想占卜的主題
               <select name="topic" required>
                 <option value="">請選擇</option>
-                <option value="relationship">人際 / 感情</option>
-                <option value="career">工作 / 職涯</option>
-                <option value="self">自我成長 / 人生卡點</option>
-                <option value="other">其他（請在下方說明）</option>
+                <optgroup id="service-topic-options" label="占卜項目">
+                  <option value="relationship">人際 / 感情動態占卜</option>
+                  <option value="career">工作 / 職涯路線占卜</option>
+                  <option value="deep-topic">主題深度占卜</option>
+                </optgroup>
+                <optgroup label="其他主題">
+                  <option value="self">自我成長 / 人生卡點</option>
+                  <option value="other">其他（請在下方說明）</option>
+                </optgroup>
               </select>
             </label>
             <label>
@@ -174,9 +189,10 @@
   </footer>
 
   <script src="JS/utils.js?v=20260710-hardening-v1"></script>
-  <script src="JS/cloud-config.js?v=20260629-booking-v1"></script>
+  <script src="JS/cloud-config.js?v=20260711-services-v1"></script>
+  <script src="JS/services.js?v=20260711-service-catalog-v1"></script>
   <script src="JS/booking.js?v=20260710-booking-reliability-v1"></script>
-  <script src="JS/booking-verified.js?v=20260710-verified-v1"></script>
+  <script src="JS/booking-verified.js?v=20260711-target-origin-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
   <script src="JS/main.js?v=20260710-loader-timeout-v1"></script>
 </body>

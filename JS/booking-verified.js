@@ -24,6 +24,7 @@
   const state = {
     iframe: null,
     bridgeWindow: null,
+    bridgeOrigin: "",
     nonce: "",
     ready: false,
     readyPromise: null,
@@ -101,7 +102,7 @@
     const url = new URL(apiUrl);
     url.searchParams.set("view", "booking-bridge");
     url.searchParams.set("bridgeNonce", nonce);
-    url.searchParams.set("v", "20260710-verified-v1");
+    url.searchParams.set("v", "20260711-target-origin-v1");
     return url.toString();
   }
 
@@ -128,6 +129,7 @@
 
     if (data.type === "ready") {
       state.bridgeWindow = event.source;
+      state.bridgeOrigin = event.origin;
       state.ready = true;
       clearTimeout(state.readyTimer);
       state.resolveReady?.(true);
@@ -149,6 +151,7 @@
     state.iframe?.remove();
     state.iframe = null;
     state.bridgeWindow = null;
+    state.bridgeOrigin = "";
     state.nonce = "";
     state.ready = false;
     state.readyPromise = null;
@@ -194,7 +197,7 @@
     return state.readyPromise;
   }
 
-  // 時間、空間 O(m)。Apps Script 轉址後無法預知 targetOrigin，故以 nonce、來源視窗與 Google hostname 三重驗證。
+  // 時間、空間 O(m)。ready 訊息確認來源後，後續只向同一個精確 origin 傳送資料。
   async function postViaBridge(payload) {
     await initBridge();
     return new Promise((resolve, reject) => {
@@ -204,7 +207,7 @@
       }, RESPONSE_TIMEOUT_MS);
       state.pending.set(payload.requestId, { resolve, reject, timer });
 
-      if (!state.bridgeWindow) {
+      if (!state.bridgeWindow || !state.bridgeOrigin) {
         clearTimeout(timer);
         state.pending.delete(payload.requestId);
         reject(makeError("預約橋接頁尚未就緒。", "BRIDGE_UNAVAILABLE"));
@@ -213,7 +216,7 @@
 
       state.bridgeWindow.postMessage(
         { channel: CHANNEL, nonce: state.nonce, type: "create", payload },
-        "*"
+        state.bridgeOrigin
       );
     });
   }
@@ -226,6 +229,7 @@
   // 時間、空間 O(m)。
   async function handleVerifiedBooking(event) {
     event.preventDefault();
+    event.stopImmediatePropagation();
     const form = event.currentTarget;
     window.syncBookingAvailabilityField(form);
     window.clearBookingMessage();

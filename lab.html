@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Evan Tarot｜塔羅實驗室</title>
-  <meta name="description" content="Evan Tarot 實驗室：公開工具、研究工作區與私人紀錄，將塔羅實驗轉化成可操作、可紀錄與可驗證的工具。" />
+  <meta name="description" content="Evan Tarot 實驗室：公開工具與研究工作區，將塔羅實驗轉化成可操作、可紀錄與可驗證的工具。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260627-lab-layout-v1" />
   <link rel="stylesheet" href="lab.css?v=20260627-lab-layout-v1" />
@@ -34,7 +34,7 @@
       <div class="container hero-inner">
         <div class="hero-text">
           <h1>塔羅實驗室。</h1>
-          <p>把成熟的實驗紀錄轉化成可以直接操作、持續驗證與反覆修正的工具；同時標明哪些是公開工具、研究工作區，哪些只屬於私人紀錄。</p>
+          <p>把成熟的實驗紀錄轉化成可以直接操作、持續驗證與反覆修正的工具；同時區分可公開操作的工具與需要持續紀錄的研究工作區。</p>
           <div class="hero-cta">
             <a href="#projects" class="btn primary">查看實驗物件</a>
             <a href="methodology.html" class="btn ghost">閱讀驗證方法</a>
@@ -42,7 +42,7 @@
           <div class="hero-meta">
             <span class="pill pill-soft">可操作工具</span>
             <span class="pill pill-outline">持續驗證</span>
-            <span class="pill pill-outline">公開／研究／私人分區</span>
+            <span class="pill pill-outline">公開／研究分區</span>
           </div>
         </div>
 
@@ -66,11 +66,11 @@
           <div class="lab-projects-heading">
             <p class="lab-section-eyebrow">Experiment Directory</p>
             <h2>目前的實驗物件</h2>
-            <p class="section-lead">由可直接使用的公開工具、需要持續紀錄的研究工作區，以及不對外開放的私人紀錄組成。</p>
+            <p class="section-lead">由可直接使用的公開工具與需要持續紀錄的研究工作區組成。</p>
           </div>
-          <div class="lab-projects-summary" aria-label="目前共有四個實驗物件">
-            <strong>4</strong>
-            <span>個可操作項目</span>
+          <div class="lab-projects-summary" aria-label="目前共有三個公開或研究實驗物件">
+            <strong id="lab-project-count">3</strong>
+            <span id="lab-project-count-label">個公開／研究項目</span>
           </div>
         </div>
 
@@ -85,7 +85,7 @@
             <h3>研究工作區</h3>
             <p>保存原始判讀、後續事件與驗證狀態，可能需要登入授權帳號同步雲端。</p>
           </article>
-          <article class="lab-access-card" id="lab-private-tools">
+          <article class="lab-access-card" id="lab-private-tools" data-admin-only-lab-item="private-access" hidden>
             <p class="trust-kicker">Private Records</p>
             <h3>私人紀錄</h3>
             <p>只供本人或持有授權資訊的人使用，不作為網站公開服務或公開資料庫。</p>
@@ -186,7 +186,7 @@
             </div>
           </article>
 
-          <article class="lab-project-card is-tool" aria-describedby="lab-private-tools">
+          <article class="lab-project-card is-tool" aria-describedby="lab-private-tools" data-admin-only-lab-item="private-practice" hidden>
             <div class="lab-project-topline">
               <p class="lab-project-kicker">Private Practice Tracker</p>
               <span class="lab-project-status is-tool">私人紀錄</span>
@@ -235,11 +235,12 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <p>Evan Tarot ｜塔羅實驗室</p>
-      <p class="footer-sub">工具、研究與私人紀錄使用不同的資料與驗證界線。</p>
+      <p class="footer-sub">公開工具與研究工作區使用不同的資料與驗證界線。</p>
     </div>
   </footer>
 
-  <script src="JS/utils.js?v=20260629-stability-v1"></script>
+  <script src="JS/utils.js?v=20260710-hardening-v1"></script>
+  <script src="JS/cloud-config.js?v=20260711-services-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
   <script src="JS/main.js?v=20260710-loader-timeout-v1"></script>
 </body>

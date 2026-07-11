@@ -5,7 +5,7 @@
   "description": "Evan Tarot 靜態網站、正式建置與瀏覽器端回歸測試",
   "scripts": {
     "build": "node scripts/build-site.cjs",
-    "test:build": "node tests/build-site.test.cjs",
+    "test:build": "node tests/build-site.test.cjs && node tests/service-management.test.cjs",
     "test:e2e": "playwright test",
     "test:e2e:root": "playwright test --config=playwright.root.config.cjs"
   },
