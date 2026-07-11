@@ -229,6 +229,7 @@
   // 時間、空間 O(m)。
   async function handleVerifiedBooking(event) {
     event.preventDefault();
+    event.stopImmediatePropagation();
     const form = event.currentTarget;
     window.syncBookingAvailabilityField(form);
     window.clearBookingMessage();
