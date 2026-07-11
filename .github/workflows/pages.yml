@@ -197,6 +197,10 @@ jobs:
 
   deploy:
     if: github.event_name != 'pull_request'
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -211,13 +215,8 @@ jobs:
           node-version: 22
       - name: Install build dependencies
         run: npm install --no-audit --no-fund
-      - name: Ensure Pages uses workflow publishing
-        env:
-          GH_TOKEN: ${{ github.token }}
-        shell: bash
-        run: |
-          set -euo pipefail
-          gh api --method PUT "repos/${GITHUB_REPOSITORY}/pages" -f build_type=workflow
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
       - name: Build production site
         run: npm run build
       - name: Add deployment identity
@@ -229,10 +228,8 @@ jobs:
           payload = {"sha": os.environ["GITHUB_SHA"], "runId": os.environ["GITHUB_RUN_ID"], "repository": os.environ["GITHUB_REPOSITORY"]}
           Path("dist/deploy-info.json").write_text(json.dumps(payload, ensure_ascii=False, separators=(",", ":")), encoding="utf-8")
           PY
-      - name: Configure Pages
-        uses: actions/configure-pages@v5
       - name: Upload production artifact
-        uses: actions/upload-pages-artifact@v3
+        uses: actions/upload-pages-artifact@v4
         with:
           path: dist
       - name: Deploy to GitHub Pages
