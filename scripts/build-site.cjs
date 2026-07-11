@@ -7,7 +7,7 @@ const ROOT = path.resolve(__dirname, "..");
 const DIST = path.join(ROOT, "dist");
 
 const EXCLUDED_DIRECTORIES = new Set([
-  ".git", ".github", "dist", "node_modules", "playwright-report", "scripts", "src", "test-results", "tests",
+  ".git", ".github", "cloud", "dist", "node_modules", "playwright-report", "scripts", "src", "test-results", "tests",
 ]);
 const EXCLUDED_ROOT_FILES = new Set([
   ".gitignore", "package.json", "package-lock.json", "playwright.config.cjs", "README.md",
@@ -18,6 +18,7 @@ const NAVIGATION_PAGES = new Map([
   ["methodology.html", "lab"], ["lost-item.html", "lab"], ["football-lab.html", "lab"],
   ["timeflow.html", "lab"], ["practice.html", "lab"],
 ]);
+const ADMIN_PAGES = new Set(["article-admin.html", "service-admin.html"]);
 const TIMEFLOW_RUNTIME = new Map([
   ["ui.js", "timeflow-v5-ui.js"],
   ["actions.js", "timeflow-v5-actions.js"],
@@ -106,6 +107,7 @@ function applyStaticSiteShell(source, fileName) {
 
 /** 時間／空間 O(H)，H 為 HTML 長度。 */
 function transformHtml(source, fileName) {
+  if (ADMIN_PAGES.has(fileName)) return applyStaticSiteShell(source, fileName);
   if (!NAVIGATION_PAGES.has(fileName)) return source;
   const match = source.match(NAV_PATTERN);
   if (!match) throw new Error(`[build] ${fileName} 找不到主導覽`);
@@ -124,7 +126,7 @@ function transformMainScript(source) {
 
 /**
  * 遞迴複製正式資源：時間 O(F+B)，空間 O(D)。
- * 快速方案：排除開發目錄後一次複製，避免發布 tests、src 與建置設定。
+ * 快速方案：排除開發與後端原始碼目錄後一次複製，避免發布 tests、src、cloud 與建置設定。
  */
 function copyProductionTree(sourceDirectory, targetDirectory, relativeDirectory = "") {
   fs.mkdirSync(targetDirectory, { recursive: true });
@@ -174,8 +176,10 @@ function build() {
   buildFootballRuntime({ root: ROOT, dist: DIST });
   fs.writeFileSync(path.join(DIST, ".nojekyll"), "", "utf8");
   const builtPages = [...NAVIGATION_PAGES.keys()].filter((fileName) => fs.existsSync(path.join(DIST, fileName)));
+  const builtAdminPages = [...ADMIN_PAGES].filter((fileName) => fs.existsSync(path.join(DIST, fileName)));
   if (builtPages.length !== NAVIGATION_PAGES.size) throw new Error(`[build] 預期 ${NAVIGATION_PAGES.size} 個導覽頁，實際 ${builtPages.length} 個`);
-  console.log(`[build] 已產生 dist/：${builtPages.length} 頁導覽與靜態品牌、${TIMEFLOW_RUNTIME.size} 個時間流 runtime、1 個世足 bundle`);
+  if (builtAdminPages.length !== ADMIN_PAGES.size) throw new Error(`[build] 預期 ${ADMIN_PAGES.size} 個管理頁，實際 ${builtAdminPages.length} 個`);
+  console.log(`[build] 已產生 dist/：${builtPages.length} 頁導覽、${builtAdminPages.length} 頁管理後台與靜態品牌、${TIMEFLOW_RUNTIME.size} 個時間流 runtime、1 個世足 bundle`);
 }
 
 build();
