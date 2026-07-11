@@ -1,14 +1,19 @@
 // ==============================
-// Evan Tarot Cloud API v5.0.0
-// Google 帳號驗證＋暱稱同步＋文章管理／留言＋塔羅尋物
+// Evan Tarot Cloud API v5.1.0
+// Google 帳號驗證＋暱稱同步＋文章／服務管理＋留言＋塔羅尋物
 // ==============================
 //
 // 主要函式複雜度：
 // - doPost / createComment：O(p)，p = Profiles 列數
 // - doGet / listComments：O(n + p)，n = Comments 列數
 // - listPublishedArticles_：O(a log a)，a = Articles 列數
+// - listPublishedServices_：O(s log s)，s = Services 列數
 // - handleLostItemRequest_：O(c × z + z log z)，c <= 3、z = 11 個大型區域
-// 空間複雜度：O(n + p + a + r × z)
+// 空間複雜度：O(n + p + a + s + r × z)
+//
+// 更快替代方案比較：
+// - 各功能各自建立 Web App：端點較多、驗證與限流容易分歧。
+// - 本實作：由單一 action router 分流，管理員驗證只做一次，再呼叫文章或服務模組。
 // ==============================
 
 const COMMENTS_CONFIG = Object.freeze({
@@ -71,10 +76,12 @@ function doGet(e) {
 
     if (action === "health") {
       const lostItemHealth = getLostItemHealth_();
-      const articlesHealth =
-        typeof getArticlesHealth_ === "function"
-          ? getArticlesHealth_()
-          : { ready: false, error: "Articles.gs 尚未安裝" };
+      const articlesHealth = typeof getArticlesHealth_ === "function"
+        ? getArticlesHealth_()
+        : { ready: false, error: "Articles.gs 尚未安裝" };
+      const servicesHealth = typeof getServicesHealth_ === "function"
+        ? getServicesHealth_()
+        : { ready: false, error: "Services.gs 尚未安裝" };
 
       return jsonOutput_({
         success: true,
@@ -85,6 +92,8 @@ function doGet(e) {
         lostItemVersion: LOST_ITEM_CONFIG.version,
         articlesConfigured: articlesHealth.ready,
         articlesError: articlesHealth.error || "",
+        servicesConfigured: servicesHealth.ready,
+        servicesError: servicesHealth.error || "",
         time: formatTaipeiDate_(new Date()),
       });
     }
@@ -144,6 +153,33 @@ function doGet(e) {
       });
     }
 
+    if (action === "services-health") {
+      if (typeof getServicesHealth_ !== "function") {
+        return jsonOutput_({ success: false, ready: false, error: "Services.gs 尚未安裝" });
+      }
+      const health = getServicesHealth_();
+      return jsonOutput_({
+        success: health.ready,
+        ready: health.ready,
+        service: "Evan Tarot Services",
+        error: health.error || "",
+        missingHeaders: health.missingHeaders || [],
+        time: formatTaipeiDate_(new Date()),
+      });
+    }
+
+    if (action === "services") {
+      if (typeof listPublishedServices_ !== "function") {
+        return jsonOutput_({ success: false, error: "服務後端尚未安裝。" });
+      }
+      const limit = clampInteger_(Number(e?.parameter?.limit) || 100, 1, 100);
+      return jsonOutput_({
+        success: true,
+        services: listPublishedServices_(limit),
+        time: formatTaipeiDate_(new Date()),
+      });
+    }
+
     if (action === "profile") {
       const userKey = sanitizeUserKey_(e?.parameter?.userKey);
       return jsonOutput_({ success: true, profile: userKey ? getPublicProfileByUserKey_(userKey) : null });
@@ -175,6 +211,25 @@ function doPost(e) {
 
     const googleUser = verifyGoogleCredential_(payload.credential);
     enforceRateLimit_(googleUser.sub);
+
+    if (action === "adminstatus") {
+      return jsonOutput_({ success: true, isAdmin: isAdmin_(googleUser.email) });
+    }
+
+    const adminActions = new Set([
+      "adminarticles",
+      "savearticle",
+      "deletearticle",
+      "adminservices",
+      "saveservice",
+      "deleteservice",
+    ]);
+    if (adminActions.has(action)) {
+      if (!isAdmin_(googleUser.email)) {
+        return jsonOutput_({ success: false, error: "此 Google 帳戶沒有管理權限。" });
+      }
+      return jsonOutput_(handleAdminAction_(action, payload, lock));
+    }
 
     if (action === "setnickname") {
       if (!lock.tryLock(10000)) return jsonOutput_({ success: false, error: "系統忙碌中，請稍後重試。" });
@@ -213,6 +268,39 @@ function doPost(e) {
   }
 }
 
+/** 管理員 action 分流。讀取不鎖表；寫入共用 ScriptLock。時間依各模組函式而定。 */
+function handleAdminAction_(action, payload, lock) {
+  if (action === "adminarticles") {
+    if (typeof listAdminArticles_ !== "function") throw new Error("ArticleAdmin.gs 尚未安裝。");
+    return { success: true, articles: listAdminArticles_() };
+  }
+  if (action === "adminservices") {
+    if (typeof listAdminServices_ !== "function") throw new Error("Services.gs 尚未安裝。");
+    return { success: true, services: listAdminServices_() };
+  }
+
+  if (!lock.tryLock(10000)) return { success: false, error: "系統忙碌中，請稍後重試。" };
+
+  if (action === "savearticle") {
+    if (typeof saveArticle_ !== "function") throw new Error("ArticleAdmin.gs 尚未安裝。");
+    return { success: true, article: saveArticle_(payload.article, payload.originalId) };
+  }
+  if (action === "deletearticle") {
+    if (typeof deleteArticle_ !== "function") throw new Error("ArticleAdmin.gs 尚未安裝。");
+    return { success: true, result: deleteArticle_(payload.articleId) };
+  }
+  if (action === "saveservice") {
+    if (typeof saveService_ !== "function") throw new Error("Services.gs 尚未安裝。");
+    return { success: true, service: saveService_(payload.service, payload.originalId) };
+  }
+  if (action === "deleteservice") {
+    if (typeof deleteService_ !== "function") throw new Error("Services.gs 尚未安裝。");
+    return { success: true, result: deleteService_(payload.serviceId) };
+  }
+
+  throw new Error("不支援的管理員 action。");
+}
+
 function parsePayload_(e) {
   const contents = e?.postData?.contents;
   if (contents) {
@@ -226,7 +314,10 @@ function parsePayload_(e) {
 }
 
 function sanitizeText_(value, maxLength) {
-  return String(value == null ? "" : value).trim().slice(0, maxLength);
+  return String(value == null ? "" : value)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, "")
+    .trim()
+    .slice(0, maxLength);
 }
 
 function hashHex_(value) {
