@@ -35,7 +35,7 @@ jobs:
           required=(
             index.html services.html privacy.html articles.html lab.html methodology.html
             timeflow.html football-lab.html trust.css site-shell.css
-            package.json playwright.config.cjs
+            package.json playwright.config.cjs playwright.root.config.cjs
             scripts/build-site.cjs scripts/build-football.cjs
             src/timeflow/ui.js src/timeflow/actions.js src/timeflow/bootstrap.js
             src/football/entry.js src/football/data.js src/football/core.js src/football/scoring.js
@@ -45,7 +45,7 @@ jobs:
             src/football/record-edit-model.js src/football/record-edit.js
             src/football/record-knockout-edit-model.js src/football/record-knockout-edit.js
             src/football/record-knockout-input-guard.js
-            JS/main.js JS/utils.js JS/site-shell.js JS/site-hardening.js JS/booking-verified.js
+            JS/main.js JS/utils.js JS/site-shell.js JS/site-hardening.js JS/booking-verified.js JS/football-lab.js
             JS/timeflow-v5-core.js JS/timeflow-v5-layout.js
             tests/build-site.test.cjs tests/football-bundle.test.cjs
             tests/football-core-esm.test.cjs tests/football-scoring-esm.test.cjs
@@ -54,7 +54,7 @@ jobs:
             tests/football-record-edit-model.test.cjs tests/football-record-edit-controller.test.cjs
             tests/football-record-knockout-edit-model.test.cjs tests/football-record-knockout-edit-controller.test.cjs
             tests/football-record-knockout-input-guard.test.cjs
-            tests/e2e/site.spec.js tests/e2e/accessibility.spec.js
+            tests/e2e/site.spec.js tests/e2e/accessibility.spec.js tests/root-e2e/football-root.spec.js
             tests/main-loader.test.cjs tests/timeflow-core.test.cjs tests/timeflow-layout.test.cjs tests/site-smoke.sh
           )
           for file in "${required[@]}"; do
@@ -65,6 +65,7 @@ jobs:
         run: |
           set -euo pipefail
           node --check playwright.config.cjs
+          node --check playwright.root.config.cjs
           node --check scripts/build-site.cjs
           node --check scripts/build-football.cjs
           node --check src/timeflow/ui.js
@@ -95,6 +96,7 @@ jobs:
           node --check JS/booking.js
           node --check JS/booking-verified.js
           node --check JS/practice-auth.js
+          node --check JS/football-lab.js
           node --check JS/timeflow-v5-core.js
           node --check JS/timeflow-v5-layout.js
           node --check tests/build-site.test.cjs
@@ -112,6 +114,7 @@ jobs:
           node --check tests/football-record-knockout-input-guard.test.cjs
           node --check tests/e2e/site.spec.js
           node --check tests/e2e/accessibility.spec.js
+          node --check tests/root-e2e/football-root.spec.js
           node --check tests/main-loader.test.cjs
           node --check tests/timeflow-core.test.cjs
           node --check tests/timeflow-layout.test.cjs
@@ -178,6 +181,8 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Run Playwright and axe against dist
         run: npm run test:e2e
+      - name: Run repository root football compatibility test
+        run: npm run test:e2e:root
       - name: Upload Playwright failure report
         if: failure()
         uses: actions/upload-artifact@v4
@@ -185,6 +190,7 @@ jobs:
           name: playwright-report-${{ github.run_id }}
           path: |
             playwright-report/
+            playwright-root-report/
             test-results/
           if-no-files-found: ignore
           retention-days: 7
