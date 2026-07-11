@@ -7,6 +7,7 @@
 // 更快替代方案比較：
 // - 舊版只寫入 window.FOOTBALL_LAB_DATA，所有模組依賴隱性全域。
 // - 本版正式匯出 footballData 與各固定集合，同時暫時回填 window API 供舊模組相容。
+// - 結果文字以固定查表直接取得；相較在每個 Render 分支特判 ND，可維持 O(1) 並避免文案分叉。
 
 const positions = [
   { key: "directResult", title: "單張｜90 分鐘整體能量", note: "觀察總進球區間與是否和局，不判定主隊或客隊勝" },
@@ -18,7 +19,12 @@ const positions = [
 
 export const modelVersion = "1.6.0";
 export const storageKey = "evanFootballTarotRecordsV1";
-export const resultLabels = Object.freeze({ H: "主隊勝", D: "和局", A: "客隊勝" });
+export const resultLabels = Object.freeze({
+  H: "主隊勝",
+  D: "和局",
+  A: "客隊勝",
+  ND: "非和局",
+});
 export const modeLabels = Object.freeze({
   direct: "單張整體能量模式",
   structure: "四張攻防模式",
