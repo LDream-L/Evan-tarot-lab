@@ -1,0 +1,87 @@
+/* ===== 占卜服務公開卡片 ===== */
+.service-list {
+  align-items: stretch;
+}
+
+.service-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.service-card > h3,
+.service-card > p,
+.service-card > ul,
+.service-card > dl {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.service-list-label {
+  margin: 4px 0 0;
+  color: var(--accent-strong) !important;
+  font-size: 0.76rem !important;
+  font-weight: 750;
+  letter-spacing: 0.05em;
+}
+
+.service-card-list {
+  display: grid;
+  gap: 4px;
+}
+
+.service-details {
+  display: grid;
+  gap: 7px;
+  margin-top: 4px !important;
+  padding: 12px;
+  border: 1px solid rgba(139, 123, 255, 0.24);
+  border-radius: 12px;
+  background: rgba(5, 6, 24, 0.54);
+}
+
+.service-detail-row {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr);
+  gap: 8px;
+  align-items: start;
+}
+
+.service-detail-row dt {
+  color: var(--accent-strong);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.service-detail-row dd {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.82rem;
+  line-height: 1.55;
+}
+
+.service-policy-note {
+  padding-top: 9px;
+  border-top: 1px dashed rgba(139, 123, 255, 0.25);
+  color: var(--text-muted) !important;
+  font-size: 0.78rem !important;
+}
+
+.service-booking-button {
+  width: 100%;
+  margin-top: auto;
+}
+
+.service-list[data-source="fallback"]::after {
+  content: "目前顯示網站內建服務資料；雲端服務恢復後會自動更新。";
+  grid-column: 1 / -1;
+  color: var(--text-muted);
+  font-size: 0.76rem;
+  text-align: center;
+}
+
+@media (max-width: 560px) {
+  .service-detail-row {
+    grid-template-columns: 46px minmax(0, 1fr);
+  }
+}
