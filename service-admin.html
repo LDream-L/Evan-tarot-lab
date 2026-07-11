@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
+  <title>服務管理｜Evan Tarot</title>
+  <meta name="description" content="Evan Tarot 管理員服務項目、費用、交付與公開狀態管理。" />
+  <meta name="theme-color" content="#050518" />
+  <link rel="stylesheet" href="style.css?v=20260505-polish-v2" />
+  <link rel="stylesheet" href="services.css?v=20260711-service-catalog-v1" />
+  <link rel="stylesheet" href="article-admin.css?v=20260629-admin-v1" />
+  <link rel="stylesheet" href="service-admin.css?v=20260711-service-admin-v1" />
+  <link rel="stylesheet" href="google-auth.css?v=20260626-unified-account-v1" />
+  <link rel="stylesheet" href="site-account.css?v=20260629-stability-v1" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="logo">
+        <span class="logo-main">Evan Tarot</span>
+        <span class="logo-sub">Tarot Lab ／ Systematic Divination</span>
+      </div>
+      <nav class="nav" aria-label="主選單">
+        <a href="index.html#intro">介紹</a>
+        <a href="services.html">占卜項目</a>
+        <a href="service-admin.html" aria-current="page">服務管理</a>
+        <a href="articles.html">文章</a>
+        <a href="lab.html">實驗室</a>
+        <a href="services.html#booking">預約</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero subpage-hero article-admin-hero">
+      <div class="hero-bg-orbit" aria-hidden="true"></div>
+      <div class="container hero-inner">
+        <div class="hero-text">
+          <h1>服務項目管理後台</h1>
+          <p>直接在網站新增、編輯或封存占卜項目，公開頁會同步更新名稱、費用、時間、交付與追問範圍。</p>
+          <div class="hero-meta">
+            <span class="pill pill-soft">Google 管理員驗證</span>
+            <span class="pill pill-outline">Google Sheets 儲存</span>
+            <span class="pill pill-outline">即時預覽</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section article-admin-section">
+      <div class="container article-admin-container">
+        <section class="article-admin-gate" id="service-admin-gate" aria-live="polite">
+          <div>
+            <p class="article-admin-kicker">ADMIN ACCESS</p>
+            <h2 id="service-admin-gate-title">正在確認管理權限</h2>
+            <p id="service-admin-gate-message">請使用右上角 Google 帳戶登入。只有網站管理員能讀取或修改服務資料。</p>
+          </div>
+          <button class="btn ghost" id="service-admin-retry" type="button">重新檢查</button>
+        </section>
+
+        <div class="article-admin-workspace service-admin-workspace hidden" id="service-admin-workspace">
+          <aside class="article-admin-sidebar" aria-label="服務清單">
+            <div class="article-admin-sidebar-heading">
+              <div>
+                <p class="article-admin-kicker">SERVICES</p>
+                <h2>服務清單</h2>
+              </div>
+              <button class="btn primary" id="service-admin-new" type="button">新增服務</button>
+            </div>
+
+            <div class="article-admin-filters">
+              <label>
+                搜尋
+                <input id="service-admin-search" type="search" placeholder="名稱、ID、費用" autocomplete="off" />
+              </label>
+              <label>
+                狀態
+                <select id="service-admin-status-filter">
+                  <option value="all">全部</option>
+                  <option value="draft">草稿</option>
+                  <option value="published">已發布</option>
+                  <option value="archived">已封存</option>
+                </select>
+              </label>
+            </div>
+
+            <div class="article-admin-list" id="service-admin-list" aria-live="polite"></div>
+          </aside>
+
+          <section class="article-admin-editor">
+            <div class="article-admin-editor-heading">
+              <div>
+                <p class="article-admin-kicker">EDITOR</p>
+                <h2 id="service-admin-editor-title">新增服務</h2>
+                <p class="article-admin-updated" id="service-admin-updated">尚未儲存</p>
+              </div>
+              <div class="article-admin-heading-actions">
+                <button class="btn ghost" id="service-admin-refresh" type="button">重新讀取</button>
+                <a class="btn ghost" href="services.html#services" target="_blank" rel="noopener noreferrer">查看公開頁</a>
+              </div>
+            </div>
+
+            <form id="service-admin-form" novalidate>
+              <input id="service-admin-original-id" type="hidden" />
+
+              <div class="article-admin-grid three-columns">
+                <label>
+                  服務 ID
+                  <input id="service-admin-id" type="text" maxlength="80" pattern="[a-z0-9][a-z0-9_-]{1,79}" required placeholder="relationship-reading" />
+                  <span class="article-admin-help">建立後不建議修改，預約選項會使用此 ID。</span>
+                </label>
+                <label>
+                  狀態
+                  <select id="service-admin-status" required>
+                    <option value="draft">草稿</option>
+                    <option value="published">已發布</option>
+                    <option value="archived">已封存</option>
+                  </select>
+                </label>
+                <label>
+                  排序值
+                  <input id="service-admin-sort-order" type="number" step="1" value="0" />
+                  <span class="article-admin-help">數字越大越前面。</span>
+                </label>
+              </div>
+
+              <label>
+                服務名稱
+                <input id="service-admin-title" type="text" maxlength="120" required placeholder="人際 / 感情動態占卜" />
+              </label>
+
+              <label>
+                簡介
+                <textarea id="service-admin-summary" rows="3" maxlength="600" required placeholder="說明這項服務協助整理什麼。"></textarea>
+              </label>
+
+              <div class="article-admin-grid two-columns">
+                <label>
+                  適合情境
+                  <textarea id="service-admin-suitable-for" rows="5" maxlength="800" placeholder="每行一項，例如：&#10;曖昧&#10;忽冷忽熱&#10;斷聯"></textarea>
+                </label>
+                <label>
+                  整理重點
+                  <textarea id="service-admin-focus" rows="5" maxlength="800" placeholder="每行一項，例如：&#10;雙方狀態&#10;現在能做什麼&#10;不該做什麼"></textarea>
+                </label>
+              </div>
+
+              <div class="article-admin-grid two-columns">
+                <label>
+                  費用
+                  <input id="service-admin-price" type="text" maxlength="120" placeholder="例如：NT$800／次" />
+                </label>
+                <label>
+                  預計時間
+                  <input id="service-admin-duration" type="text" maxlength="120" placeholder="例如：文字 2–3 個工作天" />
+                </label>
+              </div>
+
+              <div class="article-admin-grid two-columns">
+                <label>
+                  交付方式
+                  <input id="service-admin-delivery" type="text" maxlength="160" placeholder="例如：文字報告＋牌面照片" />
+                </label>
+                <label>
+                  追問範圍
+                  <input id="service-admin-follow-up" type="text" maxlength="160" placeholder="例如：交付後 3 日內可追問 1 次" />
+                </label>
+              </div>
+
+              <label>
+                服務與取消說明
+                <textarea id="service-admin-policy" rows="3" maxlength="600" placeholder="可填改期、取消、退款、承接界線或其他必要說明。"></textarea>
+              </label>
+
+              <div class="article-admin-grid two-columns">
+                <label>
+                  預約表單值
+                  <input id="service-admin-booking-topic" type="text" maxlength="80" placeholder="留白則使用服務 ID" />
+                  <span class="article-admin-help">用於預約資料分類；既有項目建議保持不變。</span>
+                </label>
+                <label>
+                  內部備註
+                  <textarea id="service-admin-internal-note" rows="3" maxlength="1000" placeholder="只供管理後台查看，不會公開。"></textarea>
+                </label>
+              </div>
+
+              <div class="article-admin-form-actions">
+                <button class="btn ghost danger" id="service-admin-delete" type="button" disabled>永久刪除</button>
+                <div class="article-admin-form-actions-main">
+                  <button class="btn ghost" id="service-admin-save-draft" type="button">儲存草稿</button>
+                  <button class="btn primary" id="service-admin-save" type="submit">儲存目前狀態</button>
+                  <button class="btn primary article-admin-publish-button" id="service-admin-publish" type="button">立即發布</button>
+                </div>
+              </div>
+              <p class="tool-feedback-message hidden" id="service-admin-message" aria-live="polite"></p>
+            </form>
+          </section>
+
+          <aside class="article-admin-preview-panel" aria-label="服務預覽">
+            <div class="article-admin-preview-sticky">
+              <div class="article-admin-tabs" role="tablist" aria-label="預覽工具">
+                <button class="is-active" type="button" role="tab" aria-selected="true">公開卡片預覽</button>
+              </div>
+              <section class="article-admin-tab-panel">
+                <article class="card service-card service-admin-preview-card">
+                  <h3 id="service-admin-preview-title">尚未輸入服務名稱</h3>
+                  <p id="service-admin-preview-summary">服務簡介會顯示在這裡。</p>
+                  <p class="service-admin-preview-label">適合情境</p>
+                  <ul class="service-admin-preview-list" id="service-admin-preview-suitable"></ul>
+                  <p class="service-admin-preview-label">整理重點</p>
+                  <ul class="service-admin-preview-list" id="service-admin-preview-focus"></ul>
+                  <dl class="service-admin-preview-details" id="service-admin-preview-details"></dl>
+                  <p class="service-admin-preview-note" id="service-admin-preview-policy"></p>
+                  <button class="btn ghost service-booking-button" type="button" disabled>選擇這個項目</button>
+                </article>
+              </section>
+            </div>
+          </aside>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <p>Evan Tarot ｜服務管理</p>
+      <p class="footer-sub">管理操作會經 Apps Script 再次驗證 Google 管理員身分。</p>
+    </div>
+  </footer>
+
+  <script src="https://accounts.google.com/gsi/client?hl=zh-TW" async defer></script>
+  <script src="JS/utils.js?v=20260710-hardening-v1"></script>
+  <script src="JS/cloud-config.js?v=20260711-services-v1"></script>
+  <script src="JS/google-auth.js?v=20260629-stability-v1"></script>
+  <script src="JS/site-account.js?v=20260629-stability-v1"></script>
+  <script src="JS/service-admin.js?v=20260711-service-admin-v1"></script>
+  <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
+</body>
+</html>
