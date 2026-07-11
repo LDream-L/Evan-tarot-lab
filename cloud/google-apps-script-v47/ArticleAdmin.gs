@@ -29,7 +29,7 @@ function listAdminArticles_() {
 /** 儲存單篇文章。時間 O(n)，空間 O(n)。 */
 function saveArticle_(rawArticle, rawOriginalId) {
   const article = normalizeArticleInput_(rawArticle);
-  const originalId = sanitizeArticleId_(rawOriginalId) || article.id;
+  const originalId = sanitizeArticleId_(rawOriginalId);
   const sheet = getArticlesSheetForAdmin_();
   const lastRow = sheet.getLastRow();
   const ids = lastRow > 1
@@ -42,7 +42,7 @@ function saveArticle_(rawArticle, rawOriginalId) {
     if (ids[index] === originalId) targetRow = index + 2;
     if (ids[index] === article.id) duplicateRow = index + 2;
   }
-  if (duplicateRow && duplicateRow !== targetRow) {
+  if (duplicateRow && (!targetRow || duplicateRow !== targetRow)) {
     throw new Error(`文章 ID「${article.id}」已存在。`);
   }
 
