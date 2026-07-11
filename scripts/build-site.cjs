@@ -19,11 +19,13 @@ const NAVIGATION_PAGES = new Map([
   ["timeflow.html", "lab"], ["practice.html", "lab"],
 ]);
 const ADMIN_PAGES = new Set(["article-admin.html", "service-admin.html"]);
+const NOINDEX_PAGES = new Set([...ADMIN_PAGES, "practice.html"]);
 const TIMEFLOW_RUNTIME = new Map([
   ["ui.js", "timeflow-v5-ui.js"],
   ["actions.js", "timeflow-v5-actions.js"],
   ["bootstrap.js", "divination-map.js"],
 ]);
+const SITE_ORIGIN = "https://ldream-l.github.io/Evan-tarot-lab";
 const PODCAST_URL = "https://podcasts.apple.com/tw/podcast/%E6%9C%89%E9%BB%9E%E5%81%8F/id1896598359";
 const BRAND_LOGO_URL = "images/branding/evan-tarot-logo.svg?v=20260625-brand-v4";
 const NAV_PATTERN = /(^[ \t]*)<nav\b(?=[^>]*\bclass=["'][^"']*\bnav\b[^"']*["'])(?=[^>]*\baria-label=["']主選單["'])[^>]*>[\s\S]*?<\/nav>/m;
@@ -64,11 +66,76 @@ function renderBrand(indent) {
   ].join("\n");
 }
 
+/** HTML attribute 安全輸出。時間／空間 O(m)，m = 文字長度。 */
+function escapeHtmlAttribute(value) {
+  return String(value || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/** 讀取既有 title／description。時間 O(H)，空間 O(m)。 */
+function extractPageMetadata(source) {
+  const title = source.match(/<title>([\s\S]*?)<\/title>/i)?.[1]?.trim() || "Evan Tarot";
+  const descriptionPatterns = [
+    /<meta\b[^>]*\bname=["']description["'][^>]*\bcontent=["']([^"']*)["'][^>]*>/i,
+    /<meta\b[^>]*\bcontent=["']([^"']*)["'][^>]*\bname=["']description["'][^>]*>/i,
+  ];
+  const description = descriptionPatterns
+    .map((pattern) => source.match(pattern)?.[1]?.trim() || "")
+    .find(Boolean) || "Evan Tarot 的塔羅占卜、文章與實驗工具。";
+  return { title, description };
+}
+
+/** 建置靜態 canonical、社群預覽與 Schema.org。時間／空間 O(m)。 */
+function renderPageMetadata(source, fileName) {
+  if (source.includes('data-site-meta="true"')) return "";
+  const { title, description } = extractPageMetadata(source);
+  const noIndex = NOINDEX_PAGES.has(fileName);
+  const canonicalUrl = fileName === "index.html" ? `${SITE_ORIGIN}/` : `${SITE_ORIGIN}/${fileName}`;
+  const lines = [
+    `  <meta data-site-meta="true" name="robots" content="${noIndex ? "noindex,nofollow,noarchive" : "index,follow,max-image-preview:large"}" />`,
+  ];
+
+  if (!noIndex) {
+    lines.push(
+      `  <link rel="canonical" href="${escapeHtmlAttribute(canonicalUrl)}" />`,
+      '  <meta property="og:locale" content="zh_TW" />',
+      '  <meta property="og:type" content="website" />',
+      '  <meta property="og:site_name" content="Evan Tarot" />',
+      `  <meta property="og:title" content="${escapeHtmlAttribute(title)}" />`,
+      `  <meta property="og:description" content="${escapeHtmlAttribute(description)}" />`,
+      `  <meta property="og:url" content="${escapeHtmlAttribute(canonicalUrl)}" />`,
+      '  <meta name="twitter:card" content="summary" />'
+    );
+
+    const schema = {
+      "@context": "https://schema.org",
+      "@type": fileName === "index.html" ? "WebSite" : "WebPage",
+      name: title,
+      description,
+      url: canonicalUrl,
+      inLanguage: "zh-Hant",
+      ...(fileName === "index.html" ? {} : {
+        isPartOf: {
+          "@type": "WebSite",
+          name: "Evan Tarot",
+          url: `${SITE_ORIGIN}/`,
+        },
+      }),
+    };
+    lines.push(`  <script type="application/ld+json">${JSON.stringify(schema).replace(/</g, "\\u003c")}</script>`);
+  }
+
+  return lines.join("\n");
+}
+
 /**
- * 將品牌、favicon、跳轉連結與主要內容目標寫入正式 HTML。
+ * 將品牌、SEO、favicon、跳轉連結與主要內容目標寫入正式 HTML。
  * 時間／空間複雜度 O(H)，H 為 HTML 長度。
  *
- * 替代方案比較：逐頁手動維護容易分歧；執行期注入會造成閃動。
+ * 替代方案比較：逐頁手動維護容易分歧；執行期注入會造成首屏閃動且搜尋引擎未必執行。
  * 本方案集中在建置器，所有正式頁面得到相同靜態結構。
  */
 function applyStaticSiteShell(source, fileName) {
@@ -77,10 +144,13 @@ function applyStaticSiteShell(source, fileName) {
   if (!logoMatch) throw new Error(`[build] ${fileName} 找不到品牌 Logo 容器`);
   output = output.replace(LOGO_PATTERN, renderBrand(logoMatch[1]));
 
+  const pageMetadata = renderPageMetadata(output, fileName);
+  if (pageMetadata) output = output.replace("</head>", `${pageMetadata}\n</head>`);
+
   if (!output.includes('href="site-shell.css')) {
     output = output.replace(
       "</head>",
-      `  <link rel="stylesheet" href="site-shell.css?v=20260710-static-brand-a11y-v1" />\n  <link rel="icon" type="image/svg+xml" href="${BRAND_LOGO_URL}" />\n</head>`
+      `  <link rel="stylesheet" href="site-shell.css?v=20260711-mobile-seo-v1" />\n  <link rel="icon" type="image/svg+xml" href="${BRAND_LOGO_URL}" />\n</head>`
     );
   }
 
@@ -98,7 +168,7 @@ function applyStaticSiteShell(source, fileName) {
   if (!output.includes('src="JS/site-shell.js')) {
     output = output.replace(
       "</body>",
-      '  <script src="JS/site-shell.js?v=20260710-skip-focus-v1"></script>\n</body>'
+      '  <script src="JS/site-shell.js?v=20260711-mobile-seo-v1"></script>\n</body>'
     );
   }
 
