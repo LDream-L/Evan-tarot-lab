@@ -1,6 +1,6 @@
 // ==============================
 // utils.js
-// 共用時間工具、舊頁品牌備援與全站防護載入器
+// 共用時間工具、舊頁品牌備援與全站防護啟動器
 // ==============================
 //
 // 主要函式複雜度：
@@ -11,13 +11,11 @@
 // 更快替代方案比較：
 // - 正式站：品牌、favicon 與樣式由建置器靜態輸出，首次繪製即為最終狀態。
 // - 備援：直接開啟未建置的來源 HTML 時，才由本檔補上品牌，方便本機檢視。
-// - 舊版每次 DOMContentLoaded 都替換 Logo：會產生首屏閃動；正式輸出已不採用。
 // ==============================
 
 (function initSharedUtils() {
   "use strict";
 
-  /** 取得台北時間 ISO 字串（不含時區尾碼）。時間／空間 O(1)。 */
   function nowTaipeiISO() {
     const formatter = new Intl.DateTimeFormat("sv-SE", {
       timeZone: "Asia/Taipei",
@@ -50,7 +48,6 @@
   const LOGO_URL = "images/branding/evan-tarot-logo.svg?v=20260625-brand-v4";
   const STYLE_ID = "evan-site-branding-fallback-style";
 
-  /** 判斷正式靜態品牌是否已存在。時間／空間 O(1)。 */
   function hasStaticBranding() {
     return Boolean(
       document.querySelector(".site-header .site-brand-image")
@@ -58,7 +55,6 @@
     );
   }
 
-  /** 只供未建置來源頁使用的品牌樣式。時間／空間 O(1)。 */
   function addFallbackStyles() {
     if (document.getElementById(STYLE_ID)) return;
 
@@ -74,7 +70,6 @@
     document.head.appendChild(style);
   }
 
-  /** 未提供 favicon 時補上品牌圖示。時間／空間 O(1)。 */
   function addFaviconFallback() {
     if (document.querySelector('link[rel~="icon"]')) return;
     const icon = document.createElement("link");
@@ -84,7 +79,6 @@
     document.head.appendChild(icon);
   }
 
-  /** 未建置來源頁才將文字 Logo 包成品牌首頁連結。時間／空間 O(1)。 */
   function addHeaderLogoFallback() {
     const currentLogo = document.querySelector(".site-header .logo");
     if (!currentLogo || currentLogo.querySelector(".site-brand-image")) return;
@@ -110,7 +104,6 @@
     currentLogo.replaceWith(link);
   }
 
-  /** 正式靜態品牌存在時立即結束；否則套用來源頁備援。時間／空間 O(1)。 */
   function applyBrandingFallback() {
     if (hasStaticBranding()) return;
     addFallbackStyles();
@@ -127,7 +120,7 @@
 
 // ==============================
 // Evan Dialog 即時備援
-// site-hardening 載入後會換成完整無障礙彈窗。
+// 模組化全站防護載入後會換成完整無障礙彈窗。
 // ==============================
 (function initDialogFallback() {
   "use strict";
@@ -148,7 +141,7 @@
 })();
 
 // ==============================
-// 全站防護模組
+// 全站防護模組啟動器
 // ==============================
 (function loadSiteHardening() {
   "use strict";
@@ -156,11 +149,11 @@
   if (window.EvanSiteHardening || document.querySelector('script[data-site-hardening="true"]')) return;
 
   const script = document.createElement("script");
-  script.src = "JS/site-hardening.js?v=20260710-hardening-v1";
+  script.src = "JS/site-hardening.js?v=20260712-modular-v1";
   script.async = true;
   script.dataset.siteHardening = "true";
   script.addEventListener("error", () => {
-    console.error("[utils] 全站防護模組載入失敗。");
+    console.error("[utils] 全站防護啟動器載入失敗。");
   }, { once: true });
   document.head.appendChild(script);
 })();
