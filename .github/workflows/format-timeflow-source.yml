@@ -1,9 +1,7 @@
-name: Format Timeflow CSS Source
+name: Build Timeflow CSS Source Artifact
 
 on:
-  push:
-    branches:
-      - refactor/site-architecture-20260712
+  pull_request:
     paths:
       - timeflow.css
       - scripts/format-timeflow-css.cjs
@@ -11,16 +9,14 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   format:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout branch
+      - name: Checkout pull request
         uses: actions/checkout@v4
-        with:
-          ref: refactor/site-architecture-20260712
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
@@ -30,14 +26,13 @@ jobs:
       - name: Generate readable source
         run: node scripts/format-timeflow-css.cjs
 
-      - name: Commit generated source
-        run: |
-          if git diff --quiet -- src/styles/timeflow.css; then
-            echo "Readable source is already current."
-            exit 0
-          fi
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add src/styles/timeflow.css
-          git commit -m "chore: 產生可讀的時間流 CSS 來源"
-          git push origin HEAD:refactor/site-architecture-20260712
+      - name: Verify generated CSS is non-empty
+        run: test -s src/styles/timeflow.css
+
+      - name: Upload readable source
+        uses: actions/upload-artifact@v4
+        with:
+          name: timeflow-readable-source
+          path: src/styles/timeflow.css
+          if-no-files-found: error
+          retention-days: 3
