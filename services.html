@@ -4,10 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Evan Tarot｜占卜項目</title>
-  <meta name="description" content="Evan Tarot 目前開放的占卜形式、費用與交付資訊、預約流程、服務界線及資料隱私。" />
+  <meta name="description" content="Evan Tarot 目前開放的占卜大方向、問題規模、文字或語音方案、費用、交付、預約流程及資料隱私。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-dialog-v6" />
-  <link rel="stylesheet" href="services.css?v=20260711-service-catalog-v1" />
+  <link rel="stylesheet" href="services.css?v=20260712-service-plans-v2" />
   <link rel="stylesheet" href="trust.css?v=20260710-trust-architecture-v1" />
 </head>
 <body>
@@ -34,14 +34,14 @@
       <div class="container hero-inner">
         <div class="hero-text">
           <h1>占卜項目與適合情境。</h1>
-          <p>依問題類型選擇人際、職涯或深度占卜；若暫時無法分類，直接描述目前狀況即可。</p>
+          <p>先選擇感情、職涯或深度占卜等大方向，再依問題規模、文字或語音形式與額外計算量選擇方案。</p>
           <div class="hero-cta">
             <a href="#services" class="btn primary">查看項目</a>
             <a href="#booking" class="btn ghost">前往預約</a>
           </div>
           <div class="hero-meta">
             <span class="pill pill-soft">占卜服務</span>
-            <span class="pill pill-outline">費用與交付公開說明</span>
+            <span class="pill pill-outline">分級方案與公開價格</span>
             <span class="pill pill-outline">服務界線與隱私</span>
           </div>
         </div>
@@ -49,11 +49,11 @@
           <div class="hero-card-inner">
             <p class="hero-tag">選擇方式</p>
             <ul>
-              <li>想看關係互動：選人際 / 感情動態</li>
-              <li>想看工作節奏：選工作 / 職涯路線</li>
-              <li>問題較複雜：選主題深度占卜</li>
+              <li>先選大方向：感情、人際、職涯或綜合主題</li>
+              <li>再看問題規模：單一小問題或多層次深度問題</li>
+              <li>最後選交付：文字、語音／通話或包含額外計算的方案</li>
             </ul>
-            <p class="hero-note">若不確定類型，可在預約表單內直接描述問題。</p>
+            <p class="hero-note">若無法判斷規模，可先提出需求；雙方確認後才成立預約。</p>
           </div>
         </aside>
       </div>
@@ -62,7 +62,7 @@
     <section class="section alt" id="services">
       <div class="container">
         <h2>目前開放的占卜形式</h2>
-        <p class="section-lead">每一場占卜都會以「現況 → 問題 → 可行調整」為主軸；各項目的費用、時間、交付與追問範圍以本頁最新資料為準。</p>
+        <p class="section-lead">同一個大方向可能包含多種問題規模與交付方式；價格依實際需要投入的時間、牌陣、計算與整理工作分開標示。</p>
         <div class="card-grid service-list" id="service-list" aria-live="polite" aria-busy="true" data-source="fallback">
           <article class="card service-card" data-service-id="relationship">
             <h3>人際 / 感情動態占卜</h3>
@@ -70,10 +70,10 @@
             <p class="service-list-label">適合情境</p>
             <ul class="card-list service-card-list"><li>曖昧</li><li>忽冷忽熱</li><li>斷聯</li><li>合作對象</li></ul>
             <dl class="service-details">
-              <div class="service-detail-row"><dt>費用</dt><dd>費用於確認承接時說明</dd></div>
+              <div class="service-detail-row"><dt>費用</dt><dd>依問題規模與交付形式確認</dd></div>
               <div class="service-detail-row"><dt>交付</dt><dd>文字或語音</dd></div>
             </dl>
-            <button class="btn ghost service-booking-button" type="button" data-service-booking="relationship">選擇這個項目</button>
+            <button class="btn ghost service-booking-button" type="button" data-service-booking="relationship">先提出需求</button>
           </article>
           <article class="card service-card" data-service-id="career">
             <h3>工作 / 職涯路線占卜</h3>
@@ -81,10 +81,10 @@
             <p class="service-list-label">適合情境</p>
             <ul class="card-list service-card-list"><li>轉職前後</li><li>升遷機會</li><li>團隊磨合</li></ul>
             <dl class="service-details">
-              <div class="service-detail-row"><dt>費用</dt><dd>費用於確認承接時說明</dd></div>
+              <div class="service-detail-row"><dt>費用</dt><dd>依問題規模與交付形式確認</dd></div>
               <div class="service-detail-row"><dt>交付</dt><dd>文字或語音</dd></div>
             </dl>
-            <button class="btn ghost service-booking-button" type="button" data-service-booking="career">選擇這個項目</button>
+            <button class="btn ghost service-booking-button" type="button" data-service-booking="career">先提出需求</button>
           </article>
           <article class="card service-card" data-service-id="deep-topic">
             <h3>主題深度占卜</h3>
@@ -92,10 +92,10 @@
             <p class="service-list-label">適合情境</p>
             <ul class="card-list service-card-list"><li>卡很久的大問題</li><li>不知道從哪裡切入</li><li>多個面向互相影響</li></ul>
             <dl class="service-details">
-              <div class="service-detail-row"><dt>費用</dt><dd>費用於確認承接時說明</dd></div>
+              <div class="service-detail-row"><dt>費用</dt><dd>依問題規模與交付形式確認</dd></div>
               <div class="service-detail-row"><dt>交付</dt><dd>文字或語音</dd></div>
             </dl>
-            <button class="btn ghost service-booking-button" type="button" data-service-booking="deep-topic">選擇這個項目</button>
+            <button class="btn ghost service-booking-button" type="button" data-service-booking="deep-topic">先提出需求</button>
           </article>
         </div>
       </div>
@@ -104,19 +104,19 @@
     <section class="section" id="service-process">
       <div class="container">
         <h2>預約流程與服務界線</h2>
-        <p class="section-lead">送出表單只是提出需求；雙方確認形式、費用、時間與交付內容後，預約才正式成立。</p>
+        <p class="section-lead">送出表單只是提出需求；雙方確認方案、費用、時間與交付內容後，預約才正式成立。</p>
         <div class="card-grid">
           <article class="card">
             <h3>預約怎麼成立</h3>
             <ul class="card-list">
-              <li>先送出主題、聯絡方式與希望形式</li>
-              <li>我會回覆是否適合承接與可安排時間</li>
-              <li>雙方確認細節後，才進入正式預約</li>
+              <li>先選擇大方向與最接近的方案</li>
+              <li>若問題實際規模不同，我會先說明是否需要調整方案</li>
+              <li>雙方確認費用、形式與時間後，才進入正式預約</li>
             </ul>
           </article>
           <article class="card">
-            <h3>費用與交付</h3>
-            <p>公開項目會顯示目前的費用、時間、交付與追問範圍；個別問題若需調整，會在接受預約前再次確認。未確認前不產生付款義務。</p>
+            <h3>為什麼價格不同</h3>
+            <p>單一問題與多層次問題所需牌陣、比對、計算與整理時間不同；文字報告與即時語音也有不同工作量，因此會分開標價，不用同一價格涵蓋所有情況。</p>
           </article>
           <article class="card">
             <h3>占卜界線與隱私</h3>
@@ -133,7 +133,7 @@
     <section class="section alt" id="booking">
       <div class="container">
         <h2>提出預約需求</h2>
-        <p class="section-lead">留下主題與聯絡方式，我會回覆是否適合承接、可安排時間，以及文字或語音形式。送出表單不代表預約已成立。</p>
+        <p class="section-lead">選擇最接近的方案並描述問題；若實際需求超出或小於該方案，我會在承接前先說明，不會直接產生額外費用。</p>
         <form class="booking-form" id="booking-form">
           <div class="form-row">
             <label>暱稱<input name="name" placeholder="例如：小鹿、H、匿名也可以" required type="text" /></label>
@@ -141,13 +141,13 @@
           </div>
           <div class="form-row">
             <label>
-              想占卜的主題
+              想占卜的方向與方案
               <select name="topic" required>
                 <option value="">請選擇</option>
                 <optgroup id="service-topic-options" label="占卜項目">
-                  <option value="relationship">人際 / 感情動態占卜</option>
-                  <option value="career">工作 / 職涯路線占卜</option>
-                  <option value="deep-topic">主題深度占卜</option>
+                  <option value="relationship">人際 / 感情動態占卜｜規格待確認</option>
+                  <option value="career">工作 / 職涯路線占卜｜規格待確認</option>
+                  <option value="deep-topic">主題深度占卜｜規格待確認</option>
                 </optgroup>
                 <optgroup label="其他主題">
                   <option value="self">自我成長 / 人生卡點</option>
@@ -161,7 +161,7 @@
                 <option value="">請選擇</option>
                 <option value="text">文字占卜</option>
                 <option value="voice">語音 / 通話</option>
-                <option value="flexible">都可以，看當天狀況</option>
+                <option value="flexible">都可以，看方案與當天狀況</option>
               </select>
             </label>
           </div>
@@ -171,7 +171,7 @@
           </label>
           <label>
             想說的話（越具體越好，但一句話也可以）
-            <textarea name="message" placeholder="可以寫：目前狀況、你最在意的是什麼、希望占卜幫你釐清什麼。請勿填入帳號密碼、金融資料或不必要的第三人敏感資訊。" rows="4"></textarea>
+            <textarea name="message" placeholder="可以寫：目前狀況、問題有幾個層次、是否需要比較多個選項，以及最希望釐清什麼。" rows="4"></textarea>
           </label>
           <button class="btn primary full" type="submit">送出預約需求</button>
           <p class="tool-note-small">後端確認成功時會顯示預約編號；若橋接服務暫時無法回傳結果，表單會保留並顯示「等待確認」，不會誤報為已完成入庫。送出前請閱讀<a href="privacy.html">資料與隱私說明</a>。</p>
@@ -184,13 +184,14 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <p>Evan Tarot ｜塔羅占卜、文章與實驗室</p>
-      <p class="footer-sub">依問題類型選擇人際、職涯或深度占卜，並在確認前理解服務與資料界線。</p>
+      <p class="footer-sub">先選大方向，再依問題規模、交付形式與額外工作量選擇適合方案。</p>
     </div>
   </footer>
 
   <script src="JS/utils.js?v=20260710-hardening-v1"></script>
   <script src="JS/cloud-config.js?v=20260711-services-v1"></script>
   <script src="JS/services.js?v=20260711-service-catalog-v1"></script>
+  <script src="JS/service-plans.js?v=20260712-service-plans-v2"></script>
   <script src="JS/booking.js?v=20260710-booking-reliability-v1"></script>
   <script src="JS/booking-verified.js?v=20260711-target-origin-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
