@@ -159,6 +159,7 @@
   }
 
   window.EvanDialog = Object.freeze({
+    isEnhanced: true,
     alert: (message, title = "提示") => createDialog({ type: "alert", title, message }),
     confirm: (message, title = "確認操作") => createDialog({ type: "confirm", title, message }),
     prompt: (message, defaultValue = "", title = "輸入內容", placeholder = "") =>
