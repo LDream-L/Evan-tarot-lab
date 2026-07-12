@@ -1,17 +1,16 @@
 // ==============================
-// google-auth.js
-// Google Identity Services＋雲端暱稱＋全站工作階段
+// google-auth.js v2
+// Google Identity Services＋後端驗證＋雲端暱稱＋全站工作階段
 // ==============================
 //
 // 主要函式複雜度：
-// - init / updateUI：O(1)
-// - decodeJwtPayload：O(m)，m = JWT payload 長度
-// - createUserKey：O(m)
+// - init / updateUI / verifyCredentialWithBackend：O(1)（不含網路等待）
+// - decodeJwtPayload / createUser：O(m)，m = JWT payload 長度
 // 空間複雜度：O(m)
 //
 // 更快替代方案比較：
-// - no-cors 寫入後輪詢最多 5 次：無法讀取後端結果，且會增加等待與 API 請求。
-// - 本實作：直接讀取 Apps Script JSON 回應，成功後更新本地狀態，只在必要時補做一次 profile 同步。
+// - 只在瀏覽器解析 Token 就顯示已登入：反應快，但後端缺檔、Token audience 不符時會形成假登入畫面。
+// - 本實作：瀏覽器先做基本格式檢查，再由 Apps Script 驗證後才建立正式工作階段。
 // ==============================
 
 (function initGoogleAuthModule() {
@@ -26,6 +25,8 @@
   let user = null;
   let nickname = "";
   let profileLoading = false;
+  let authVerifying = false;
+  let authError = "";
 
   function getClientId() {
     return String(window.EVAN_CLOUD_CONFIG?.googleClientId || "").trim();
@@ -37,14 +38,14 @@
 
   function isConfigured() {
     const clientId = getClientId();
-    return Boolean(clientId && !clientId.includes("PASTE_GOOGLE"));
+    const apiUrl = getApiUrl();
+    return Boolean(clientId && !clientId.includes("PASTE_GOOGLE") && apiUrl);
   }
 
   function decodeJwtPayload(token) {
     try {
       const payloadPart = String(token || "").split(".")[1];
       if (!payloadPart) return null;
-
       const normalized = payloadPart.replace(/-/g, "+").replace(/_/g, "/");
       const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
       const json = decodeURIComponent(
@@ -66,32 +67,21 @@
     return !expiresAt || expiresAt > Date.now() + 30000;
   }
 
-  async function createUserKey(subject) {
-    const bytes = new TextEncoder().encode(String(subject || ""));
+  async function createUser(payload) {
+    const bytes = new TextEncoder().encode(String(payload.sub || ""));
     const digest = await crypto.subtle.digest("SHA-256", bytes);
-    return Array.from(new Uint8Array(digest))
+    const userKey = Array.from(new Uint8Array(digest))
       .map((byte) => byte.toString(16).padStart(2, "0"))
       .join("")
       .slice(0, 16);
-  }
-
-  async function createUser(payload) {
-    return {
-      subject: String(payload.sub),
-      userKey: await createUserKey(payload.sub),
-    };
+    return { subject: String(payload.sub), userKey };
   }
 
   async function fetchWithTimeout(url, options = {}) {
     const controller = new AbortController();
     const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-
     try {
-      return await fetch(url, {
-        ...options,
-        signal: controller.signal,
-        redirect: "follow",
-      });
+      return await fetch(url, { ...options, signal: controller.signal, redirect: "follow" });
     } finally {
       window.clearTimeout(timer);
     }
@@ -99,17 +89,13 @@
 
   async function readJsonResponse(response, fallbackMessage) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-    let payload = null;
+    let payload;
     try {
       payload = await response.json();
     } catch (error) {
       throw new Error(fallbackMessage || "後端沒有回傳可讀的 JSON。", { cause: error });
     }
-
-    if (!payload?.success) {
-      throw new Error(payload?.error || fallbackMessage || "後端處理失敗。");
-    }
+    if (!payload?.success) throw new Error(payload?.error || fallbackMessage || "後端處理失敗。");
     return payload;
   }
 
@@ -117,9 +103,11 @@
     return Object.freeze({
       isConfigured: isConfigured(),
       isSignedIn: Boolean(credential && user),
+      isVerifying: authVerifying,
       hasNickname: Boolean(nickname),
       nickname,
       userKey: user?.userKey || "",
+      error: authError,
     });
   }
 
@@ -142,7 +130,7 @@
   function updateUI() {
     const isSignedIn = Boolean(credential && user);
     const hasNickname = Boolean(nickname);
-    const canComment = isSignedIn && hasNickname;
+    const canComment = isSignedIn && hasNickname && !profileLoading;
     const signInContainer = document.getElementById("google-signin-button");
     const signedInPanel = document.getElementById("google-user-panel");
     const loginRequired = document.getElementById("comment-login-required");
@@ -154,11 +142,18 @@
     signedInPanel?.classList.toggle("hidden", !isSignedIn);
     form?.classList.toggle("is-auth-locked", !canComment);
 
+    if (signInContainer && authVerifying && !isSignedIn) {
+      signInContainer.textContent = "正在向後端確認 Google 登入…";
+      signInContainer.classList.add("site-account-loading");
+    }
+
     if (loginRequired) {
       loginRequired.classList.toggle("hidden", canComment);
-      loginRequired.textContent = !isSignedIn
-        ? "請從右上角登入 Google 帳號，登入後才可留言與回覆。"
-        : "請從右上角帳戶選單設定公開暱稱，設定後才可留言與回覆。";
+      loginRequired.textContent = authVerifying
+        ? "正在確認 Google 登入，請稍候。"
+        : !isSignedIn
+          ? "請從右上角登入 Google 帳號，登入後才可留言與回覆。"
+          : "請從右上角帳戶選單設定公開暱稱，設定後才可留言與回覆。";
     }
 
     if (nicknameInput) {
@@ -166,23 +161,39 @@
       if (document.activeElement !== nicknameInput) nicknameInput.value = nickname;
     }
     if (nicknameButton) nicknameButton.disabled = !isSignedIn || profileLoading;
-
     form?.querySelectorAll("textarea, button[type='submit']").forEach((element) => {
       element.disabled = !canComment;
     });
 
     const status = document.getElementById("google-auth-status");
     if (status) {
-      if (!isSignedIn) {
+      if (authVerifying) {
+        status.textContent = "正在向 Apps Script 驗證 Google 工作階段…";
+      } else if (authError && !isSignedIn) {
+        status.textContent = authError;
+      } else if (!isSignedIn) {
         status.textContent = "使用 Google 帳號登入後，可在全站共用同一工作階段。";
+      } else if (profileLoading) {
+        status.textContent = "登入已驗證，正在讀取暱稱…";
       } else {
-        status.textContent = profileLoading
-          ? "正在讀取暱稱…"
-          : hasNickname
-            ? `目前公開暱稱：${nickname}`
-            : "已登入，請先設定公開暱稱。";
+        status.textContent = hasNickname ? `目前公開暱稱：${nickname}` : "登入已驗證，請先設定公開暱稱。";
       }
     }
+  }
+
+  async function verifyCredentialWithBackend(nextCredential) {
+    const response = await fetchWithTimeout(getApiUrl(), {
+      method: "POST",
+      cache: "no-store",
+      headers: { "Content-Type": "text/plain;charset=UTF-8" },
+      body: JSON.stringify({
+        action: "authStatus",
+        credential: nextCredential,
+        requestId: window.crypto?.randomUUID?.() || `auth_${Date.now().toString(36)}`,
+        website: "",
+      }),
+    });
+    return readJsonResponse(response, "Google 登入後端驗證失敗。");
   }
 
   async function loadProfile() {
@@ -190,22 +201,16 @@
       nickname = "";
       return null;
     }
-
     profileLoading = true;
     updateUI();
-
+    notify();
     try {
       const url = new URL(getApiUrl());
       url.searchParams.set("action", "profile");
       url.searchParams.set("userKey", user.userKey);
       url.searchParams.set("_", String(Date.now()));
-
-      const response = await fetchWithTimeout(url.toString(), {
-        method: "GET",
-        cache: "no-store",
-      });
+      const response = await fetchWithTimeout(url.toString(), { method: "GET", cache: "no-store" });
       if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
       const payload = await response.json();
       nickname = String(payload?.profile?.nickname || "").trim();
       return payload?.profile || null;
@@ -224,26 +229,20 @@
   function validateNickname(value) {
     const normalized = String(value || "").replace(/\s+/g, " ").trim();
     const length = Array.from(normalized).length;
-
-    if (length < 2 || length > 20) {
-      throw new Error("暱稱須為 2～20 個字。");
-    }
-    if (/[<>\[\]{}]/.test(normalized)) {
-      throw new Error("暱稱不可包含 < > [ ] { } 等符號。");
-    }
+    if (length < 2 || length > 20) throw new Error("暱稱須為 2～20 個字。");
+    if (/[<>\[\]{}]/.test(normalized)) throw new Error("暱稱不可包含 < > [ ] { } 等符號。");
     return normalized;
   }
 
   async function saveNickname() {
     const input = document.getElementById("google-nickname-input");
     const status = document.getElementById("google-nickname-status");
-
     if (!credential || !user) {
-      if (status) status.textContent = "請先登入 Google 帳號。";
+      if (status) status.textContent = "請先完成 Google 登入驗證。";
       return false;
     }
 
-    let nextNickname = "";
+    let nextNickname;
     try {
       nextNickname = validateNickname(input?.value);
     } catch (error) {
@@ -254,8 +253,8 @@
 
     profileLoading = true;
     updateUI();
+    notify();
     if (status) status.textContent = "暱稱儲存中…";
-
     try {
       const response = await fetchWithTimeout(getApiUrl(), {
         method: "POST",
@@ -270,13 +269,8 @@
         }),
         keepalive: true,
       });
-
       const payload = await readJsonResponse(response, "暱稱儲存失敗。");
-      const savedNickname = String(
-        payload?.profile?.nickname || payload?.nickname || nextNickname
-      ).trim();
-
-      nickname = savedNickname || nextNickname;
+      nickname = String(payload?.profile?.nickname || payload?.nickname || nextNickname).trim() || nextNickname;
       if (input) input.value = nickname;
       if (status) status.textContent = "暱稱已更新，所有歷史留言會同步顯示新暱稱。";
       return true;
@@ -284,7 +278,7 @@
       console.error("[google-auth] 暱稱儲存失敗：", error);
       if (status) {
         status.textContent = error?.name === "AbortError"
-          ? "暱稱儲存逾時，請先重新開啟帳戶確認暱稱是否已更新，再決定是否重試。"
+          ? "暱稱儲存逾時，請重新開啟帳戶確認是否已更新。"
           : error?.message || "暱稱儲存失敗，請稍後再試。";
       }
       return false;
@@ -297,28 +291,60 @@
 
   async function setCredential(nextCredential, persist) {
     const payload = decodeJwtPayload(nextCredential);
-    if (!nextCredential || !isCredentialFresh(payload)) return false;
+    if (!nextCredential || !isCredentialFresh(payload)) {
+      authError = "Google 登入資料無效或已過期，請重新登入。";
+      return false;
+    }
 
-    credential = nextCredential;
-    user = await createUser(payload);
+    authVerifying = true;
+    authError = "";
+    credential = "";
+    user = null;
     nickname = "";
-    if (persist) sessionStorage.setItem(CREDENTIAL_STORAGE_KEY, nextCredential);
     updateUI();
     notify();
-    await loadProfile();
-    return true;
+
+    try {
+      await verifyCredentialWithBackend(nextCredential);
+      const nextUser = await createUser(payload);
+      credential = nextCredential;
+      user = nextUser;
+      if (persist) sessionStorage.setItem(CREDENTIAL_STORAGE_KEY, nextCredential);
+      authVerifying = false;
+      updateUI();
+      notify();
+      await loadProfile();
+      return true;
+    } catch (error) {
+      console.error("[google-auth] 後端驗證失敗：", error);
+      sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
+      credential = "";
+      user = null;
+      nickname = "";
+      authVerifying = false;
+      authError = error?.name === "AbortError"
+        ? "Google 登入驗證逾時，請稍後重新登入。"
+        : error?.message || "Google 登入驗證失敗，請重新操作。";
+      updateUI();
+      notify();
+      renderButton();
+      return false;
+    }
   }
 
   async function handleCredentialResponse(response) {
     const nextCredential = String(response?.credential || "");
     const accepted = await setCredential(nextCredential, true);
-    if (!accepted) setText("google-auth-status", "Google 登入失敗，請重新操作。");
+    if (!accepted && !authError) {
+      authError = "Google 登入失敗，請重新操作。";
+      updateUI();
+      notify();
+    }
   }
 
   async function restoreCredential() {
     const storedCredential = String(sessionStorage.getItem(CREDENTIAL_STORAGE_KEY) || "");
     if (!storedCredential) return false;
-
     const accepted = await setCredential(storedCredential, false);
     if (!accepted) sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
     return accepted;
@@ -326,16 +352,15 @@
 
   function renderButton() {
     const container = document.getElementById("google-signin-button");
-    if (!container || !window.google?.accounts?.id || !isConfigured()) return false;
-
+    if (!container || !window.google?.accounts?.id || !isConfigured() || authVerifying) return false;
     container.replaceChildren();
-    container.classList.remove("site-account-loading");
+    container.classList.remove("site-account-loading", "hidden");
     window.google.accounts.id.initialize({
       client_id: getClientId(),
       callback: handleCredentialResponse,
       auto_select: false,
+      cancel_on_tap_outside: true,
     });
-
     window.google.accounts.id.renderButton(container, {
       type: "standard",
       theme: "outline",
@@ -361,26 +386,27 @@
     if (initialized) return getState();
     initialized = true;
     updateUI();
-
     document.getElementById("google-signout-button")?.addEventListener("click", signOut);
     document.getElementById("google-nickname-save")?.addEventListener("click", saveNickname);
 
-    const status = document.getElementById("google-auth-status");
     if (!isConfigured()) {
-      if (status) status.textContent = "Google 登入尚未完成 OAuth Client ID 設定。";
+      authError = "Google 登入尚未完成 OAuth Client ID 或後端網址設定。";
+      updateUI();
       notify();
       return getState();
     }
 
     const loaded = await waitForLibrary();
     if (!loaded || !renderButton()) {
-      if (status) status.textContent = "Google 登入元件載入失敗，請重新整理後再試。";
+      authError = "Google 登入元件載入失敗，請重新整理後再試。";
+      updateUI();
       notify();
       return getState();
     }
 
     const restored = await restoreCredential();
-    if (!restored) {
+    if (!restored && !authVerifying) {
+      renderButton();
       updateUI();
       notify();
     }
@@ -392,12 +418,15 @@
     user = null;
     nickname = "";
     profileLoading = false;
+    authVerifying = false;
+    authError = "";
     sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
     sessionStorage.removeItem("evanFootballGoogleIdToken");
     window.google?.accounts?.id?.disableAutoSelect?.();
     setText("google-nickname-status", "");
     updateUI();
     notify();
+    renderButton();
   }
 
   function onChange(listener) {
