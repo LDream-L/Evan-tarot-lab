@@ -31,7 +31,7 @@ const requiredFunctions = [
 for (const functionName of requiredFunctions) {
   assert.match(
     authSource,
-    new RegExp(`function\\s+${functionName.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\s*\\(`),
+    new RegExp(`function\\s+${functionName}\\s*\\(`),
     `AuthProfiles.gs 缺少 ${functionName}`
   );
 }
