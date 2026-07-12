@@ -1,0 +1,136 @@
+/*
+ * 世足滾動績效 KPI 寬版配置 v1
+ *
+ * 目的：保留完整統計內容，但限制桌面卡片欄數，避免窄卡造成逐字換行。
+ * 純 CSS 覆寫，不重建 DOM；每張卡與每個斷點皆為 O(1) 版面計算。
+ *
+ * 替代方案比較：
+ * - 隱藏比較資料可立刻縮短卡片，但會犧牲前期、差異與判讀依據。
+ * - 本版保留全部資料，改以 3／2／1 欄與較寬欄位解決可讀性問題。
+ */
+
+#football-kpis.football-kpi-grid,
+#football-kpis.football-kpi-grid-v12 {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+  gap: 0.78rem !important;
+  align-items: start;
+}
+
+#football-kpis > .football-kpi {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-content: start;
+  align-self: start;
+  gap: 0.34rem 0.68rem;
+  min-width: 0;
+  min-height: 0 !important;
+  padding: 0.86rem 0.9rem !important;
+}
+
+#football-kpis > .football-kpi > .football-kpi-readable-label {
+  grid-column: 1;
+  align-self: center;
+  min-width: 0;
+  font-size: 0.86rem;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+}
+
+#football-kpis > .football-kpi > .football-kpi-badge {
+  grid-column: 2;
+  align-self: start;
+  margin: 0 !important;
+  white-space: nowrap;
+}
+
+#football-kpis > .football-kpi > strong,
+#football-kpis > .football-kpi > .football-kpi-definition,
+#football-kpis > .football-kpi > .football-kpi-clarity {
+  grid-column: 1 / -1;
+}
+
+#football-kpis > .football-kpi > strong {
+  margin: 0.08rem 0 0.04rem;
+  font-size: clamp(1.35rem, 2vw, 1.72rem) !important;
+  line-height: 1.15;
+}
+
+#football-kpis > .football-kpi > .football-kpi-definition {
+  max-width: 62ch;
+  margin: 0.12rem 0 0;
+  font-size: 0.76rem;
+  line-height: 1.55;
+}
+
+#football-kpis > .football-kpi > .football-kpi-clarity {
+  gap: 0.48rem;
+  margin-top: 0.38rem;
+  padding-top: 0.6rem;
+}
+
+#football-kpis .football-kpi-clear-row {
+  grid-template-columns: minmax(6.4rem, 7.4rem) minmax(0, 1fr);
+  gap: 0.7rem;
+  font-size: 0.77rem;
+  line-height: 1.5;
+}
+
+#football-kpis .football-kpi-clear-row > span {
+  white-space: normal;
+}
+
+#football-kpis .football-kpi-clear-row > strong {
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+
+#football-kpi-legend.football-kpi-legend {
+  gap: 0.5rem 1rem;
+  padding: 0.72rem 0.82rem;
+  font-size: 0.75rem;
+}
+
+@media (max-width: 1180px) {
+  #football-kpis.football-kpi-grid,
+  #football-kpis.football-kpi-grid-v12 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+@media (max-width: 680px) {
+  #football-kpis.football-kpi-grid,
+  #football-kpis.football-kpi-grid-v12 {
+    grid-template-columns: minmax(0, 1fr) !important;
+    gap: 0.66rem !important;
+  }
+
+  #football-kpis > .football-kpi {
+    padding: 0.78rem !important;
+  }
+
+  #football-kpis .football-kpi-clear-row {
+    grid-template-columns: minmax(5.8rem, 6.8rem) minmax(0, 1fr);
+    gap: 0.5rem;
+  }
+}
+
+@media (max-width: 430px) {
+  #football-kpis > .football-kpi {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  #football-kpis > .football-kpi > .football-kpi-readable-label,
+  #football-kpis > .football-kpi > .football-kpi-badge {
+    grid-column: 1;
+  }
+
+  #football-kpis > .football-kpi > .football-kpi-badge {
+    justify-self: start;
+  }
+
+  #football-kpis .football-kpi-clear-row {
+    grid-template-columns: 1fr;
+    gap: 0.12rem;
+  }
+}
