@@ -23,23 +23,6 @@ test("滾動績效卡片顯示本期、比較期、差異與明確樣本限制",
     const originalLabelOf = (card) => card.querySelector(":scope > small")?.textContent.trim() || "";
     const findCard = (labels) => Array.from(grid.querySelectorAll(":scope > .football-kpi"))
       .find((item) => labels.includes(originalLabelOf(item)));
-    const ensureCard = (label) => {
-      const existing = findCard([label]);
-      if (existing) return existing;
-      const card = document.createElement("article");
-      card.className = "football-kpi";
-      const small = document.createElement("small");
-      small.textContent = label;
-      const strong = document.createElement("strong");
-      strong.textContent = "—";
-      const detail = document.createElement("span");
-      detail.textContent = "0／0";
-      const meta = document.createElement("div");
-      meta.className = "football-trend-card-meta";
-      card.append(small, strong, detail, meta);
-      grid.appendChild(card);
-      return card;
-    };
     const byOriginalLabels = (...labels) => {
       const card = findCard(labels);
       if (!card) throw new Error(`找不到 KPI：${labels.join(" / ")}`);
@@ -70,13 +53,11 @@ test("滾動績效卡片顯示本期、比較期、差異與明確樣本限制",
       meta.appendChild(line);
     };
 
-    // 空資料頁不會產生新版單張 KPI；只補這一張以驗證其呈現邏輯，其餘均使用正式卡片。
-    ensureCard("單張總進球區間");
-
     const total = setBase(["總紀錄"], "10", "10 場已核對");
     total.querySelector(":scope > .football-trend-card-meta").textContent = "截至 2026-07-12 最近 7 天";
 
-    const direct = setBase(["單張總進球區間"], "20%", "2／10");
+    // 空資料頁固定存在舊版單張 KPI；其命中率、比較與樣本門檻和新版單張共用同一呈現邏輯。
+    const direct = setBase(["舊版單張賽果", "單張賽果"], "20%", "2／10");
     addTrend(direct, "較前 7 天 +7.5 個百分點", "樣本不足，暫不確認趨勢");
 
     const structure = setBase(["攻防推導賽果", "攻防推論賽果"], "40%", "4／10");
@@ -97,12 +78,12 @@ test("滾動績效卡片顯示本期、比較期、差異與明確樣本限制",
     addTrend(market, "較前 7 天 —", "比較資料不足");
   });
 
-  const direct = page.locator("#football-kpis > .football-kpi").filter({ hasText: "單張｜總進球區間命中率" });
+  const direct = page.locator("#football-kpis > .football-kpi").filter({ hasText: "舊版單張｜賽果命中率" });
   await expect(direct).toContainText("本期20%（2／10 場）");
   await expect(direct).toContainText("前 7 天約 12.5%（依顯示差異回推）");
   await expect(direct).toContainText("比較期未達 10 場；本期已達門檻");
   await expect(direct.locator(":scope > small")).toBeHidden();
-  await expect(direct.locator(":scope > small")).toHaveText("單張總進球區間");
+  await expect(direct.locator(":scope > small")).toHaveText(/舊版單張賽果|單張賽果/);
 
   const exact = page.locator("#football-kpis > .football-kpi").filter({ hasText: "攻防｜正確比分命中率" });
   await expect(exact).toContainText("正確比分0%（0／10 場）");
