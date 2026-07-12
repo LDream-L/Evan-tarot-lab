@@ -4,6 +4,8 @@ const esbuild = require("esbuild");
 
 const FINAL_STYLE_TAG =
   '  <link id="football-layout-final-style" rel="stylesheet" href="football-layout-final.css?v=20260710-football-esm-entry-v1" />';
+const KPI_DENSITY_STYLE_TAG =
+  '  <link id="football-kpi-density-style" rel="stylesheet" href="football-kpi-density.css?v=20260712-football-kpi-density-v1" />';
 
 /**
  * 將最終密度樣式固定寫入正式 HTML，取代舊載入器完成後才動態插入。
@@ -13,14 +15,17 @@ const FINAL_STYLE_TAG =
  * 建置期靜態寫入能讓瀏覽器一開始就依正確順序下載樣式。
  */
 function transformFootballHtml(source) {
-  if (source.includes('id="football-layout-final-style"')) return source;
+  const missingTags = [];
+  if (!source.includes('id="football-layout-final-style"')) missingTags.push(FINAL_STYLE_TAG);
+  if (!source.includes('id="football-kpi-density-style"')) missingTags.push(KPI_DENSITY_STYLE_TAG);
+  if (!missingTags.length) return source;
 
   const optimizerPattern = /(\s*<link id="football-layout-optimizer-style"[^>]*>)/;
   if (!optimizerPattern.test(source)) {
     throw new Error("[football-build] 找不到 football-layout-optimizer-style");
   }
 
-  return source.replace(optimizerPattern, `$1\n${FINAL_STYLE_TAG}`);
+  return source.replace(optimizerPattern, `$1\n${missingTags.join("\n")}`);
 }
 
 /**

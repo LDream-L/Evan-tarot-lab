@@ -13,30 +13,32 @@
 (function bootstrapFootballLabRootEntry() {
   "use strict";
 
-  const ROOT_LOADER_VERSION = "20260711-football-root-esm-v1";
+  const ROOT_LOADER_VERSION = "20260712-football-root-esm-v2";
   const LOAD_TIMEOUT_MS = 15_000;
   const currentScriptUrl = document.currentScript?.src || document.baseURI;
   const entryBaseUrl = new URL("../src/football/entry.js", currentScriptUrl);
   const finalStyleUrl = new URL("../football-layout-final.css", currentScriptUrl);
+  const kpiDensityStyleUrl = new URL("../football-kpi-density.css", currentScriptUrl);
 
   let loadPromise = null;
   let attempt = 0;
   let status = "idle";
 
-  /** 最終密度樣式只加入一次。時間／空間 O(1)。 */
-  function ensureFinalStylesheet() {
-    if (
-      document.getElementById("football-layout-final-style")
-      || document.querySelector('link[href*="football-layout-final.css"]')
-    ) {
-      return;
-    }
+  /** 固定兩張樣式表，只加入一次。時間／空間 O(1)。 */
+  function ensureLayoutStylesheets() {
+    const stylesheets = [
+      ["football-layout-final-style", "football-layout-final.css", finalStyleUrl],
+      ["football-kpi-density-style", "football-kpi-density.css", kpiDensityStyleUrl],
+    ];
 
-    const link = document.createElement("link");
-    link.id = "football-layout-final-style";
-    link.rel = "stylesheet";
-    link.href = `${finalStyleUrl.href}?v=${ROOT_LOADER_VERSION}`;
-    document.head.appendChild(link);
+    stylesheets.forEach(([id, marker, url]) => {
+      if (document.getElementById(id) || document.querySelector(`link[href*="${marker}"]`)) return;
+      const link = document.createElement("link");
+      link.id = id;
+      link.rel = "stylesheet";
+      link.href = `${url.href}?v=${ROOT_LOADER_VERSION}`;
+      document.head.appendChild(link);
+    });
   }
 
   /** 顯示可操作的失敗狀態，不讓靜態頁看起來像沒有資料。時間／空間 O(1)。 */
@@ -72,7 +74,7 @@
     }
     if (loadPromise) return loadPromise;
 
-    ensureFinalStylesheet();
+    ensureLayoutStylesheets();
     attempt += 1;
     status = "loading";
 
