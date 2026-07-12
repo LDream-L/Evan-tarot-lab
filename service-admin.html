@@ -5,12 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="referrer" content="strict-origin-when-cross-origin" />
   <title>服務管理｜Evan Tarot</title>
-  <meta name="description" content="Evan Tarot 管理員服務項目、費用、交付與公開狀態管理。" />
+  <meta name="description" content="Evan Tarot 管理員服務大方向、價格方案、交付方式與公開狀態管理。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-polish-v2" />
-  <link rel="stylesheet" href="services.css?v=20260711-service-catalog-v1" />
+  <link rel="stylesheet" href="services.css?v=20260712-service-plans-v2" />
   <link rel="stylesheet" href="article-admin.css?v=20260629-admin-v1" />
-  <link rel="stylesheet" href="service-admin.css?v=20260711-service-admin-v1" />
+  <link rel="stylesheet" href="service-admin.css?v=20260712-service-plans-v2" />
   <link rel="stylesheet" href="google-auth.css?v=20260626-unified-account-v1" />
   <link rel="stylesheet" href="site-account.css?v=20260629-stability-v1" />
 </head>
@@ -37,12 +37,12 @@
       <div class="hero-bg-orbit" aria-hidden="true"></div>
       <div class="container hero-inner">
         <div class="hero-text">
-          <h1>服務項目管理後台</h1>
-          <p>直接在網站新增、編輯或封存占卜項目，公開頁會同步更新名稱、費用、時間、交付與追問範圍。</p>
+          <h1>服務與價格方案管理後台</h1>
+          <p>服務名稱保留感情、職涯等大方向；每個方向可依問題規模、文字或語音、額外計算量，建立不同價格與交付方案。</p>
           <div class="hero-meta">
             <span class="pill pill-soft">Google 管理員驗證</span>
             <span class="pill pill-outline">Google Sheets 儲存</span>
-            <span class="pill pill-outline">即時預覽</span>
+            <span class="pill pill-outline">多方案定價</span>
           </div>
         </div>
       </div>
@@ -64,7 +64,7 @@
             <div class="article-admin-sidebar-heading">
               <div>
                 <p class="article-admin-kicker">SERVICES</p>
-                <h2>服務清單</h2>
+                <h2>服務大方向</h2>
               </div>
               <button class="btn primary" id="service-admin-new" type="button">新增服務</button>
             </div>
@@ -72,7 +72,7 @@
             <div class="article-admin-filters">
               <label>
                 搜尋
-                <input id="service-admin-search" type="search" placeholder="名稱、ID、費用" autocomplete="off" />
+                <input id="service-admin-search" type="search" placeholder="名稱、ID、方案、價格" autocomplete="off" />
               </label>
               <label>
                 狀態
@@ -108,7 +108,7 @@
                 <label>
                   服務 ID
                   <input id="service-admin-id" type="text" maxlength="80" pattern="[a-z0-9][a-z0-9_-]{1,79}" required placeholder="relationship-reading" />
-                  <span class="article-admin-help">建立後不建議修改，預約選項會使用此 ID。</span>
+                  <span class="article-admin-help">代表大方向，建立後不建議修改。</span>
                 </label>
                 <label>
                   狀態
@@ -126,13 +126,13 @@
               </div>
 
               <label>
-                服務名稱
+                服務名稱（大方向）
                 <input id="service-admin-title" type="text" maxlength="120" required placeholder="人際 / 感情動態占卜" />
               </label>
 
               <label>
                 簡介
-                <textarea id="service-admin-summary" rows="3" maxlength="600" required placeholder="說明這項服務協助整理什麼。"></textarea>
+                <textarea id="service-admin-summary" rows="3" maxlength="600" required placeholder="說明這個大方向主要協助整理什麼。"></textarea>
               </label>
 
               <div class="article-admin-grid two-columns">
@@ -146,27 +146,42 @@
                 </label>
               </div>
 
-              <div class="article-admin-grid two-columns">
-                <label>
-                  費用
-                  <input id="service-admin-price" type="text" maxlength="120" placeholder="例如：NT$800／次" />
-                </label>
-                <label>
-                  預計時間
-                  <input id="service-admin-duration" type="text" maxlength="120" placeholder="例如：文字 2–3 個工作天" />
-                </label>
-              </div>
+              <section class="service-admin-plans-section" aria-labelledby="service-admin-plans-title">
+                <div class="service-admin-plans-heading">
+                  <div>
+                    <p class="article-admin-kicker">PRICING PLANS</p>
+                    <h3 id="service-admin-plans-title">方案與價格</h3>
+                    <p>依問題大小、交付形式與額外計算量分開定價；公開方案必須填寫價格與交付內容。</p>
+                  </div>
+                  <button class="btn primary" id="service-admin-add-plan" type="button">新增方案</button>
+                </div>
+                <div id="service-admin-plans" class="service-admin-plans" aria-live="polite"></div>
+              </section>
 
-              <div class="article-admin-grid two-columns">
-                <label>
-                  交付方式
-                  <input id="service-admin-delivery" type="text" maxlength="160" placeholder="例如：文字報告＋牌面照片" />
-                </label>
-                <label>
-                  追問範圍
-                  <input id="service-admin-follow-up" type="text" maxlength="160" placeholder="例如：交付後 3 日內可追問 1 次" />
-                </label>
-              </div>
+              <details class="service-admin-fallback-details">
+                <summary>沒有建立方案時的備援顯示</summary>
+                <p class="article-admin-help">舊服務尚未建立方案時，公開頁會顯示以下四個欄位；建立公開方案後，方案內容會取代這些資訊。</p>
+                <div class="article-admin-grid two-columns">
+                  <label>
+                    備援費用
+                    <input id="service-admin-price" type="text" maxlength="120" placeholder="例如：費用依問題規模確認" />
+                  </label>
+                  <label>
+                    備援預計時間
+                    <input id="service-admin-duration" type="text" maxlength="120" placeholder="例如：依問題範圍確認" />
+                  </label>
+                </div>
+                <div class="article-admin-grid two-columns">
+                  <label>
+                    備援交付方式
+                    <input id="service-admin-delivery" type="text" maxlength="160" placeholder="例如：文字或語音" />
+                  </label>
+                  <label>
+                    備援追問範圍
+                    <input id="service-admin-follow-up" type="text" maxlength="160" placeholder="例如：於預約前確認" />
+                  </label>
+                </div>
+              </details>
 
               <label>
                 服務與取消說明
@@ -175,9 +190,9 @@
 
               <div class="article-admin-grid two-columns">
                 <label>
-                  預約表單值
+                  大方向預約表單值
                   <input id="service-admin-booking-topic" type="text" maxlength="80" placeholder="留白則使用服務 ID" />
-                  <span class="article-admin-help">用於預約資料分類；既有項目建議保持不變。</span>
+                  <span class="article-admin-help">只有尚未建立方案時才使用；方案會自動產生獨立值。</span>
                 </label>
                 <label>
                   內部備註
@@ -210,9 +225,10 @@
                   <ul class="service-admin-preview-list" id="service-admin-preview-suitable"></ul>
                   <p class="service-admin-preview-label">整理重點</p>
                   <ul class="service-admin-preview-list" id="service-admin-preview-focus"></ul>
+                  <p class="service-admin-preview-label">可選方案</p>
+                  <div class="service-plan-list" id="service-admin-preview-plans"></div>
                   <dl class="service-admin-preview-details" id="service-admin-preview-details"></dl>
                   <p class="service-admin-preview-note" id="service-admin-preview-policy"></p>
-                  <button class="btn ghost service-booking-button" type="button" disabled>選擇這個項目</button>
                 </article>
               </section>
             </div>
@@ -225,16 +241,16 @@
   <footer class="site-footer">
     <div class="container footer-inner">
       <p>Evan Tarot ｜服務管理</p>
-      <p class="footer-sub">管理操作會經 Apps Script 再次驗證 Google 管理員身分。</p>
+      <p class="footer-sub">大方向與方案分開管理；管理操作會經 Apps Script 再次驗證 Google 管理員身分。</p>
     </div>
   </footer>
 
   <script src="https://accounts.google.com/gsi/client?hl=zh-TW" async defer></script>
   <script src="JS/utils.js?v=20260710-hardening-v1"></script>
   <script src="JS/cloud-config.js?v=20260711-services-v1"></script>
-  <script src="JS/google-auth.js?v=20260629-stability-v1"></script>
+  <script src="JS/google-auth.js?v=20260712-backend-verified-v2"></script>
   <script src="JS/site-account.js?v=20260629-stability-v1"></script>
-  <script src="JS/service-admin.js?v=20260711-service-admin-v1"></script>
+  <script src="JS/service-admin-v2.js?v=20260712-service-plans-v2"></script>
   <script src="JS/ripple-effect.js?v=20260505-polish-v2"></script>
 </body>
 </html>
