@@ -47,7 +47,10 @@
 
       script.addEventListener("load", verify, { once: true });
       script.addEventListener("error", () => finish(false), { once: true });
-      timer = window.setTimeout(() => finish(typeof isReady === "function" && Boolean(isReady())), BOOTSTRAP_TIMEOUT_MS);
+      timer = window.setTimeout(
+        () => finish(typeof isReady === "function" && Boolean(isReady())),
+        BOOTSTRAP_TIMEOUT_MS
+      );
       queueMicrotask(() => {
         if (typeof isReady === "function" && isReady()) finish(true);
       });
@@ -69,7 +72,7 @@
       {
         src: `JS/core/dialog.js?v=${VERSION}`,
         marker: "dialog",
-        isReady: () => Boolean(window.EvanDialog?.confirm),
+        isReady: () => window.EvanDialog?.isEnhanced === true,
       },
       {
         src: `JS/security/link-sanitizer.js?v=${VERSION}`,
@@ -101,7 +104,7 @@
     window.EvanLinkSanitizer?.observe?.();
     window.EvanArticleFallback?.render?.();
     window.EvanTimeflowImportExport?.install?.();
-    window.EvanOptionalModules?.init?.();
+    await window.EvanOptionalModules?.init?.();
     return true;
   }
 
