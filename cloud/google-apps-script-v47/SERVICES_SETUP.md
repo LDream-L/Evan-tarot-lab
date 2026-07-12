@@ -19,13 +19,18 @@
 
 1. 從正式資料試算表開啟 Apps Script。
 2. 使用本資料夾最新版 `Code.gs`。
-3. 保留或覆蓋現有的 `Articles.gs`。
-4. 新增或覆蓋 `ArticleAdmin.gs`。
-5. 新增 `Services.gs`，貼入本資料夾同名檔案內容。
-6. 儲存後執行 `setupServicesSheet`。
-7. 回試算表確認新增 `Services` 分頁，且既有三項服務已匯入。
-8. 選擇「部署 → 管理部署作業 → 編輯」，建立新版本並重新部署同一個 Web App。
-9. 回到網站，以 `ADMIN_EMAILS` 內的 Google 帳號登入；驗證成功後會顯示「服務管理」。
+3. **新增或覆蓋 `AuthProfiles.gs`**。這個檔案負責 Google ID Token 驗證、管理員權限、公開暱稱與留言資料層，不能省略。
+4. 保留或覆蓋現有的 `Articles.gs`。
+5. 新增或覆蓋 `ArticleAdmin.gs`。
+6. 新增或覆蓋 `Services.gs`。
+7. 儲存後先執行 `setupCommentsSheet`，確認 `Comments` 與 `Profiles` 分頁存在。
+8. 執行 `setupServicesSheet`。
+9. 回試算表確認新增 `Services` 分頁，且既有三項服務已匯入。
+10. 在「專案設定 → 指令碼屬性」確認：
+    - `GOOGLE_OAUTH_CLIENT_ID`：與網站 `JS/cloud-config.js` 相同的 Google OAuth Web Client ID。
+    - `ADMIN_EMAILS`：可管理文章與服務的 Email；多個帳號以逗號分隔。
+11. 選擇「部署 → 管理部署作業 → 編輯」，建立新版本並重新部署同一個 Web App。
+12. 回到網站，以 `ADMIN_EMAILS` 內的 Google 帳號登入；驗證成功後會顯示「服務管理」。
 
 ## 健康檢查
 
@@ -47,14 +52,25 @@
 ?action=health
 ```
 
-應包含：
+應至少包含：
 
 ```json
 {
+  "authConfigured": true,
   "servicesConfigured": true,
   "servicesError": ""
 }
 ```
+
+`services-health` 只代表 Services 工作表結構正常；若登入時出現 `verifyGoogleCredential_ is not defined`，代表 Apps Script 專案漏裝 `AuthProfiles.gs`，必須加入後重新部署。
+
+也可在 Apps Script 編輯器手動執行：
+
+```text
+showAuthProfilesHealth_
+```
+
+用來檢查 OAuth Client ID、管理員 Email、Comments 與 Profiles 工作表。
 
 ## 狀態
 

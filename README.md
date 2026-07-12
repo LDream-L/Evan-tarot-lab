@@ -22,6 +22,7 @@ Evan Tarot 的正式靜態網站、公開實驗工具與私人 Google Sheets 資
 ├─ tests/                      # 靜態契約與 Playwright 回歸測試
 ├─ cloud/google-apps-script-v47/
 │  ├─ Code.gs                  # Cloud API action router
+│  ├─ AuthProfiles.gs          # Google 驗證、管理員、暱稱與留言資料層
 │  ├─ Articles.gs              # 公開文章讀取
 │  ├─ ArticleAdmin.gs          # 管理員文章寫入
 │  ├─ Services.gs              # 服務項目讀取與管理
@@ -39,7 +40,7 @@ npm run test:e2e
 ```
 
 - `npm run build`：建立正式 `dist/`。
-- `npm run test:build`：檢查導覽、品牌、資料界線、服務後台、私人入口與正式輸出。
+- `npm run test:build`：檢查導覽、品牌、資料界線、服務後台、私人入口、Apps Script 登入依賴與正式輸出。
 - `npm run test:e2e`：以桌機與行動裝置執行瀏覽器回歸測試。
 
 ## 發布流程
@@ -56,6 +57,7 @@ GitHub Pages 與 Apps Script 是不同部署面：
 
 - 網站前端改動：合併 `main` 後由 GitHub Pages 發布。
 - 後端程式改動：將 `cloud/google-apps-script-v47/` 對應檔案更新至綁定試算表的 Apps Script，建立新版本並重新部署原 Web App。
+- `Code.gs` 會呼叫 `AuthProfiles.gs` 內的 Google 驗證與暱稱函式；部署時不可只更新 `Code.gs` 而漏掉 `AuthProfiles.gs`。
 
 文章後台請閱讀：
 
@@ -73,5 +75,6 @@ cloud/google-apps-script-v47/SERVICES_SETUP.md
 
 - Client Secret、管理員密碼、Spreadsheet ID 與 service account 金鑰不得提交至 GitHub。
 - 管理員按鈕是否顯示不是權限依據；Apps Script 必須再次驗證 Google ID Token 與 `ADMIN_EMAILS`。
+- 原始 Google ID Token 不寫入試算表，也不保存到 Apps Script 快取；快取只存最小驗證結果。
 - `cloud/`、`tests/`、`src/` 與建置設定不會複製到公開 `dist/`。
 - 預約、文章、服務與私人紀錄使用不同資料流程；公開頁只取得必要的公開欄位。
