@@ -37,7 +37,7 @@
     return Promise.all([
       initializeModule(
         {
-          src: "JS/site-account.js?v=20260712-auth-backend-v2",
+          src: "JS/site-account.js?v=20260714-account-layout-v1",
           marker: "site-account",
           isReady: () => Boolean(window.EvanSiteAccount),
         },
