@@ -95,6 +95,14 @@ function buildState() {
   assert.equal(migrated.ui.showPrivate, true);
 })();
 
+(function testUnreadableLegacyZoomIsRaised() {
+  const TF = loadCore({ getItem: () => null, setItem: () => {} });
+  const raw = buildState();
+  raw.ui.zoom = .35;
+  const normalized = TF.normalizeState(raw);
+  assert.equal(normalized.ui.zoom, .6, "舊的 35% 畫面應自動升到最低可讀比例");
+})();
+
 (function testSortNodes() {
   const TF = loadCore({ getItem: () => null, setItem: () => {} });
   const input = [

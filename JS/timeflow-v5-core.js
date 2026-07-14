@@ -22,7 +22,7 @@
     STORAGE_KEY: "evanTarotDivinationTimeflowV4",
     LEGACY_KEYS: ["evanTarotDivinationTimeflowV3", "evanTarotDivinationTimeflowV2", "evanTarotDivinationMapV1"],
     VERSION: 6,
-    MIN_ZOOM: 0.35,
+    MIN_ZOOM: 0.6,
     MAX_ZOOM: 1.65,
     DAY_MS: 86400000,
     COLORS: ["#b794ff", "#7fe3b2", "#7de4ff", "#ffb3d8", "#ffd27a", "#a9b4ff", "#8fd7ff", "#ff9bb2"],

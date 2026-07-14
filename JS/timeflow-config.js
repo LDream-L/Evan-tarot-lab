@@ -28,7 +28,7 @@
   "use strict";
   if (document.querySelector('script[data-timeflow-astrology="true"]')) return;
   const script = document.createElement("script");
-  script.src = "JS/timeflow-astrology.js?v=20260714-single-trunk-v2";
+  script.src = "JS/timeflow-astrology.js?v=20260714-readable-tree-v8";
   script.async = true;
   script.dataset.timeflowAstrology = "true";
 

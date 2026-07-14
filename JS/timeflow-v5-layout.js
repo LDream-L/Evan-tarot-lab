@@ -38,14 +38,14 @@
     CARD_W: 224,
     CARD_H: 148,
     CARD_LEVEL_GAP: 18,
-    CLUSTER_W: 108,
-    CLUSTER_H: 72,
+    CLUSTER_W: 132,
+    CLUSTER_H: 88,
     BAND_H: 42,
     BAND_GAP: 8,
-    LABEL_W: 214,
-    LABEL_H: 58,
-    ROOT_BRANCH_OFFSET: 126,
-    ROW_GAP: 30,
+    LABEL_W: 238,
+    LABEL_H: 70,
+    ROOT_BRANCH_OFFSET: 112,
+    ROW_GAP: 26,
   });
 
   TF.geometry = G;
@@ -336,8 +336,12 @@
     const width = clamp(span * (state.ui.viewMode === "single" ? 18 : 10), 980, 4400);
     const axisStart = Math.max(G.LEFT, (G.LABEL_W + 52) * inverseZoom);
     const axisEnd = axisStart + width;
-    const unknownX = axisEnd + 74 * inverseZoom;
-    const sceneWidth = unknownX + (G.UNKNOWN + G.RIGHT) * inverseZoom;
+    const hasUnknown = data.nodes.some((node) => dateRange(node).start == null);
+    const unknownX = hasUnknown ? axisEnd + 74 * inverseZoom : axisEnd;
+    const datedRightPadding = Math.max(G.RIGHT, G.CARD_W / 2 + 28);
+    const sceneWidth = hasUnknown
+      ? unknownX + (G.UNKNOWN + G.RIGHT) * inverseZoom
+      : axisEnd + datedRightPadding * inverseZoom;
     const xFor = (day) => axisStart + ((day - dateDomain.min) / span) * width;
     const trunkY = G.TOP * inverseZoom;
 
@@ -357,6 +361,7 @@
     let nextAxisY = visualTrunkLineId ? trunkY : trunkY + G.ROOT_BRANCH_OFFSET * inverseZoom;
 
     ordered.forEach(({ line, depth }, orderIndex) => {
+      const rowItemStart = items.length;
       const isVisualTrunk = line.id === visualTrunkLineId && orderIndex === 0;
       const axisY = isVisualTrunk ? trunkY : nextAxisY;
       const exact = [];
@@ -508,10 +513,10 @@
       const branchEndX = isVisualTrunk
         ? axisEnd
         : Math.min(axisEnd, Math.max(sourceX + 150 * inverseZoom, latestCenter));
-      const rowBottom = Math.max(
-        axisY + 86 * inverseZoom,
-        cardStart + Math.max(cardLevels, unknown.length, 1) * cardStep
-      );
+      let rowBottom = axisY + 86 * inverseZoom;
+      for (let index = rowItemStart; index < items.length; index += 1) {
+        rowBottom = Math.max(rowBottom, items[index].y + items[index].height);
+      }
 
       rows.push({
         line,
@@ -537,6 +542,7 @@
       axisStart,
       axisEnd,
       unknownX,
+      hasUnknown,
       trunkY,
       visualTrunkLineId,
       inverseZoom,

@@ -10,7 +10,7 @@
 <link href="style.css?v=20260704-timeflow-v5" rel="stylesheet"/>
 <link href="google-auth.css?v=20260626-unified-account-v1" rel="stylesheet"/>
 <link href="site-account.css?v=20260714-account-layout-v1" rel="stylesheet"/>
-<link href="timeflow.css?v=20260714-single-trunk-v6" rel="stylesheet"/>
+<link href="timeflow.css?v=20260714-readable-tree-v8" rel="stylesheet"/>
 </head>
 <body>
 <header class="site-header">
@@ -135,7 +135,7 @@
 <button aria-label="縮小畫布" class="map-icon-btn" id="map-zoom-out" type="button">－</button>
 <span aria-live="polite" class="map-zoom-level" id="map-zoom-level">85%</span>
 <button aria-label="放大畫布" class="map-icon-btn" id="map-zoom-in" type="button">＋</button>
-<button aria-label="依目前內容自動置中" class="map-icon-btn map-text-btn" id="map-zoom-reset" title="依目前內容自動置中" type="button">適合畫面</button>
+<button aria-label="以可讀比例置中目前內容" class="map-icon-btn map-text-btn" id="map-zoom-reset" title="保留可讀大小；超出畫面時可拖曳查看" type="button">可讀全景</button>
 </div>
 <div aria-label="可平移與縮放的時間樹畫布" class="map-viewport" id="map-viewport" tabindex="0">
 <div class="map-scene" id="map-scene">
@@ -143,7 +143,7 @@
 <div class="map-canvas" id="map-canvas"></div>
 </div>
 </div>
-<p class="tool-note-small">操作方式：整體檢視會顯示所有分支，不需選擇分支；單擊分支名稱只指定新增與編輯位置，雙擊才會聚焦該分支。縮小時文字維持可讀，相近節點會自動聚合。拖曳空白處可平移，滑鼠滾輪可縮放。</p>
+<p class="tool-note-small">操作方式：整體檢視會顯示所有分支，不需選擇分支；單擊分支名稱只指定新增與編輯位置，雙擊才會聚焦該分支。「可讀全景」會保留最低可讀比例，超出畫面時可拖曳查看；相近節點會自動聚合，滑鼠滾輪可縮放。</p>
 </section>
 <aside aria-label="節點詳細資料" class="map-sidebar">
 <div class="map-empty-state" id="map-empty-state"><h4>選擇或新增節點</h4><p>事件會加入目前分支；要建立平行時間流時，先選擇它的來源節點。</p></div>
@@ -268,12 +268,12 @@
 <script src="https://accounts.google.com/gsi/client?hl=zh-TW" async defer></script>
 <script src="JS/utils.js?v=20260629-stability-v1"></script>
 <script src="JS/cloud-config.js?v=20260624-articles-cloud-v1"></script>
-<script src="JS/timeflow-config.js?v=20260714-single-trunk-v2"></script>
+<script src="JS/timeflow-config.js?v=20260714-readable-tree-v8"></script>
 <script src="JS/google-auth.js?v=20260629-stability-v1"></script>
 <script src="JS/site-account.js?v=20260714-account-layout-v1"></script>
-<script src="JS/timeflow-v5-core.js?v=20260714-single-trunk-v6"></script>
-<script src="JS/timeflow-v5-layout.js?v=20260714-cloud-focus-v7"></script>
-<script src="JS/timeflow-v5-ui.js?v=20260714-cloud-focus-v7"></script>
+<script src="JS/timeflow-v5-core.js?v=20260714-readable-tree-v8"></script>
+<script src="JS/timeflow-v5-layout.js?v=20260714-readable-tree-v8"></script>
+<script src="JS/timeflow-v5-ui.js?v=20260714-readable-tree-v8"></script>
 <script src="JS/timeflow-v5-actions.js?v=20260714-single-trunk-v6"></script>
 <script src="JS/divination-map.js?v=20260714-cloud-focus-v7"></script>
 <script src="JS/timeflow-cloud.js?v=20260714-cloud-focus-v7"></script>

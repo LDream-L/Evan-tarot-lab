@@ -484,6 +484,7 @@ test("時間樹只保留一條主幹，聚焦分支不改變資料親緣", async
   await page.goto("/timeflow.html", { waitUntil: "domcontentloaded" });
 
   await expect(page.locator(".map-global-trunk")).toHaveCount(1);
+  await expect(page.locator(".map-unknown-zone")).toHaveCount(0);
   await expect(page.locator("#map-active-timeline-field")).toBeHidden();
   await expect(page.locator("#map-active-timeline")).toBeDisabled();
   await expect(page.locator("#map-active-topic")).toHaveValue("all");
@@ -525,12 +526,15 @@ test("時間樹只保留一條主幹，聚焦分支不改變資料親緣", async
     window.EvanTimeflowV5.ctx.state.ui.zoom = 1;
     window.EvanTimeflowV5.ui.render(false);
     const normal = document.querySelector('[data-node-id="node-root"]').getBoundingClientRect().width;
-    window.EvanTimeflowV5.ctx.state.ui.zoom = .5;
+    window.EvanTimeflowV5.ctx.state.ui.zoom = .35;
     window.EvanTimeflowV5.ui.render(false);
     const zoomedOut = document.querySelector('[data-node-id="node-root"]').getBoundingClientRect().width;
-    return { normal, zoomedOut };
+    return { normal, zoomedOut, minimumZoom: window.EvanTimeflowV5.ctx.state.ui.zoom };
   });
   expect(Math.abs(physicalWidths.normal - physicalWidths.zoomedOut)).toBeLessThan(2);
+  expect(physicalWidths.minimumZoom).toBe(.6);
+  await expect(page.locator("#map-zoom-level")).toHaveText("60%");
+  await expect(page.locator("#map-zoom-out")).toBeDisabled();
 });
 
 test("手機尺寸仍可操作主要內容、導覽與隱私頁", async ({ page }, testInfo) => {
