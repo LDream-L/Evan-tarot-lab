@@ -198,7 +198,9 @@ function deleteService_(rawId, actorEmail, requestId) {
   if (!id) throw new Error("服務 ID 不正確。");
   const sheet = getServicesSheet_();
   const lastRow = sheet.getLastRow();
-  if (lastRow <= 1) throw new Error("找不到指定服務。");
+  // 刪除採冪等設計：若前一次請求其實已成功，重送時仍回傳成功狀態，
+  // 避免管理頁停留在舊快照並把「已刪除」誤顯示成失敗。
+  if (lastRow <= 1) return { id, deleted: false, alreadyAbsent: true };
   const ids = sheet.getRange(2, 1, lastRow - 1, 1).getDisplayValues();
   for (let index = 0; index < ids.length; index += 1) {
     if (sanitizeServiceId_(ids[index][0]) !== id) continue;
@@ -211,7 +213,7 @@ function deleteService_(rawId, actorEmail, requestId) {
     SpreadsheetApp.flush();
     return { id, deleted: true };
   }
-  throw new Error("找不到指定服務。");
+  return { id, deleted: false, alreadyAbsent: true };
 }
 
 function getServicesSheet_() {
