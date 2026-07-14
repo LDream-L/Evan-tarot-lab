@@ -363,7 +363,7 @@ test("預約表單保留原生必填驗證並切換可配合時間", async ({ pa
   expect(await form.evaluate((element) => element.checkValidity())).toBe(false);
   await page.locator('input[name="name"]').fill("E2E 測試");
   await page.locator('input[name="contact"]').fill("test@example.com");
-  await page.locator('select[name="topic"]').selectOption("relationship");
+  await page.locator('select[name="topic"]').selectOption("other");
   await page.locator('select[name="mode"]').selectOption("voice");
   const availability = page.locator("#booking-availability-field");
   await expect(availability).toBeVisible();

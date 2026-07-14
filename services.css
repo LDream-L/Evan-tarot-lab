@@ -1,5 +1,11 @@
 /* ===== 占卜服務公開卡片 ===== */
 .service-list { align-items: stretch; }
+.service-load-state { grid-column: 1 / -1; display: grid; justify-items: center; gap: 14px; min-height: 220px; padding: 44px 24px; border: 1px solid rgba(139,123,255,.25); border-radius: 18px; background: rgba(5,6,24,.42); text-align: center; }
+.service-load-state p { margin: 0!important; color: var(--text-muted)!important; font-size: 1rem!important; line-height: 1.7; }
+.service-load-state.is-error { align-content: center; }
+.service-load-indicator { width: 32px; height: 32px; border: 3px solid rgba(183,148,255,.2); border-top-color: var(--accent-strong); border-radius: 50%; animation: service-load-spin .8s linear infinite; }
+.service-load-retry { min-width: 180px; }
+@keyframes service-load-spin { to { transform: rotate(360deg); } }
 .service-card { display: flex; flex-direction: column; gap: 10px; }
 .service-card>h3,.service-card>p,.service-card>ul,.service-card>dl { margin-top: 0; margin-bottom: 0; }
 .service-list-label { margin: 4px 0 0; color: var(--accent-strong)!important; font-size: .76rem!important; font-weight: 750; letter-spacing: .05em; }
@@ -10,13 +16,47 @@
 .service-detail-row dd { margin: 0; color: var(--text-muted); font-size: .82rem; line-height: 1.55; }
 .service-policy-note { padding-top: 9px; border-top: 1px dashed rgba(139,123,255,.25); color: var(--text-muted)!important; font-size: .78rem!important; }
 .service-booking-button,.service-plan-booking-button { width: 100%; margin-top: auto; }
-.service-category-card { min-width: 0; }
+.service-category-card { min-width: 0; grid-column: 1 / -1; }
+.service-category-summary { display: -webkit-box; max-width: 82ch; overflow: hidden; color: var(--text-muted)!important; font-size: 1rem!important; line-height: 1.75; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
+.service-category-empty { color: var(--text-muted)!important; font-size: .95rem!important; }
 .service-plan-section-label { margin-top: 8px; }
-.service-plan-list { display: grid; gap: 10px; }
-.service-plan-card { display: grid; gap: 9px; padding: 13px; border: 1px solid rgba(125,228,255,.2); border-radius: 13px; background: linear-gradient(180deg,rgba(125,228,255,.045),rgba(5,6,24,.58)); }
+.service-plan-list { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; align-items: stretch; }
+.service-plan-card { display: grid; align-content: start; gap: 12px; min-width: 0; padding: 18px; border: 1px solid rgba(125,228,255,.2); border-radius: 15px; background: linear-gradient(180deg,rgba(125,228,255,.045),rgba(5,6,24,.58)); }
 .service-plan-card-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.service-plan-card-heading h4 { margin: 0; font-size: .94rem; line-height: 1.4; }
-.service-plan-card-heading strong { flex: 0 0 auto; color: #ffe8b8; font-size: .9rem; white-space: nowrap; }
-.service-plan-description { margin: 0!important; color: var(--text-muted)!important; font-size: .82rem!important; line-height: 1.55; }
+.service-plan-card-heading h4 { display: -webkit-box; margin: 0; overflow: hidden; font-size: 1rem; line-height: 1.5; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; }
+.service-plan-card-heading strong { flex: 0 0 auto; color: #ffe8b8; font-size: 1rem; white-space: nowrap; }
+.service-plan-description { display: -webkit-box; margin: 0!important; overflow: hidden; color: var(--text-muted)!important; font-size: 1rem!important; line-height: 1.7; -webkit-box-orient: vertical; -webkit-line-clamp: 3; line-clamp: 3; }
+.service-plan-card>.service-plan-details { display: none; }
+.service-plan-quick-facts { display: flex; flex-wrap: wrap; gap: 7px; }
+.service-plan-quick-facts span { padding: 5px 9px; border: 1px solid rgba(139,123,255,.28); border-radius: 999px; background: rgba(139,123,255,.08); color: #ddd8ff; font-size: .88rem; line-height: 1.3; }
+.service-plan-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; margin-top: auto; padding-top: 3px; }
+.service-plan-actions .service-plan-booking-button,.service-plan-actions .service-plan-details-button { width: 100%; margin-top: 0; }
+.service-plan-dialog-open { overflow: hidden; }
+.service-plan-dialog { width: min(760px,calc(100% - 32px)); max-width: none; max-height: calc(100dvh - 32px); margin: auto; padding: 0; overflow: visible; border: 0; background: transparent; color: var(--text-main); }
+.service-plan-dialog::backdrop { background: radial-gradient(circle at 50% 18%,rgba(139,123,255,.22),transparent 36%),rgba(0,0,10,.8); backdrop-filter: blur(10px); }
+.service-plan-dialog-panel { position: relative; display: grid; grid-template-rows: auto minmax(0,1fr) auto; max-height: calc(100dvh - 32px); overflow: hidden; border: 1px solid rgba(183,148,255,.5); border-radius: 24px; background: radial-gradient(circle at 0 0,rgba(249,168,255,.13),transparent 40%),linear-gradient(180deg,rgba(22,22,54,.99),rgba(7,8,26,.99)); box-shadow: 0 28px 80px rgba(0,0,0,.76); }
+.service-plan-dialog-icon-close { position: absolute; z-index: 2; top: 15px; right: 16px; display: grid; place-items: center; width: 38px; height: 38px; padding: 0; border: 1px solid rgba(183,148,255,.3); border-radius: 50%; background: rgba(5,6,24,.72); color: var(--text-main); font-size: 1.45rem; line-height: 1; cursor: pointer; }
+.service-plan-dialog-icon-close:hover,.service-plan-dialog-icon-close:focus-visible { border-color: var(--accent-strong); background: rgba(139,123,255,.17); outline: none; }
+.service-plan-dialog-header { padding: 25px 70px 18px 26px; border-bottom: 1px solid rgba(139,123,255,.18); }
+.service-plan-dialog-kicker,.service-plan-dialog-label { margin: 0; color: var(--accent-strong)!important; font-size: .8rem!important; font-weight: 750; letter-spacing: .08em; }
+.service-plan-dialog-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-top: 8px; }
+.service-plan-dialog-heading h3 { margin: 0; font-size: 1.35rem; line-height: 1.45; }
+.service-plan-dialog-heading strong { flex: 0 0 auto; color: #ffe8b8; font-size: 1.15rem; white-space: nowrap; }
+.service-plan-dialog-body { overflow-y: auto; padding: 22px 26px 26px; scrollbar-gutter: stable; }
+.service-plan-dialog-description { margin: 8px 0 20px!important; color: var(--text-main)!important; font-size: 1rem!important; line-height: 1.8; white-space: pre-line; }
+.service-plan-dialog-context { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 12px; margin: 0 0 20px; }
+.service-plan-dialog-context[hidden] { display: none; }
+.service-plan-dialog-context section { padding: 14px 16px; border: 1px solid rgba(139,123,255,.2); border-radius: 14px; background: rgba(139,123,255,.055); }
+.service-plan-dialog-context h4 { margin: 0 0 8px; color: var(--accent-strong); font-size: .95rem; }
+.service-plan-dialog-context ul { display: grid; gap: 5px; margin: 0; padding-left: 20px; color: var(--text-muted); font-size: .96rem; line-height: 1.65; }
+.service-plan-dialog-details { display: grid; gap: 0; margin: 0; border: 1px solid rgba(139,123,255,.24); border-radius: 15px; background: rgba(5,6,24,.5); }
+.service-plan-dialog-row { display: grid; grid-template-columns: 116px minmax(0,1fr); gap: 16px; padding: 15px 16px; }
+.service-plan-dialog-row+.service-plan-dialog-row { border-top: 1px solid rgba(139,123,255,.16); }
+.service-plan-dialog-row dt { color: var(--accent-strong); font-size: .95rem; font-weight: 750; line-height: 1.65; }
+.service-plan-dialog-row dd { margin: 0; color: var(--text-muted); font-size: .96rem; line-height: 1.75; white-space: pre-line; }
+.service-plan-dialog-policy { margin: 18px 0 0!important; padding: 14px 16px; border-left: 3px solid rgba(127,227,178,.56); border-radius: 0 12px 12px 0; background: rgba(127,227,178,.06); color: #cbffea!important; font-size: .92rem!important; line-height: 1.7; white-space: pre-line; }
+.service-plan-dialog-actions { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 26px 20px; border-top: 1px solid rgba(139,123,255,.18); background: rgba(5,6,24,.62); }
 .booking-selected-plan { margin: -2px 0 14px; padding: 10px 12px; border: 1px solid rgba(127,227,178,.28); border-radius: 12px; background: rgba(127,227,178,.07); color: #cbffea; font-size: .82rem; line-height: 1.5; }
-@media (max-width:560px){.service-detail-row{grid-template-columns:46px minmax(0,1fr)}.service-plan-card-heading{flex-direction:column;gap:4px}}
+@media (max-width:980px){.service-plan-list{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media (max-width:640px){.service-plan-list{grid-template-columns:1fr}.service-detail-row{grid-template-columns:46px minmax(0,1fr)}.service-plan-card{padding:16px}.service-plan-card-heading{gap:9px}.service-plan-card-heading h4{font-size:1rem}.service-plan-actions{grid-template-columns:1fr}.service-plan-dialog{width:100%;max-height:92dvh;margin:auto 0 0}.service-plan-dialog-panel{max-height:92dvh;border-right:0;border-bottom:0;border-left:0;border-radius:22px 22px 0 0}.service-plan-dialog-header{padding:22px 58px 16px 20px}.service-plan-dialog-heading{display:grid;gap:8px}.service-plan-dialog-heading h3{font-size:1.18rem}.service-plan-dialog-heading strong{font-size:1.05rem}.service-plan-dialog-body{padding:20px}.service-plan-dialog-description{font-size:1rem!important;line-height:1.78}.service-plan-dialog-context{grid-template-columns:1fr}.service-plan-dialog-row{grid-template-columns:1fr;gap:4px;padding:14px}.service-plan-dialog-row dt,.service-plan-dialog-row dd{font-size:.98rem}.service-plan-dialog-actions{display:grid;grid-template-columns:1fr;padding:14px 20px calc(16px + env(safe-area-inset-bottom))}.service-plan-dialog-actions .btn{width:100%}}
+@media (prefers-reduced-motion:reduce){.service-load-indicator{animation:none}}

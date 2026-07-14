@@ -7,7 +7,7 @@
   <meta name="description" content="Evan Tarot 目前開放的占卜大方向、問題規模、文字或語音方案、費用、交付、預約流程及資料隱私。" />
   <meta name="theme-color" content="#050518" />
   <link rel="stylesheet" href="style.css?v=20260505-dialog-v6" />
-  <link rel="stylesheet" href="services.css?v=20260712-service-plans-v2" />
+  <link rel="stylesheet" href="services.css?v=20260714-plan-details-v2" />
   <link rel="stylesheet" href="trust.css?v=20260710-trust-architecture-v1" />
 </head>
 <body>
@@ -33,8 +33,8 @@
       <div class="hero-bg-orbit" aria-hidden="true"></div>
       <div class="container hero-inner">
         <div class="hero-text">
-          <h1>占卜項目與適合情境。</h1>
-          <p>先選擇感情、職涯或深度占卜等大方向，再依問題規模、文字或語音形式與額外計算量選擇方案。</p>
+          <h1>占卜方案與適合情境。</h1>
+          <p>先整理目前最想釐清的核心議題，再依問題範圍、解析深度與交付內容選擇方案。</p>
           <div class="hero-cta">
             <a href="#services" class="btn primary">查看項目</a>
             <a href="#booking" class="btn ghost">前往預約</a>
@@ -49,9 +49,9 @@
           <div class="hero-card-inner">
             <p class="hero-tag">選擇方式</p>
             <ul>
-              <li>先選大方向：感情、人際、職涯或綜合主題</li>
-              <li>再看問題規模：單一小問題或多層次深度問題</li>
-              <li>最後選交付：文字、語音／通話或包含額外計算的方案</li>
+              <li>先整理目前最需要釐清的核心議題</li>
+              <li>再看問題規模：單點釐清、完整議題或深度分析</li>
+              <li>最後確認交付時間、內容與追問範圍</li>
             </ul>
             <p class="hero-note">若無法判斷規模，可先提出需求；雙方確認後才成立預約。</p>
           </div>
@@ -62,41 +62,12 @@
     <section class="section alt" id="services">
       <div class="container">
         <h2>目前開放的占卜形式</h2>
-        <p class="section-lead">同一個大方向可能包含多種問題規模與交付方式；價格依實際需要投入的時間、牌陣、計算與整理工作分開標示。</p>
-        <div class="card-grid service-list" id="service-list" aria-live="polite" aria-busy="true" data-source="fallback">
-          <article class="card service-card" data-service-id="relationship">
-            <h3>人際 / 感情動態占卜</h3>
-            <p>釐清你與某個對象的互動狀態，整理目前適合前進、暫停，或把重心拉回自己的方向。</p>
-            <p class="service-list-label">適合情境</p>
-            <ul class="card-list service-card-list"><li>曖昧</li><li>忽冷忽熱</li><li>斷聯</li><li>合作對象</li></ul>
-            <dl class="service-details">
-              <div class="service-detail-row"><dt>費用</dt><dd>依問題規模與交付形式確認</dd></div>
-              <div class="service-detail-row"><dt>交付</dt><dd>文字或語音</dd></div>
-            </dl>
-            <button class="btn ghost service-booking-button" type="button" data-service-booking="relationship">先提出需求</button>
-          </article>
-          <article class="card service-card" data-service-id="career">
-            <h3>工作 / 職涯路線占卜</h3>
-            <p>整理工作場域氛圍、你在其中的位置，以及跳槽、續留或轉向的風險與機會。</p>
-            <p class="service-list-label">適合情境</p>
-            <ul class="card-list service-card-list"><li>轉職前後</li><li>升遷機會</li><li>團隊磨合</li></ul>
-            <dl class="service-details">
-              <div class="service-detail-row"><dt>費用</dt><dd>依問題規模與交付形式確認</dd></div>
-              <div class="service-detail-row"><dt>交付</dt><dd>文字或語音</dd></div>
-            </dl>
-            <button class="btn ghost service-booking-button" type="button" data-service-booking="career">先提出需求</button>
-          </article>
-          <article class="card service-card" data-service-id="deep-topic">
-            <h3>主題深度占卜</h3>
-            <p>針對目前最在意的一個核心主題，進行較完整的牌陣與路線整理，可合併人際、工作與自我。</p>
-            <p class="service-list-label">適合情境</p>
-            <ul class="card-list service-card-list"><li>卡很久的大問題</li><li>不知道從哪裡切入</li><li>多個面向互相影響</li></ul>
-            <dl class="service-details">
-              <div class="service-detail-row"><dt>費用</dt><dd>依問題規模與交付形式確認</dd></div>
-              <div class="service-detail-row"><dt>交付</dt><dd>文字或語音</dd></div>
-            </dl>
-            <button class="btn ghost service-booking-button" type="button" data-service-booking="deep-topic">先提出需求</button>
-          </article>
+        <p class="section-lead">列表先呈現各方案的名稱、價格、簡短定位與交付天數；完整範圍、計算量及追問規則請點「查看詳情」。</p>
+        <div class="card-grid service-list" id="service-list" aria-live="polite" aria-busy="true" data-source="loading">
+          <div class="service-load-state is-loading" role="status">
+            <span class="service-load-indicator" aria-hidden="true"></span>
+            <p>正在載入目前公開的方案…</p>
+          </div>
         </div>
       </div>
     </section>
@@ -145,9 +116,7 @@
               <select name="topic" required>
                 <option value="">請選擇</option>
                 <optgroup id="service-topic-options" label="占卜項目">
-                  <option value="relationship">人際 / 感情動態占卜｜規格待確認</option>
-                  <option value="career">工作 / 職涯路線占卜｜規格待確認</option>
-                  <option value="deep-topic">主題深度占卜｜規格待確認</option>
+                  <option disabled>公開方案載入中…</option>
                 </optgroup>
                 <optgroup label="其他主題">
                   <option value="self">自我成長 / 人生卡點</option>
@@ -181,17 +150,61 @@
     </section>
   </main>
 
+  <dialog
+    class="service-plan-dialog"
+    id="service-plan-dialog"
+    aria-labelledby="service-plan-dialog-title"
+    aria-describedby="service-plan-dialog-description"
+  >
+    <article class="service-plan-dialog-panel">
+      <button
+        class="service-plan-dialog-icon-close"
+        type="button"
+        aria-label="關閉方案詳情"
+        data-service-plan-dialog-close
+      >×</button>
+      <header class="service-plan-dialog-header">
+        <p class="service-plan-dialog-kicker" id="service-plan-dialog-service">占卜方案</p>
+        <div class="service-plan-dialog-heading">
+          <h3 id="service-plan-dialog-title">方案詳情</h3>
+          <strong id="service-plan-dialog-price">價格另確認</strong>
+        </div>
+      </header>
+      <div class="service-plan-dialog-body">
+        <p class="service-plan-dialog-label">方案範圍</p>
+        <p class="service-plan-dialog-description" id="service-plan-dialog-description"></p>
+        <div class="service-plan-dialog-context" id="service-plan-dialog-context" hidden>
+          <section id="service-plan-dialog-suitable-section" hidden>
+            <h4>適合情境</h4>
+            <ul id="service-plan-dialog-suitable"></ul>
+          </section>
+          <section id="service-plan-dialog-focus-section" hidden>
+            <h4>整理重點</h4>
+            <ul id="service-plan-dialog-focus"></ul>
+          </section>
+        </div>
+        <dl class="service-plan-dialog-details" id="service-plan-dialog-details"></dl>
+        <p class="service-plan-dialog-policy" id="service-plan-dialog-policy" hidden></p>
+      </div>
+      <footer class="service-plan-dialog-actions">
+        <button class="btn ghost" type="button" data-service-plan-dialog-close>返回方案列表</button>
+        <button class="btn primary" id="service-plan-dialog-select" type="button">選擇此方案</button>
+      </footer>
+    </article>
+  </dialog>
+
   <footer class="site-footer">
     <div class="container footer-inner">
       <p>Evan Tarot ｜塔羅占卜、文章與實驗室</p>
-      <p class="footer-sub">先選大方向，再依問題規模、交付形式與額外工作量選擇適合方案。</p>
+      <p class="footer-sub">依問題規模、解析深度、交付內容與額外工作量選擇適合方案。</p>
     </div>
   </footer>
 
   <script src="JS/utils.js?v=20260710-hardening-v1"></script>
   <script src="JS/cloud-config.js?v=20260711-services-v1"></script>
-  <script src="JS/services.js?v=20260711-service-catalog-v1"></script>
-  <script src="JS/service-plans.js?v=20260712-service-plans-v2"></script>
+  <script src="JS/services.js?v=20260714-cloud-only-v2"></script>
+  <script src="JS/service-plans.js?v=20260714-compact-cards-v3"></script>
+  <script src="JS/service-plan-details.js?v=20260714-plan-details-v2"></script>
   <script src="JS/booking.js?v=20260710-booking-reliability-v1"></script>
   <script src="JS/booking-verified.js?v=20260711-target-origin-v1"></script>
   <script src="JS/ripple-effect.js?v=20260505-dialog-v6"></script>
