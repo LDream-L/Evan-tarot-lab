@@ -66,6 +66,7 @@
 
   /** 修正為目前權限下可見的分支，避免名稱或節點從側欄洩漏；時間 O(L)，空間 O(L)。 */
   function ensureVisibleActiveLine() {
+    if (ctx.state.ui.viewMode === "all") ctx.state.ui.activeTopicId = "all";
     const includePrivate = app.signedIn && ctx.state.ui.showPrivate !== false;
     const viewable = activeTimelines().filter((line) => includePrivate || !isTimelinePrivate(line.id));
     let scoped = ctx.state.ui.activeTopicId === "all"
@@ -445,6 +446,9 @@
   /** 控制項選單：時間 O(T + L + N)，空間 O(T + L + N)。 */
   function renderControls() {
     refs.viewMode.value = ctx.state.ui.viewMode;
+    const focused = ctx.state.ui.viewMode === "single";
+    refs.activeTimelineField.hidden = !focused;
+    refs.activeTimeline.disabled = !focused;
     refs.filterStatus.value = ctx.state.ui.filterStatus;
     refs.search.value = ctx.state.ui.search;
     refs.showPrivate.checked = app.signedIn && ctx.state.ui.showPrivate !== false;

@@ -469,7 +469,7 @@ test("時間樹只保留一條主幹，聚焦分支不改變資料親緣", async
       panX: 0,
       panY: 0,
       selectedId: "",
-      activeTopicId: "all",
+      activeTopicId: "topic-public",
       activeTimelineId: "branch-root",
       viewMode: "all",
       showPrivate: true,
@@ -484,6 +484,9 @@ test("時間樹只保留一條主幹，聚焦分支不改變資料親緣", async
   await page.goto("/timeflow.html", { waitUntil: "domcontentloaded" });
 
   await expect(page.locator(".map-global-trunk")).toHaveCount(1);
+  await expect(page.locator("#map-active-timeline-field")).toBeHidden();
+  await expect(page.locator("#map-active-timeline")).toBeDisabled();
+  await expect(page.locator("#map-active-topic")).toHaveValue("all");
   await expect(page.locator(".map-branch-axis")).toHaveCount(2);
   await expect(page.locator('[data-branch-id="branch-private"]')).toHaveCount(0);
   await expect(page.locator("#map-breadcrumb")).toContainText("全域時空主幹");
@@ -511,6 +514,8 @@ test("時間樹只保留一條主幹，聚焦分支不改變資料親緣", async
 
   await page.locator("#map-view-mode").selectOption("all");
   await page.locator("#map-view-mode").selectOption("single");
+  await expect(page.locator("#map-active-timeline-field")).toBeVisible();
+  await expect(page.locator("#map-active-timeline")).toBeEnabled();
   await expect(page.locator(".map-global-trunk.map-visual-trunk")).toHaveCount(1);
   await expect(page.locator(".map-branch-axis")).toHaveCount(1);
   await expect(page.locator("#map-breadcrumb")).toContainText("公開研究");

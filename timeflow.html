@@ -85,14 +85,14 @@
 <option value="single">聚焦目前分支</option>
 </select>
 </label>
-<label>目前分支
+<label id="map-active-timeline-field" hidden>聚焦分支
 <select id="map-active-timeline"></select>
 </label>
 </div>
 <details class="map-toolbar-panel map-toolbar-filter-panel">
 <summary>篩選與檢視</summary>
 <div class="map-toolbar-group map-toolbar-filters">
-<label>分支群組<select id="map-active-topic"></select></label>
+<select id="map-active-topic" hidden aria-hidden="true" tabindex="-1"></select>
 <label>驗證狀態
 <select id="map-filter-status">
 <option value="all">全部狀態</option>
@@ -143,7 +143,7 @@
 <div class="map-canvas" id="map-canvas"></div>
 </div>
 </div>
-<p class="tool-note-small">操作方式：整體檢視保留唯一時空主幹，分支只從來源節點開始延伸；雙擊分支名稱可聚焦。縮小時文字維持可讀，相近節點會自動聚合。拖曳空白處可平移，滑鼠滾輪可縮放。</p>
+<p class="tool-note-small">操作方式：整體檢視會顯示所有分支，不需選擇分支；單擊分支名稱只指定新增與編輯位置，雙擊才會聚焦該分支。縮小時文字維持可讀，相近節點會自動聚合。拖曳空白處可平移，滑鼠滾輪可縮放。</p>
 </section>
 <aside aria-label="節點詳細資料" class="map-sidebar">
 <div class="map-empty-state" id="map-empty-state"><h4>選擇或新增節點</h4><p>事件會加入目前分支；要建立平行時間流時，先選擇它的來源節點。</p></div>
@@ -272,11 +272,11 @@
 <script src="JS/google-auth.js?v=20260629-stability-v1"></script>
 <script src="JS/site-account.js?v=20260714-account-layout-v1"></script>
 <script src="JS/timeflow-v5-core.js?v=20260714-single-trunk-v6"></script>
-<script src="JS/timeflow-v5-layout.js?v=20260714-single-trunk-v6"></script>
-<script src="JS/timeflow-v5-ui.js?v=20260714-single-trunk-v6"></script>
+<script src="JS/timeflow-v5-layout.js?v=20260714-cloud-focus-v7"></script>
+<script src="JS/timeflow-v5-ui.js?v=20260714-cloud-focus-v7"></script>
 <script src="JS/timeflow-v5-actions.js?v=20260714-single-trunk-v6"></script>
-<script src="JS/divination-map.js?v=20260714-single-trunk-v6"></script>
-<script src="JS/timeflow-cloud.js?v=20260714-single-trunk-v6"></script>
+<script src="JS/divination-map.js?v=20260714-cloud-focus-v7"></script>
+<script src="JS/timeflow-cloud.js?v=20260714-cloud-focus-v7"></script>
 <script src="JS/ripple-effect.js?v=20260505-fixed-axis-free-card-v5"></script>
 <script src="JS/main.js?v=20260714-account-layout-v1"></script>
 </body>
