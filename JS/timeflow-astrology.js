@@ -230,8 +230,8 @@
     });
   }
 
-  function groupPoints(points) {
-    const threshold = state.prefs.mode === "full" ? 96 : 76;
+  function groupPoints(points, inverseZoom) {
+    const threshold = (state.prefs.mode === "full" ? 112 : 92) * inverseZoom;
     const groups = [];
     let current = null;
     for (const item of points.sort((a, b) => a.x - b.x)) {
@@ -281,12 +281,12 @@
     );
     const bandLevels = bands.reduce((max, item) => Math.max(max, item.level + 1), 0);
     const laneTop = 18 * inverseZoom;
-    const bandStep = 36 * inverseZoom;
+    const bandStep = 38 * inverseZoom;
     const pointStart = laneTop + bandLevels * bandStep + (bandLevels ? 12 * inverseZoom : 0);
 
-    const pointIntervals = groupPoints(points).map((group) => {
+    const pointIntervals = groupPoints(points, inverseZoom).map((group) => {
       const clustered = group.members.length > 1;
-      const width = clustered ? 96 : 150;
+      const width = clustered ? 110 : 168;
       const worldWidth = width * inverseZoom;
       return {
         ...group,
@@ -299,11 +299,11 @@
     });
     const pointCards = allocate(pointIntervals, "startX", "endX", 10 * inverseZoom);
     const pointLevels = pointCards.reduce((max, item) => Math.max(max, item.level + 1), 0);
-    const pointStep = 58 * inverseZoom;
-    const pointWorldHeight = 48 * inverseZoom;
-    const bandBottom = bandLevels ? laneTop + (bandLevels - 1) * bandStep + 28 * inverseZoom : laneTop;
+    const pointStep = 64 * inverseZoom;
+    const pointWorldHeight = 54 * inverseZoom;
+    const bandBottom = bandLevels ? laneTop + (bandLevels - 1) * bandStep + 30 * inverseZoom : laneTop;
     const pointBottom = pointLevels ? pointStart + (pointLevels - 1) * pointStep + pointWorldHeight : laneTop;
-    const labelBottom = laneTop + 58 * inverseZoom;
+    const labelBottom = laneTop + 68 * inverseZoom;
     const laneBottom = Math.max(labelBottom, bandBottom, pointBottom);
     const shift = Math.max(0, laneBottom + 30 * inverseZoom - layout.trunkY);
 
@@ -315,13 +315,13 @@
         x: item.startX,
         y: laneTop + item.level * bandStep,
         width: Math.max(92 * inverseZoom, item.endX - item.startX),
-        height: 28 * inverseZoom,
+        height: 30 * inverseZoom,
       })),
       points: pointCards.map((item) => ({
         ...item,
         x: item.x - item.worldWidth / 2,
         y: pointStart + item.level * pointStep,
-        height: 48,
+        height: 54,
         worldHeight: pointWorldHeight,
       })),
     };
@@ -339,13 +339,13 @@
       .map-astro-info{align-self:center;border:0;background:transparent;color:var(--accent-strong);cursor:pointer;font:inherit;font-size:.76rem;padding:6px 0}
       .map-astro-lane-label,.map-astro-band,.map-astro-point,.map-astro-cluster{position:absolute;pointer-events:auto;color:var(--text-main);font:inherit;cursor:pointer}
       .map-astro-lane-label,.map-astro-point,.map-astro-cluster{transform:scale(var(--map-inverse-zoom));transform-origin:top left}
-      .map-astro-lane-label{width:205px;min-height:58px;padding:8px 10px;border-radius:12px;border:1px solid rgba(125,228,255,.28);background:linear-gradient(180deg,rgba(16,35,49,.96),rgba(7,14,28,.98));text-align:left}
-      .map-astro-lane-label strong,.map-astro-lane-label span{display:block}.map-astro-lane-label strong{font-size:.84rem}.map-astro-lane-label span{margin-top:4px;color:var(--text-muted);font-size:.69rem;line-height:1.35}
-      .map-astro-band{height:calc(28px * var(--map-inverse-zoom));padding:calc(5px * var(--map-inverse-zoom)) calc(9px * var(--map-inverse-zoom));border-radius:calc(10px * var(--map-inverse-zoom));border:1px solid rgba(125,228,255,.38);background:linear-gradient(90deg,rgba(125,228,255,.14),rgba(183,148,255,.08));overflow:hidden;text-align:left;box-shadow:inset 0 0 16px rgba(125,228,255,.05)}
-      .map-astro-band strong,.map-astro-band span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.map-astro-band strong{font-size:calc(.69rem * var(--map-inverse-zoom))}.map-astro-band span{font-size:calc(.61rem * var(--map-inverse-zoom));color:var(--text-muted)}
-      .map-astro-point{height:48px;padding:7px 9px;border-radius:12px;border:1px solid rgba(183,148,255,.38);background:linear-gradient(180deg,rgba(25,24,58,.97),rgba(8,10,29,.99));text-align:left;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.34)}
-      .map-astro-point strong,.map-astro-point span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.map-astro-point strong{font-size:.72rem}.map-astro-point span{margin-top:4px;color:var(--text-muted);font-size:.62rem}
-      .map-astro-cluster{height:48px;padding:7px 8px;border-radius:14px;border:1px solid rgba(255,211,122,.4);background:radial-gradient(circle at top,rgba(255,211,122,.18),rgba(10,10,31,.98));text-align:center}.map-astro-cluster strong,.map-astro-cluster span{display:block}.map-astro-cluster strong{font-size:.82rem}.map-astro-cluster span{font-size:.61rem;color:var(--text-muted)}
+      .map-astro-lane-label{width:226px;min-height:68px;padding:10px 12px;border-radius:15px;border:1px solid rgba(125,228,255,.42);background:linear-gradient(145deg,rgba(17,43,57,.98),rgba(7,14,28,.98));box-shadow:inset 4px 0 0 rgba(125,228,255,.72),0 10px 26px rgba(0,0,0,.34);text-align:left}
+      .map-astro-lane-label strong,.map-astro-lane-label span{display:block}.map-astro-lane-label strong{font-size:.94rem}.map-astro-lane-label span{margin-top:5px;color:rgba(211,233,241,.78);font-size:.75rem;line-height:1.4}
+      .map-astro-band{height:calc(30px * var(--map-inverse-zoom));padding:calc(5px * var(--map-inverse-zoom)) calc(10px * var(--map-inverse-zoom));border-radius:calc(11px * var(--map-inverse-zoom));border:1px solid rgba(125,228,255,.46);background:linear-gradient(90deg,rgba(125,228,255,.18),rgba(183,148,255,.1));overflow:hidden;text-align:left;box-shadow:inset 0 0 16px rgba(125,228,255,.06)}
+      .map-astro-band strong,.map-astro-band span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.map-astro-band strong{font-size:calc(.75rem * var(--map-inverse-zoom))}.map-astro-band span{font-size:calc(.66rem * var(--map-inverse-zoom));color:var(--text-muted)}
+      .map-astro-point{height:54px;padding:8px 10px;border-radius:14px;border:1px solid rgba(183,148,255,.48);background:linear-gradient(180deg,rgba(29,29,67,.98),rgba(8,10,29,.99));text-align:left;overflow:hidden;box-shadow:0 10px 24px rgba(0,0,0,.4)}
+      .map-astro-point strong,.map-astro-point span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.map-astro-point strong{font-size:.82rem}.map-astro-point span{margin-top:5px;color:var(--text-muted);font-size:.7rem}
+      .map-astro-cluster{height:54px;padding:8px 9px;border-radius:15px;border:1px solid rgba(255,211,122,.5);background:radial-gradient(circle at top,rgba(255,211,122,.22),rgba(10,10,31,.98));text-align:center;box-shadow:0 10px 24px rgba(0,0,0,.38)}.map-astro-cluster strong,.map-astro-cluster span{display:block}.map-astro-cluster strong{font-size:.92rem}.map-astro-cluster span{margin-top:3px;font-size:.69rem;color:var(--text-muted)}
       .map-astro-point.importance-3,.map-astro-band.importance-3{border-color:rgba(255,211,122,.58);box-shadow:0 0 0 1px rgba(255,211,122,.06),0 8px 22px rgba(0,0,0,.36)}
       .map-astro-point:hover,.map-astro-cluster:hover{transform:scale(var(--map-inverse-zoom)) translateY(-1px);filter:brightness(1.08)}.map-astro-band:hover{filter:brightness(1.08)}
       .map-astro-anchor{stroke:rgba(125,228,255,.32);stroke-width:1.4;stroke-dasharray:4 6;vector-effect:non-scaling-stroke}

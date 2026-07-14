@@ -110,7 +110,8 @@
   function applyTransform() {
     const layout = app.layout;
     if (!layout) return;
-    const zoom = ctx.state.ui.zoom;
+    const zoom = clamp(Number(ctx.state.ui.zoom || .85), C.MIN_ZOOM, C.MAX_ZOOM);
+    ctx.state.ui.zoom = zoom;
     const panX = Math.round(ctx.state.ui.panX * 2) / 2;
     const panY = Math.round(ctx.state.ui.panY * 2) / 2;
     refs.scene.style.width = `${layout.sceneWidth}px`;
@@ -120,6 +121,8 @@
     refs.scene.style.transform = `translate3d(${panX}px,${panY}px,0) scale(${zoom})`;
     refs.zoomLevel.textContent = `${Math.round(zoom * 100)}%`;
     refs.viewport.dataset.zoomBand = zoom < .76 ? "compact" : "normal";
+    refs.zoomOut.disabled = zoom <= C.MIN_ZOOM + .001;
+    refs.zoomIn.disabled = zoom >= C.MAX_ZOOM - .001;
   }
 
   /** 分支來源路徑：時間／空間 O(H)。 */
@@ -152,10 +155,12 @@
 
   function createClusterElement(placement) {
     const button = document.createElement("button");
+    const line = ctx.timelineIndex.get(placement.members[0]?.timelineId);
     button.type = "button";
     button.className = "map-node-cluster";
     button.style.left = `${placement.x}px`;
     button.style.top = `${placement.y}px`;
+    button.style.setProperty("--theme-color", topicColor(line?.topicId));
     button.innerHTML = `<strong>${placement.members.length} 個事件</strong><span>${esc(truncate(placement.members.map((node) => node.title || C.TYPES[node.type]).join("、"), 28))}</span>`;
     button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -217,7 +222,10 @@
       button.type = "button";
       button.dataset.branchId = row.line.id;
       button.className = `map-timeline-label-button${row.isVisualTrunk ? " is-visual-trunk" : ""}${privateBranch ? " is-private" : ""}`;
-      button.style.left = `${Math.max(18 * layout.inverseZoom, row.branchOriginX + 14 * layout.inverseZoom)}px`;
+      button.style.setProperty("--branch-color", topicColor(row.line.topicId));
+      const preferredLeft = row.branchOriginX + 14 * layout.inverseZoom;
+      const maximumLeft = layout.sceneWidth - (TF.geometry.LABEL_W + 18) * layout.inverseZoom;
+      button.style.left = `${Math.max(18 * layout.inverseZoom, Math.min(preferredLeft, maximumLeft))}px`;
       button.style.top = `${row.axisY - (TF.geometry.LABEL_H + 12) * layout.inverseZoom}px`;
       const sourceNode = row.line.parentNodeId ? ctx.nodeIndex.get(row.line.parentNodeId) : null;
       const sourceText = row.isVisualTrunk
@@ -302,18 +310,20 @@
     const layout = app.layout;
     refs.canvas.replaceChildren();
 
-    const unknownZone = document.createElement("div");
-    unknownZone.className = "map-unknown-zone";
-    unknownZone.style.left = `${layout.unknownX}px`;
-    unknownZone.style.top = `${layout.trunkY + 24 * layout.inverseZoom}px`;
-    unknownZone.style.height = `${Math.max(200 * layout.inverseZoom, layout.sceneHeight - layout.trunkY - 60 * layout.inverseZoom)}px`;
-    refs.canvas.appendChild(unknownZone);
-    const unknownLabel = document.createElement("div");
-    unknownLabel.className = "map-unknown-zone-label";
-    unknownLabel.style.left = `${layout.unknownX + 16 * layout.inverseZoom}px`;
-    unknownLabel.style.top = `${layout.trunkY - 28 * layout.inverseZoom}px`;
-    unknownLabel.textContent = "日期不詳";
-    refs.canvas.appendChild(unknownLabel);
+    if (layout.hasUnknown) {
+      const unknownZone = document.createElement("div");
+      unknownZone.className = "map-unknown-zone";
+      unknownZone.style.left = `${layout.unknownX}px`;
+      unknownZone.style.top = `${layout.trunkY + 24 * layout.inverseZoom}px`;
+      unknownZone.style.height = `${Math.max(200 * layout.inverseZoom, layout.sceneHeight - layout.trunkY - 60 * layout.inverseZoom)}px`;
+      refs.canvas.appendChild(unknownZone);
+      const unknownLabel = document.createElement("div");
+      unknownLabel.className = "map-unknown-zone-label";
+      unknownLabel.style.left = `${layout.unknownX + 16 * layout.inverseZoom}px`;
+      unknownLabel.style.top = `${layout.trunkY - 28 * layout.inverseZoom}px`;
+      unknownLabel.textContent = "日期不詳";
+      refs.canvas.appendChild(unknownLabel);
+    }
 
     renderBranchLabels(layout);
     layout.items.forEach((item) => {
@@ -425,18 +435,23 @@
     refs.detailForm.classList.toggle("is-auth-readonly", !app.signedIn);
   }
 
-  /** 適合畫面：時間／空間 O(1)。最低自動比例避免拓樸被壓成不可判讀的一點。 */
+  /** 可讀全景：時間 O(N log N + L log L)，空間 O(N + L)。必要時重排一次以維持卡片間距。 */
   function fit(persist = true) {
     const width = refs.viewport.clientWidth;
     const height = refs.viewport.clientHeight;
-    const layout = app.layout;
+    let layout = app.layout;
     if (!width || !height || !layout) return;
     const target = clamp(Math.min(
       (width - 84) / Math.max(320, layout.sceneWidth),
       (height - 84) / Math.max(260, layout.sceneHeight),
       .96,
-    ), Math.max(C.MIN_ZOOM, .52), C.MAX_ZOOM);
+    ), C.MIN_ZOOM, C.MAX_ZOOM);
+    const zoomChanged = Math.abs(target - ctx.state.ui.zoom) > .001;
     ctx.state.ui.zoom = target;
+    if (zoomChanged) {
+      TF.ui.render(false);
+      layout = app.layout;
+    }
     ctx.state.ui.panX = (width - layout.sceneWidth * target) / 2;
     ctx.state.ui.panY = (height - layout.sceneHeight * target) / 2;
     applyTransform();

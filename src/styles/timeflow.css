@@ -271,9 +271,15 @@
 
 .map-zoom-level {
   min-width:42px;
-  color:var(--text-muted);
-  font-size:.76rem;
+  color:rgba(239,234,255,.88);
+  font-size:.82rem;
+  font-weight:700;
   text-align:center
+}
+
+.map-view-controls :disabled {
+  opacity:.42;
+  cursor:not-allowed
 }
 
 .map-viewport {
@@ -282,7 +288,8 @@
   border-radius:18px;
   background:radial-gradient(circle at 18% 12%,rgba(255,171,248,.12),transparent 24%),radial-gradient(circle at 72% 44%,rgba(123,112,255,.13),transparent 30%),linear-gradient(rgba(120,128,255,.045) 1px,transparent 1px),linear-gradient(90deg,rgba(120,128,255,.038) 1px,transparent 1px),rgba(3,4,18,.98);
   background-size:auto,auto,30px 30px,30px 30px,auto;
-  border:1px solid rgba(120,120,190,.55);
+  border:1px solid rgba(163,151,235,.68);
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.025),inset 0 24px 60px rgba(25,20,70,.08),0 16px 40px rgba(0,0,0,.22);
   cursor:grab;
   user-select:none;
   touch-action:none
@@ -340,8 +347,9 @@
 }
 
 .map-global-trunk {
-  stroke:rgba(215,208,255,.72);
-  stroke-width:4
+  stroke:rgba(229,225,255,.86);
+  stroke-width:4.5;
+  filter:drop-shadow(0 0 5px rgba(183,148,255,.18))
 }
 
 .map-global-trunk.map-visual-trunk {
@@ -350,8 +358,8 @@
 }
 
 .map-branch-axis {
-  stroke-width:3;
-  opacity:.86
+  stroke-width:3.4;
+  opacity:.94
 }
 
 .map-branch-history {
@@ -375,20 +383,20 @@
 }
 
 .map-time-grid {
-  stroke:rgba(155,158,225,.12);
+  stroke:rgba(155,158,225,.1);
   stroke-width:1;
   stroke-dasharray:3 7
 }
 
 .map-time-tick {
-  stroke:rgba(210,205,255,.46);
-  stroke-width:1.4
+  stroke:rgba(224,219,255,.62);
+  stroke-width:1.6
 }
 
 .map-time-label {
-  fill:rgba(231,224,255,.88);
-  font-size:calc(14px * var(--map-inverse-zoom));
-  font-weight:600;
+  fill:rgba(245,242,255,.96);
+  font-size:calc(16px * var(--map-inverse-zoom));
+  font-weight:700;
   letter-spacing:.02em;
   text-rendering:geometricPrecision;
   paint-order:stroke;
@@ -440,7 +448,7 @@
   border-radius:16px;
   border:1px solid rgba(120,120,190,.72);
   background:linear-gradient(180deg,rgba(20,21,54,.98),rgba(8,10,28,.99));
-  box-shadow:0 14px 30px rgba(0,0,0,.48);
+  box-shadow:inset 0 3px 0 var(--theme-color,#b794ff),0 14px 30px rgba(0,0,0,.48);
   cursor:pointer;
   text-align:left;
   transform:scale(var(--map-inverse-zoom));
@@ -612,13 +620,13 @@
 
 .map-node-cluster {
   position:absolute;
-  width:108px;
-  min-height:72px;
-  padding:9px 8px;
-  border-radius:16px;
-  border:1px solid rgba(183,148,255,.55);
-  background:radial-gradient(circle at top,rgba(183,148,255,.28),rgba(10,10,32,.98));
-  box-shadow:0 12px 26px rgba(0,0,0,.48);
+  width:132px;
+  min-height:88px;
+  padding:12px 10px;
+  border-radius:18px;
+  border:1px solid rgba(205,184,255,.68);
+  background:radial-gradient(circle at top,rgba(183,148,255,.32),rgba(10,10,32,.98) 72%);
+  box-shadow:inset 0 3px 0 var(--theme-color,#b794ff),0 14px 30px rgba(0,0,0,.5);
   color:#f6f6ff;
   cursor:pointer;
   text-align:center;
@@ -632,13 +640,20 @@
 }
 
 .map-node-cluster strong {
-  font-size:1.05rem
+  font-size:1.08rem;
+  line-height:1.3
 }
 
 .map-node-cluster span {
+  margin-top:5px;
   color:var(--text-muted);
-  font-size:.7rem;
-  line-height:1.25
+  font-size:.78rem;
+  line-height:1.35;
+  display:-webkit-box;
+  overflow:hidden;
+  -webkit-box-orient:vertical;
+  -webkit-line-clamp:2;
+  line-clamp:2
 }
 
 .map-unknown-zone {
@@ -652,7 +667,8 @@
 .map-unknown-zone-label {
   position:absolute;
   color:#ffe6b4;
-  font-size:calc(.78rem * var(--map-inverse-zoom));
+  font-size:calc(.84rem * var(--map-inverse-zoom));
+  font-weight:700;
   letter-spacing:.05em;
   pointer-events:none
 }
@@ -675,21 +691,21 @@
 
 .map-timeline-label-button {
   position:absolute;
-  width:214px;
-  min-height:58px;
-  padding:8px 10px;
-  border-radius:12px;
-  border:1px solid rgba(139,123,255,.2);
-  background:rgba(8,9,29,.86);
+  width:238px;
+  min-height:70px;
+  padding:11px 13px 10px 16px;
+  border-radius:15px;
+  border:1px solid rgba(170,155,235,.42);
+  background:linear-gradient(135deg,rgba(24,25,58,.97),rgba(7,9,28,.96));
   cursor:pointer;
   text-align:left;
   transform:scale(var(--map-inverse-zoom));
   transform-origin:top left;
-  box-shadow:0 8px 20px rgba(0,0,0,.24)
+  box-shadow:inset 4px 0 0 var(--branch-color,#b794ff),0 10px 26px rgba(0,0,0,.38)
 }
 
 .map-timeline-label-button:hover {
-  border-color:rgba(183,148,255,.52);
+  border-color:rgba(215,201,255,.74);
   transform:scale(var(--map-inverse-zoom)) translateY(-2px)
 }
 
@@ -709,14 +725,16 @@
 }
 
 .map-timeline-label-button strong {
-  font-size:.82rem;
-  line-height:1.35
+  font-size:.94rem;
+  line-height:1.35;
+  letter-spacing:.01em
 }
 
 .map-timeline-label-button span {
-  margin-top:3px;
-  color:var(--text-muted);
-  font-size:.7rem
+  margin-top:5px;
+  color:rgba(218,215,242,.78);
+  font-size:.76rem;
+  line-height:1.35
 }
 
 .map-canvas-empty {

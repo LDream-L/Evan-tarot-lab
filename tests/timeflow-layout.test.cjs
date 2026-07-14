@@ -103,8 +103,8 @@ global.window = {
       nodeIndex: new Map(),
       parentTimelineByTimelineId: new Map(),
     },
-    constants: { MIN_ZOOM: 0.35, MAX_ZOOM: 1.65 },
-    C: { MIN_ZOOM: 0.35, MAX_ZOOM: 1.65 },
+    constants: { MIN_ZOOM: 0.6, MAX_ZOOM: 1.65 },
+    C: { MIN_ZOOM: 0.6, MAX_ZOOM: 1.65 },
     app: { signedIn: true },
     activeTopics: () => state.topics,
     activeTimelines: () => state.timelines,
@@ -269,7 +269,12 @@ function bruteAllocate(items, gap) {
   assert.equal(layout.visibleLineIds.has("line-1"), true);
   assert.ok(layout.trunkY > 0);
   assert.equal(layout.visualTrunkLineId, "", "整體視角應保留全域主幹");
+  assert.equal(layout.hasUnknown, true, "有日期不詳事件時才應保留右側專區");
   assert.ok(layout.rows[0].branchEndX < layout.axisEnd, "一般分支不應再畫成全寬第二主軸");
+
+  const datedLayout = TF.buildLayout({ lines: state.timelines, nodes: state.nodes.filter((node) => node.precision !== "unknown") });
+  assert.equal(datedLayout.hasUnknown, false, "所有事件都有日期時不應顯示空的日期不詳專區");
+  assert.ok(datedLayout.sceneWidth < layout.sceneWidth, "移除空專區後應縮短畫布寬度");
 
   state.ui.viewMode = "single";
   const focused = TF.buildLayout({ lines: state.timelines, nodes: state.nodes });
@@ -277,9 +282,34 @@ function bruteAllocate(items, gap) {
   assert.equal(focused.rows[0].isVisualTrunk, true);
   assert.equal(focused.rows[0].axisY, focused.trunkY, "聚焦分支必須直接成為視覺主軸");
 
-  state.ui.zoom = .5;
+  state.ui.zoom = .6;
   const zoomed = TF.buildLayout({ lines: state.timelines, nodes: state.nodes });
   assert.equal(Math.round(zoomed.placements.get("day-1").width * state.ui.zoom), 224, "縮小後卡片實際寬度應維持可讀");
+})();
+
+(function testClusterRowsUseActualClusterHeight() {
+  state.ui.zoom = .6;
+  state.ui.viewMode = "all";
+  state.timelines = [
+    { id: "line-1", topicId: "topic-1", title: "時間線一", parentNodeId: "", visibility: "public", collapsed: false, createdAt: "2026-01-01" },
+  ];
+  state.nodes = Array.from({ length: 5 }, (_, index) => ({
+    id: `cluster-${index}`,
+    timelineId: "line-1",
+    title: `相近事件 ${index + 1}`,
+    precision: "day",
+    dateValue: `2026-07-${String(10 + index).padStart(2, "0")}`,
+    status: "pending",
+    category: "research",
+    tags: [],
+  }));
+  refreshContextIndexes();
+
+  const layout = TF.buildLayout({ lines: state.timelines, nodes: state.nodes });
+  const cluster = layout.items.find((item) => item.kind === "cluster");
+  assert.ok(cluster, "低倍率下相近事件應聚合成可讀卡片");
+  assert.equal(cluster.members.length, 5);
+  assert.ok(Math.abs(layout.rows[0].bottomY - (cluster.y + cluster.height)) < .001, "分支高度應依聚合卡實際高度計算，不再預留完整事件卡空白");
 })();
 
 (function testVisibilityCollapseAndFocusPerspective() {
