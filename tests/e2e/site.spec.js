@@ -46,6 +46,70 @@ test("主導覽能標示文章、服務與實驗室脈絡", async ({ page }) => 
   await expect(podcast).toHaveAttribute("rel", /noopener/);
 });
 
+test("帳戶視窗不會讓管理按鈕壓窄暱稱欄位", async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 760 });
+  await page.goto("/article.html", { waitUntil: "domcontentloaded" });
+  await expect.poll(() => page.evaluate(() => Boolean(window.EvanSiteAccount))).toBe(true);
+  await expect(page.locator("#site-account-menu")).toBeAttached();
+
+  await page.evaluate(() => {
+    const menu = document.getElementById("site-account-menu");
+    const panel = document.getElementById("google-user-panel");
+    const actions = menu?.querySelector(".site-account-actions");
+    if (!menu || !panel || !actions) throw new Error("帳戶視窗尚未建立");
+
+    menu.hidden = false;
+    menu.classList.add("is-open");
+    panel.classList.remove("hidden");
+    document.getElementById("google-signin-button")?.classList.add("hidden");
+
+    ["服務管理", "文章管理"].forEach((label) => {
+      const link = document.createElement("a");
+      link.className = "btn primary";
+      link.href = "#";
+      link.textContent = label;
+      actions.prepend(link);
+    });
+  });
+
+  const desktopLayout = await page.evaluate(() => {
+    const panel = document.getElementById("google-user-panel");
+    const editor = panel.querySelector(".google-nickname-editor");
+    const input = panel.querySelector("#google-nickname-input");
+    const label = panel.querySelector("label");
+    const actions = panel.querySelector(".site-account-actions");
+    const panelRect = panel.getBoundingClientRect();
+    const editorRect = editor.getBoundingClientRect();
+    const inputRect = input.getBoundingClientRect();
+    const labelRect = label.getBoundingClientRect();
+    const actionsRect = actions.getBoundingClientRect();
+    return {
+      panelWidth: panelRect.width,
+      editorWidth: editorRect.width,
+      editorBottom: editorRect.bottom,
+      inputWidth: inputRect.width,
+      labelHeight: labelRect.height,
+      actionsTop: actionsRect.top,
+    };
+  });
+
+  expect(desktopLayout.editorWidth).toBeGreaterThan(desktopLayout.panelWidth * 0.9);
+  expect(desktopLayout.inputWidth).toBeGreaterThan(180);
+  expect(desktopLayout.labelHeight).toBeLessThan(32);
+  expect(desktopLayout.actionsTop).toBeGreaterThanOrEqual(desktopLayout.editorBottom - 1);
+
+  await page.setViewportSize({ width: 360, height: 720 });
+  const mobileButtons = await page.locator(".site-account-actions .btn").evaluateAll((buttons) =>
+    buttons.map((button) => {
+      const rect = button.getBoundingClientRect();
+      return { width: rect.width, top: rect.top };
+    })
+  );
+  expect(mobileButtons).toHaveLength(3);
+  expect(mobileButtons.every(({ width }) => width > 250)).toBe(true);
+  expect(new Set(mobileButtons.map(({ top }) => Math.round(top))).size).toBe(3);
+});
+
 test("一般訪客只看到公開與研究實驗層級", async ({ page }) => {
   await page.goto("/lab.html", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#lab-public-tools")).toBeVisible();

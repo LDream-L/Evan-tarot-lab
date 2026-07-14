@@ -189,10 +189,15 @@
 
 .site-account-menu .google-user-panel {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: stretch;
   gap: 15px;
+  min-width: 0;
 }
 
 .site-account-menu .google-nickname-editor {
+  width: 100%;
+  min-width: 0;
   padding: 14px;
   border: 1px solid rgba(139, 123, 255, 0.2);
   border-radius: 14px;
@@ -204,6 +209,7 @@
   margin-bottom: 7px;
   font-size: 0.82rem;
   font-weight: 750;
+  white-space: nowrap;
 }
 
 .site-account-menu .google-nickname-row {
@@ -248,7 +254,15 @@
   display: flex;
   align-items: center;
   justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-width: 0;
   padding-top: 2px;
+}
+
+.site-account-actions .btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .site-account-menu .google-signout-button {
@@ -314,11 +328,14 @@
   }
 
   .site-account-menu .google-nickname-row .btn,
-  .site-account-menu .google-signout-button {
+  .site-account-menu .google-signout-button,
+  .site-account-actions .btn {
     width: 100%;
   }
 
   .site-account-actions {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
     justify-content: stretch;
   }
 }

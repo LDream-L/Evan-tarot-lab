@@ -19,7 +19,7 @@
 
   if (window.EvanSiteAccount) return;
 
-  const SCRIPT_VERSION = "20260629-stability-v1";
+  const SCRIPT_VERSION = "20260714-account-layout-v1";
   const DESKTOP_WIDTH = 380;
   const VIEWPORT_MARGIN = 16;
   const TRIGGER_GAP = 10;
