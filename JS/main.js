@@ -189,7 +189,7 @@ function normalizePodcastNavigation(nav) {
 }
 
 /**
- * 文章與實驗室保持獨立；塔羅尋物、世足驗證與占卜時間流均歸入實驗室。
+ * 文章與實驗室保持獨立；塔羅尋物、世足驗證與占卜時間樹均歸入實驗室。
  * 時間複雜度 O(n)，空間複雜度 O(1)。
  */
 function normalizeSiteNavigation() {

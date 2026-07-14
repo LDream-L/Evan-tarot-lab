@@ -1,59 +1,56 @@
 /**
- * 主題時間流 v5｜可閱讀啟動原始碼
+ * 時間樹 v6｜啟動原始碼
  *
- * 主要流程：取得 DOM 參照、初始化狀態、串接 UI／Actions／Cloud。
- * 時間／空間複雜度：O(1)（不含資料載入與各模組自身初始化）。
- *
- * 替代方案比較：
- * - 將啟動流程藏在單行壓縮碼中：載入快但無法安全修改。
- * - 本檔：保留原行為並提供可閱讀入口，正式執行檔由建置流程產生。
+ * DOM 參照只收集一次，初始化時間／空間 O(F)，F 為固定欄位數。
+ * 相較於每次事件重新查 DOM，集中 refs 可避免重複查詢並讓事件責任清楚。
  */
-/*! 主題時間流 v5 Bootstrap｜init/collect: 時間與空間 O(F)；DOM 引用只收集一次。 */
-!(function (e) {
+/*! 時間樹 v6 Bootstrap｜init/collect: 時間與空間 O(F)。 */
+(function initTimeflowBootstrap(TF) {
   "use strict";
+
   const {
-      ctx: t,
-      C: i,
-      clamp: a,
-      load: n,
-      save: d,
-      rebuildIndexes: l,
-      ensureSelection: o,
-      activeTopics: s,
-      activeTimelines: r,
-      lineTopic: c,
-    } = e,
-    p = e.app,
-    m = p.refs,
-    v = e.ui,
-    u = e.actions;
-  function f(e, t) {
-    let i = 0;
-    return (...a) => {
-      (window.clearTimeout(i), (i = window.setTimeout(() => e(...a), t)));
+    ctx,
+    load,
+    save,
+    rebuildIndexes,
+    ensureSelection,
+    lineTopic,
+  } = TF;
+  const app = TF.app;
+  const refs = app.refs;
+  const ui = TF.ui;
+  const actions = TF.actions;
+
+  function debounce(callback, delay) {
+    let timer = 0;
+    return (...args) => {
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => callback(...args), delay);
     };
   }
-  function g() {
-    (Object.entries({
-      addTopic: "map-add-topic",
-      addTimeline: "map-add-timeline",
+
+  function collectRefs() {
+    Object.entries({
+      addRootBranch: "map-add-topic",
       addReading: "map-add-reading",
       addEvent: "map-add-event",
       addNote: "map-add-note",
       addChildTimeline: "map-add-child-timeline",
-      manageTopic: "map-manage-topic",
       manageTimeline: "map-manage-timeline",
       openTrash: "map-open-trash",
       viewMode: "map-view-mode",
       activeTopic: "map-active-topic",
       activeTimeline: "map-active-timeline",
+      showPrivate: "map-show-private",
       filterStatus: "map-filter-status",
       filterCategory: "map-filter-category",
       search: "map-search",
       stats: "map-stats",
+      breadcrumb: "map-breadcrumb",
       zoomOut: "map-zoom-out",
       zoomReset: "map-zoom-reset",
       zoomIn: "map-zoom-in",
+      zoomLevel: "map-zoom-level",
       exportJson: "map-export-json",
       resetData: "map-reset-data",
       viewport: "map-viewport",
@@ -91,137 +88,138 @@
       linkList: "map-link-list",
       deleteNode: "map-delete-node",
       timeline: "map-timeline",
-    }).forEach(([e, t]) => {
-      m[e] = document.getElementById(t);
-    }),
-      Object.values(m).every(Boolean) &&
-        ((t.state = n()),
-        l(),
-        o(),
-        l(),
-        (p.signedIn = Boolean(window.EvanGoogleAuth?.isSignedIn?.())),
-        (function () {
-          (m.addTopic.addEventListener("click", u.addTopic),
-            m.addTimeline.addEventListener("click", u.addTimeline),
-            m.addReading.addEventListener("click", () => u.addNode("reading")),
-            m.addEvent.addEventListener("click", () => u.addNode("event")),
-            m.addNote.addEventListener("click", () => u.addNode("note")),
-            m.addChildTimeline.addEventListener("click", u.addChildTimeline),
-            m.manageTopic.addEventListener("click", u.manageTopic),
-            m.manageTimeline.addEventListener("click", u.manageTimeline),
-            m.openTrash.addEventListener("click", u.trashModal),
-            m.detailForm.addEventListener("submit", u.saveDetail),
-            m.deleteNode.addEventListener("click", u.deleteSelected),
-            m.addLink.addEventListener("click", u.addLink),
-            m.resetData.addEventListener("click", u.reset),
-            m.exportJson.addEventListener("click", u.exportJson),
-            m.viewMode.addEventListener("change", () => {
-              ((t.state.ui.viewMode =
-                "all" === m.viewMode.value ? "all" : "single"),
-                "single" === t.state.ui.viewMode &&
-                  "all" === t.state.ui.activeTopicId &&
-                  (t.state.ui.activeTopicId =
-                    c(t.state.ui.activeTimelineId) || s()[0]?.id || ""),
-                d(),
-                v.render(!0));
-            }),
-            m.activeTopic.addEventListener("change", () => {
-              t.state.ui.activeTopicId = m.activeTopic.value;
-              const e = r().filter(
-                (e) =>
-                  "all" === t.state.ui.activeTopicId ||
-                  e.topicId === t.state.ui.activeTopicId,
-              );
-              (e.some((e) => e.id === t.state.ui.activeTimelineId) ||
-                (t.state.ui.activeTimelineId = e[0]?.id || ""),
-                d(),
-                v.render(!0));
-            }),
-            m.activeTimeline.addEventListener("change", () => {
-              (v.selectLine(m.activeTimeline.value), d(), v.render(!0));
-            }),
-            m.filterStatus.addEventListener("change", () => {
-              ((t.state.ui.filterStatus = m.filterStatus.value),
-                d(),
-                v.render(!0));
-            }),
-            m.filterCategory.addEventListener("change", () => {
-              ((t.state.ui.filterCategory = m.filterCategory.value),
-                d(),
-                v.render(!0));
-            }),
-            m.search.addEventListener(
-              "input",
-              f(() => {
-                ((t.state.ui.search = m.search.value), d(), v.render(!0));
-              }, 180),
-            ),
-            m.fieldPrecision.addEventListener("change", () =>
-              v.showDateFields(m.fieldPrecision.value),
-            ),
-            m.fieldType.addEventListener("change", () => {
-              const e = "reading" === m.fieldType.value;
-              (document
-                .querySelectorAll("[data-reading-only]")
-                .forEach((t) => t.classList.toggle("hidden", !e)),
-                document
-                  .querySelectorAll("[data-description-field]")
-                  .forEach((t) => t.classList.toggle("hidden", e)));
-            }),
-            m.zoomOut.addEventListener("click", () => v.zoom(-0.12)),
-            m.zoomIn.addEventListener("click", () => v.zoom(0.12)),
-            m.zoomReset.addEventListener("click", () => v.fit(!0)),
-            m.viewport.addEventListener(
-              "wheel",
-              (e) => {
-                (e.preventDefault(),
-                  v.zoom(e.deltaY > 0 ? -0.09 : 0.09, e.clientX, e.clientY));
-              },
-              { passive: !1 },
-            ),
-            m.viewport.addEventListener("pointerdown", (e) => {
-              0 !== e.button ||
-                e.target.closest("button,input,select,textarea,label") ||
-                ((p.pan = {
-                  pointerId: e.pointerId,
-                  startX: e.clientX,
-                  startY: e.clientY,
-                  panX: t.state.ui.panX,
-                  panY: t.state.ui.panY,
-                }),
-                m.viewport.setPointerCapture(e.pointerId),
-                m.viewport.classList.add("is-panning"));
-            }),
-            m.viewport.addEventListener("pointermove", (e) => {
-              p.pan &&
-                p.pan.pointerId === e.pointerId &&
-                ((t.state.ui.panX = p.pan.panX + e.clientX - p.pan.startX),
-                (t.state.ui.panY = p.pan.panY + e.clientY - p.pan.startY),
-                v.applyTransform());
-            }));
-          const e = (e) => {
-            p.pan &&
-              p.pan.pointerId === e.pointerId &&
-              ((p.pan = null), m.viewport.classList.remove("is-panning"), d());
-          };
-          (m.viewport.addEventListener("pointerup", e),
-            m.viewport.addEventListener("pointercancel", e),
-            m.viewport.addEventListener("click", (e) => {
-              [m.viewport, m.scene, m.canvas].includes(e.target) &&
-                ((t.state.ui.selectedId = ""), d(), v.render(!1));
-            }),
-            window.addEventListener("evan-google-auth-change", (e) =>
-              v.auth(e.detail),
-            ),
-            window.addEventListener(
-              "resize",
-              f(() => v.fit(!1), 180),
-            ));
-        })(),
-        v.render(!0),
-        window.EvanGoogleAuth?.onChange?.(v.auth)));
+    }).forEach(([key, id]) => {
+      refs[key] = document.getElementById(id);
+    });
+    return Object.values(refs).every(Boolean);
   }
-  "loading" === document.readyState
-    ? document.addEventListener("DOMContentLoaded", g, { once: !0 })
-    : g();
-})((window.EvanTimeflowV5 = window.EvanTimeflowV5 || {}));
+
+  function bindEvents() {
+    refs.addRootBranch.addEventListener("click", actions.addRootBranch);
+    refs.addReading.addEventListener("click", () => actions.addNode("reading"));
+    refs.addEvent.addEventListener("click", () => actions.addNode("event"));
+    refs.addNote.addEventListener("click", () => actions.addNode("note"));
+    refs.addChildTimeline.addEventListener("click", actions.addChildTimeline);
+    refs.manageTimeline.addEventListener("click", actions.manageTimeline);
+    refs.openTrash.addEventListener("click", actions.trashModal);
+    refs.detailForm.addEventListener("submit", actions.saveDetail);
+    refs.deleteNode.addEventListener("click", actions.deleteSelected);
+    refs.addLink.addEventListener("click", actions.addLink);
+    refs.resetData.addEventListener("click", actions.reset);
+    refs.exportJson.addEventListener("click", actions.exportJson);
+
+    refs.viewMode.addEventListener("change", () => {
+      ctx.state.ui.viewMode = refs.viewMode.value === "single" ? "single" : "all";
+      if (ctx.state.ui.viewMode === "single" && ctx.state.ui.activeTopicId === "all") {
+        ctx.state.ui.activeTopicId = lineTopic(ctx.state.ui.activeTimelineId) || "all";
+      }
+      save();
+      ui.render(true);
+    });
+
+    refs.activeTopic.addEventListener("change", () => {
+      ctx.state.ui.activeTopicId = refs.activeTopic.value;
+      ui.ensureVisibleActiveLine();
+      save();
+      ui.render(true);
+    });
+
+    refs.activeTimeline.addEventListener("change", () => {
+      ui.selectLine(refs.activeTimeline.value);
+      save();
+      ui.render(true);
+    });
+
+    refs.showPrivate.addEventListener("change", () => {
+      ctx.state.ui.showPrivate = app.signedIn && refs.showPrivate.checked;
+      ui.ensureVisibleActiveLine();
+      save();
+      ui.render(true);
+    });
+
+    refs.filterStatus.addEventListener("change", () => {
+      ctx.state.ui.filterStatus = refs.filterStatus.value;
+      save();
+      ui.render(true);
+    });
+    refs.filterCategory.addEventListener("change", () => {
+      ctx.state.ui.filterCategory = refs.filterCategory.value;
+      save();
+      ui.render(true);
+    });
+    refs.search.addEventListener("input", debounce(() => {
+      ctx.state.ui.search = refs.search.value;
+      save();
+      ui.render(true);
+    }, 180));
+
+    refs.fieldPrecision.addEventListener("change", () => ui.showDateFields(refs.fieldPrecision.value));
+    refs.fieldType.addEventListener("change", () => {
+      const reading = refs.fieldType.value === "reading";
+      document.querySelectorAll("[data-reading-only]").forEach((element) => element.classList.toggle("hidden", !reading));
+      document.querySelectorAll("[data-description-field]").forEach((element) => element.classList.toggle("hidden", reading));
+    });
+
+    refs.zoomOut.addEventListener("click", () => ui.zoom(-.12));
+    refs.zoomIn.addEventListener("click", () => ui.zoom(.12));
+    refs.zoomReset.addEventListener("click", () => ui.fit(true));
+    refs.viewport.addEventListener("wheel", (event) => {
+      event.preventDefault();
+      ui.zoom(event.deltaY > 0 ? -.09 : .09, event.clientX, event.clientY);
+    }, { passive: false });
+
+    refs.viewport.addEventListener("pointerdown", (event) => {
+      if (event.button !== 0 || event.target.closest("button,input,select,textarea,label,summary")) return;
+      app.pan = {
+        pointerId: event.pointerId,
+        startX: event.clientX,
+        startY: event.clientY,
+        panX: ctx.state.ui.panX,
+        panY: ctx.state.ui.panY,
+      };
+      refs.viewport.setPointerCapture(event.pointerId);
+      refs.viewport.classList.add("is-panning");
+    });
+    refs.viewport.addEventListener("pointermove", (event) => {
+      if (!app.pan || app.pan.pointerId !== event.pointerId) return;
+      ctx.state.ui.panX = app.pan.panX + event.clientX - app.pan.startX;
+      ctx.state.ui.panY = app.pan.panY + event.clientY - app.pan.startY;
+      ui.applyTransform();
+    });
+    const stopPanning = (event) => {
+      if (!app.pan || app.pan.pointerId !== event.pointerId) return;
+      app.pan = null;
+      refs.viewport.classList.remove("is-panning");
+      save();
+    };
+    refs.viewport.addEventListener("pointerup", stopPanning);
+    refs.viewport.addEventListener("pointercancel", stopPanning);
+    refs.viewport.addEventListener("click", (event) => {
+      if (![refs.viewport, refs.scene, refs.canvas].includes(event.target)) return;
+      ctx.state.ui.selectedId = "";
+      save();
+      ui.render(false);
+    });
+
+    window.addEventListener("evan-google-auth-change", (event) => ui.auth(event.detail));
+    window.addEventListener("resize", debounce(() => ui.fit(false), 180));
+  }
+
+  function init() {
+    if (!collectRefs()) return;
+    ctx.state = load();
+    rebuildIndexes();
+    ensureSelection();
+    rebuildIndexes();
+    app.signedIn = Boolean(window.EvanGoogleAuth?.isSignedIn?.());
+    bindEvents();
+    ui.render(true);
+    window.EvanGoogleAuth?.onChange?.(ui.auth);
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", init, { once: true });
+  } else {
+    init();
+  }
+})(window.EvanTimeflowV5 = window.EvanTimeflowV5 || {});

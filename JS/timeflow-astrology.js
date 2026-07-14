@@ -1,6 +1,6 @@
 // ==============================
 // timeflow-astrology.js
-// 主題時間流：共用占星背景層（不寫入使用者 Google Sheets）
+// 時間樹：共用占星背景葉片（掛在唯一主幹，不另畫日期軸）
 // ==============================
 // 主要函式：
 // - collectVisibleEvents：時間 O(Y + E)，空間 O(E)。
@@ -20,7 +20,7 @@
   }
   if (TF.astrology?.installed) return;
 
-  const PREF_KEY = "evanTarotAstrologyPrefsV1";
+  const PREF_KEY = "evanTarotAstrologyPrefsV2";
   const DATA_VERSION = "20260708-astro-v1";
   const MIN_YEAR = 2026;
   const MAX_YEAR = 2027;
@@ -64,7 +64,7 @@
   TF.astrology = state;
 
   function loadPrefs() {
-    const fallback = { visible: true, mode: "core", planet: "all", type: "all" };
+    const fallback = { visible: false, mode: "core", planet: "all", type: "all" };
     try {
       const parsed = JSON.parse(localStorage.getItem(PREF_KEY) || "null");
       if (!parsed || typeof parsed !== "object") return fallback;
@@ -250,9 +250,13 @@
     }));
   }
 
-  /** 時間 O(E log E + E*K)，空間 O(E+K)。 */
+  /**
+   * 將占星事件排在唯一主幹上方；時間 O(E log E + E*K)，空間 O(E+K)。
+   * 點事件以反向縮放保持實際字級，期間事件則保留日期跨度。
+   */
   function buildAstroLayout(layout, events) {
     const span = Math.max(1, layout.maxDay - layout.minDay);
+    const inverseZoom = Number(layout.inverseZoom || 1);
     const xFor = (day) => layout.axisStart + ((day - layout.minDay) / span) * (layout.axisEnd - layout.axisStart);
     const periods = [];
     const points = [];
@@ -273,42 +277,52 @@
       periods.sort((a, b) => a.startX - b.startX || a.endX - b.endX),
       "startX",
       "endX",
-      8
+      8 * inverseZoom
     );
     const bandLevels = bands.reduce((max, item) => Math.max(max, item.level + 1), 0);
-    const axisY = 82 + bandLevels * 36;
+    const laneTop = 18 * inverseZoom;
+    const bandStep = 36 * inverseZoom;
+    const pointStart = laneTop + bandLevels * bandStep + (bandLevels ? 12 * inverseZoom : 0);
 
     const pointIntervals = groupPoints(points).map((group) => {
       const clustered = group.members.length > 1;
       const width = clustered ? 96 : 150;
+      const worldWidth = width * inverseZoom;
       return {
         ...group,
         kind: clustered ? "cluster" : "point",
-        startX: group.x - width / 2,
-        endX: group.x + width / 2,
+        startX: group.x - worldWidth / 2,
+        endX: group.x + worldWidth / 2,
         width,
+        worldWidth,
       };
     });
-    const pointCards = allocate(pointIntervals, "startX", "endX", 10);
+    const pointCards = allocate(pointIntervals, "startX", "endX", 10 * inverseZoom);
     const pointLevels = pointCards.reduce((max, item) => Math.max(max, item.level + 1), 0);
-    const laneBottom = axisY + 34 + Math.max(1, pointLevels) * 58 + 20;
-    const shift = Math.max(176, laneBottom);
+    const pointStep = 58 * inverseZoom;
+    const pointWorldHeight = 48 * inverseZoom;
+    const bandBottom = bandLevels ? laneTop + (bandLevels - 1) * bandStep + 28 * inverseZoom : laneTop;
+    const pointBottom = pointLevels ? pointStart + (pointLevels - 1) * pointStep + pointWorldHeight : laneTop;
+    const labelBottom = laneTop + 58 * inverseZoom;
+    const laneBottom = Math.max(labelBottom, bandBottom, pointBottom);
+    const shift = Math.max(0, laneBottom + 30 * inverseZoom - layout.trunkY);
 
     return {
       shift,
-      axisY,
+      inverseZoom,
       bands: bands.map((item) => ({
         ...item,
         x: item.startX,
-        y: 62 + item.level * 36,
-        width: Math.max(92, item.endX - item.startX),
-        height: 28,
+        y: laneTop + item.level * bandStep,
+        width: Math.max(92 * inverseZoom, item.endX - item.startX),
+        height: 28 * inverseZoom,
       })),
       points: pointCards.map((item) => ({
         ...item,
-        x: item.x - item.width / 2,
-        y: axisY + 28 + item.level * 58,
+        x: item.x - item.worldWidth / 2,
+        y: pointStart + item.level * pointStep,
         height: 48,
+        worldHeight: pointWorldHeight,
       })),
     };
   }
@@ -318,22 +332,23 @@
     const style = document.createElement("style");
     style.id = "timeflow-astrology-style";
     style.textContent = `
-      .map-toolbar-astrology{flex:1 1 100%;display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;padding:10px 12px;border:1px solid rgba(125,228,255,.18);border-radius:14px;background:rgba(125,228,255,.035)}
+      .map-toolbar-astro-panel[open]{flex:1 1 100%}.map-toolbar-astrology{display:flex;align-items:flex-end;gap:10px;flex-wrap:wrap;margin-top:10px;padding:10px 12px;border:1px solid rgba(125,228,255,.18);border-radius:14px;background:rgba(125,228,255,.035)}
       .map-toolbar-astrology label{min-width:142px;color:var(--text-muted);font-size:.78rem}.map-toolbar-astrology select{width:100%;margin-top:4px}
       .map-astro-toggle{display:flex!important;align-items:center;gap:8px;min-width:auto!important;padding:9px 11px;border-radius:999px;border:1px solid rgba(183,148,255,.28);background:rgba(183,148,255,.08);color:var(--text-main)!important;cursor:pointer}
       .map-astro-toggle input{width:auto!important;margin:0!important}.map-astro-status{flex:1 1 230px;align-self:center;color:var(--text-muted);font-size:.75rem;line-height:1.45}
       .map-astro-info{align-self:center;border:0;background:transparent;color:var(--accent-strong);cursor:pointer;font:inherit;font-size:.76rem;padding:6px 0}
       .map-astro-lane-label,.map-astro-band,.map-astro-point,.map-astro-cluster{position:absolute;pointer-events:auto;color:var(--text-main);font:inherit;cursor:pointer}
-      .map-astro-lane-label{left:18px;width:205px;min-height:58px;padding:8px 10px;border-radius:12px;border:1px solid rgba(125,228,255,.28);background:linear-gradient(180deg,rgba(16,35,49,.96),rgba(7,14,28,.98));text-align:left}
+      .map-astro-lane-label,.map-astro-point,.map-astro-cluster{transform:scale(var(--map-inverse-zoom));transform-origin:top left}
+      .map-astro-lane-label{width:205px;min-height:58px;padding:8px 10px;border-radius:12px;border:1px solid rgba(125,228,255,.28);background:linear-gradient(180deg,rgba(16,35,49,.96),rgba(7,14,28,.98));text-align:left}
       .map-astro-lane-label strong,.map-astro-lane-label span{display:block}.map-astro-lane-label strong{font-size:.84rem}.map-astro-lane-label span{margin-top:4px;color:var(--text-muted);font-size:.69rem;line-height:1.35}
-      .map-astro-band{height:28px;padding:5px 9px;border-radius:10px;border:1px solid rgba(125,228,255,.38);background:linear-gradient(90deg,rgba(125,228,255,.14),rgba(183,148,255,.08));overflow:hidden;text-align:left;box-shadow:inset 0 0 16px rgba(125,228,255,.05)}
-      .map-astro-band strong,.map-astro-band span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.map-astro-band strong{font-size:.69rem}.map-astro-band span{font-size:.61rem;color:var(--text-muted)}
+      .map-astro-band{height:calc(28px * var(--map-inverse-zoom));padding:calc(5px * var(--map-inverse-zoom)) calc(9px * var(--map-inverse-zoom));border-radius:calc(10px * var(--map-inverse-zoom));border:1px solid rgba(125,228,255,.38);background:linear-gradient(90deg,rgba(125,228,255,.14),rgba(183,148,255,.08));overflow:hidden;text-align:left;box-shadow:inset 0 0 16px rgba(125,228,255,.05)}
+      .map-astro-band strong,.map-astro-band span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.map-astro-band strong{font-size:calc(.69rem * var(--map-inverse-zoom))}.map-astro-band span{font-size:calc(.61rem * var(--map-inverse-zoom));color:var(--text-muted)}
       .map-astro-point{height:48px;padding:7px 9px;border-radius:12px;border:1px solid rgba(183,148,255,.38);background:linear-gradient(180deg,rgba(25,24,58,.97),rgba(8,10,29,.99));text-align:left;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.34)}
       .map-astro-point strong,.map-astro-point span{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.map-astro-point strong{font-size:.72rem}.map-astro-point span{margin-top:4px;color:var(--text-muted);font-size:.62rem}
       .map-astro-cluster{height:48px;padding:7px 8px;border-radius:14px;border:1px solid rgba(255,211,122,.4);background:radial-gradient(circle at top,rgba(255,211,122,.18),rgba(10,10,31,.98));text-align:center}.map-astro-cluster strong,.map-astro-cluster span{display:block}.map-astro-cluster strong{font-size:.82rem}.map-astro-cluster span{font-size:.61rem;color:var(--text-muted)}
       .map-astro-point.importance-3,.map-astro-band.importance-3{border-color:rgba(255,211,122,.58);box-shadow:0 0 0 1px rgba(255,211,122,.06),0 8px 22px rgba(0,0,0,.36)}
-      .map-astro-point:hover,.map-astro-band:hover,.map-astro-cluster:hover{transform:translateY(-1px);filter:brightness(1.08)}
-      .map-astro-axis{stroke:rgba(125,228,255,.62);stroke-width:2.2;stroke-linecap:round}.map-astro-anchor{stroke:rgba(125,228,255,.32);stroke-width:1.4;stroke-dasharray:4 6}.map-astro-grid{stroke:rgba(125,228,255,.1);stroke-width:1;stroke-dasharray:3 8}.map-astro-time-label{fill:rgba(205,245,255,.88);font-size:13px}.map-astro-time-tick{stroke:rgba(125,228,255,.5);stroke-width:1.2}
+      .map-astro-point:hover,.map-astro-cluster:hover{transform:scale(var(--map-inverse-zoom)) translateY(-1px);filter:brightness(1.08)}.map-astro-band:hover{filter:brightness(1.08)}
+      .map-astro-anchor{stroke:rgba(125,228,255,.32);stroke-width:1.4;stroke-dasharray:4 6;vector-effect:non-scaling-stroke}
       .map-stat-pill.map-astro-pill{border-color:rgba(125,228,255,.3);color:#c9f5ff;background:rgba(125,228,255,.08)}
       .map-astro-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px;margin-top:14px}.map-astro-detail-grid div{padding:9px 10px;border-radius:10px;border:1px solid rgba(139,123,255,.18);background:rgba(8,9,29,.72)}.map-astro-detail-grid span,.map-astro-detail-grid strong{display:block}.map-astro-detail-grid span{color:var(--text-muted);font-size:.68rem}.map-astro-detail-grid strong{margin-top:3px;font-size:.8rem}.map-astro-source-note{margin:14px 0 0;color:var(--text-muted);font-size:.74rem;line-height:1.55}
       @media(max-width:760px){.map-toolbar-astrology label{min-width:calc(50% - 8px);flex:1 1 140px}.map-astro-status{flex-basis:100%}.map-astro-detail-grid{grid-template-columns:1fr}}
@@ -345,7 +360,7 @@
     const target = state.refs.status;
     if (!target) return;
     if (!state.prefs.visible) {
-      target.textContent = "占星背景已關閉；個人時間流資料不受影響。";
+      target.textContent = "預設關閉；開啟後只會掛在同一條時間主幹，不建立第二日期軸。";
       return;
     }
     if (state.loading.size) {
@@ -366,26 +381,28 @@
     const management = toolbar?.querySelector(".map-toolbar-management");
     if (!toolbar) return;
 
-    const group = document.createElement("div");
-    group.id = "map-astro-controls";
-    group.className = "map-toolbar-group map-toolbar-astrology";
-    group.innerHTML = `
-      <label class="map-astro-toggle"><input id="map-astro-visible" type="checkbox">顯示占星背景</label>
-      <label>資料層級<select id="map-astro-mode"><option value="core">核心天象</option><option value="full">完整天象</option></select></label>
-      <label>行星篩選<select id="map-astro-planet">${Object.entries(PLANET_LABELS).map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label>
-      <label>事件篩選<select id="map-astro-type">${Object.entries(TYPE_LABELS).map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label>
-      <span class="map-astro-status" id="map-astro-status"></span>
-      <button class="map-astro-info" id="map-astro-info" type="button">資料說明</button>
-    `;
-    toolbar.insertBefore(group, management || null);
+    const panel = document.createElement("details");
+    panel.id = "map-astro-controls";
+    panel.className = "map-toolbar-panel map-toolbar-astro-panel";
+    panel.innerHTML = `
+      <summary>占星背景（選用）</summary>
+      <div class="map-toolbar-group map-toolbar-astrology">
+        <label class="map-astro-toggle"><input id="map-astro-visible" type="checkbox">掛到同一主幹</label>
+        <label>資料層級<select id="map-astro-mode"><option value="core">核心天象</option><option value="full">完整天象</option></select></label>
+        <label>行星篩選<select id="map-astro-planet">${Object.entries(PLANET_LABELS).map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label>
+        <label>事件篩選<select id="map-astro-type">${Object.entries(TYPE_LABELS).map(([value, label]) => `<option value="${value}">${label}</option>`).join("")}</select></label>
+        <span class="map-astro-status" id="map-astro-status"></span>
+        <button class="map-astro-info" id="map-astro-info" type="button">資料說明</button>
+      </div>`;
+    toolbar.insertBefore(panel, management || null);
 
     state.refs = {
-      visible: group.querySelector("#map-astro-visible"),
-      mode: group.querySelector("#map-astro-mode"),
-      planet: group.querySelector("#map-astro-planet"),
-      type: group.querySelector("#map-astro-type"),
-      status: group.querySelector("#map-astro-status"),
-      info: group.querySelector("#map-astro-info"),
+      visible: panel.querySelector("#map-astro-visible"),
+      mode: panel.querySelector("#map-astro-mode"),
+      planet: panel.querySelector("#map-astro-planet"),
+      type: panel.querySelector("#map-astro-type"),
+      status: panel.querySelector("#map-astro-status"),
+      info: panel.querySelector("#map-astro-info"),
     };
 
     state.refs.visible.checked = state.prefs.visible;
@@ -437,7 +454,7 @@
   function showSourceModal() {
     modalShell(
       "占星背景資料說明",
-      "它是共用的外部時間背景，不是占卜結果，也不會複製到每條案例時間線。",
+      "它是掛在唯一主幹上的共用時間背景，不是另一條主線，也不會複製到每條分支。",
       `<div class="map-astro-detail-grid">
         <div><span>目前資料年度</span><strong>${MIN_YEAR}–${MAX_YEAR}</strong></div>
         <div><span>時間基準</span><strong>Asia/Taipei</strong></div>
@@ -499,6 +516,7 @@
       row.topY += shift;
       row.axisY += shift;
       row.bottomY += shift;
+      row.sourcePoint.y += shift;
     });
     layout.topicHeadings.forEach((item) => { item.y += shift; });
     layout.items.forEach((item) => {
@@ -506,6 +524,7 @@
       item.centerY += shift;
       item.axisY += shift;
     });
+    layout.trunkY += shift;
     layout.sceneHeight += shift;
     if (layout.bounds) layout.bounds.bottom += shift;
   }
@@ -515,8 +534,9 @@
     const label = document.createElement("button");
     label.type = "button";
     label.className = "map-astro-lane-label";
-    label.style.top = `${Math.max(58, astroLayout.axisY - 30)}px`;
-    label.innerHTML = `<strong>占星背景</strong><span>${state.prefs.mode === "core" ? "核心天象" : "完整天象"}・共用唯讀資料<br>點擊天象查看時間與分類</span>`;
+    label.style.left = `${18 * astroLayout.inverseZoom}px`;
+    label.style.top = `${18 * astroLayout.inverseZoom}px`;
+    label.innerHTML = `<strong>占星背景葉片</strong><span>${state.prefs.mode === "core" ? "核心天象" : "完整天象"}・共用唯讀資料<br>與事件共用下方同一條日期主幹</span>`;
     label.addEventListener("click", showSourceModal);
     canvas.appendChild(label);
 
@@ -527,6 +547,7 @@
       button.style.left = `${item.x}px`;
       button.style.top = `${item.y}px`;
       button.style.width = `${item.width}px`;
+      button.style.height = `${item.height}px`;
       button.innerHTML = `<strong>${TF.esc(TF.truncate(item.event.title, 28))}</strong><span>${TF.esc(`${formatDate(item.event.startDate)}～${formatDate(item.event.endDate)}`)}</span>`;
       button.addEventListener("click", (event) => { event.stopPropagation(); showEventModal(item.event); });
       canvas.appendChild(button);
@@ -562,21 +583,13 @@
     svg.setAttribute("height", String(height));
 
     const lines = [];
-    layout.ticks.forEach((tick) => {
-      lines.push(
-        `<line class="map-astro-grid" x1="${tick.x}" y1="42" x2="${tick.x}" y2="${astroLayout.shift - 12}"/>`,
-        `<line class="map-astro-time-tick" x1="${tick.x}" y1="42" x2="${tick.x}" y2="54"/>`,
-        `<text class="map-astro-time-label" x="${tick.x}" y="28" text-anchor="middle">${TF.esc(tick.label)}</text>`
-      );
-    });
-    lines.push(`<line class="map-astro-axis" x1="${layout.axisStart}" y1="${astroLayout.axisY}" x2="${layout.axisEnd}" y2="${astroLayout.axisY}"/>`);
     astroLayout.points.forEach((item) => {
-      const centerX = item.x + item.width / 2;
-      lines.push(`<line class="map-astro-anchor" x1="${centerX}" y1="${astroLayout.axisY}" x2="${centerX}" y2="${item.y}"/>`);
+      const centerX = item.x + item.worldWidth / 2;
+      lines.push(`<line class="map-astro-anchor" x1="${centerX}" y1="${item.y + item.worldHeight}" x2="${centerX}" y2="${layout.trunkY}"/>`);
     });
     astroLayout.bands.forEach((item) => {
       const centerX = item.x + item.width / 2;
-      lines.push(`<line class="map-astro-anchor" x1="${centerX}" y1="${item.y + item.height}" x2="${centerX}" y2="${astroLayout.axisY}"/>`);
+      lines.push(`<line class="map-astro-anchor" x1="${centerX}" y1="${item.y + item.height}" x2="${centerX}" y2="${layout.trunkY}"/>`);
     });
 
     svg.innerHTML = `<g class="map-base-svg" transform="translate(0 ${astroLayout.shift})">${baseSvg}</g>${lines.join("")}`;
@@ -594,7 +607,7 @@
   const originalRender = TF.ui.render.bind(TF.ui);
   const originalFit = TF.ui.fit.bind(TF.ui);
 
-  /** 畫面合併：原時間流先渲染，再以共用 X 日期座標加入占星背景。 */
+  /** 畫面合併：原時間樹先渲染，再將占星葉片接到同一主幹。 */
   TF.ui.render = function renderWithAstrology(fit = false) {
     originalRender(false);
     injectStyles();
