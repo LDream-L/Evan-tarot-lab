@@ -55,7 +55,8 @@ jobs:
             tests/football-record-knockout-edit-model.test.cjs tests/football-record-knockout-edit-controller.test.cjs
             tests/football-record-knockout-input-guard.test.cjs
             tests/e2e/site.spec.js tests/e2e/accessibility.spec.js tests/root-e2e/football-root.spec.js
-            tests/main-loader.test.cjs tests/timeflow-core.test.cjs tests/timeflow-layout.test.cjs tests/site-smoke.sh
+            tests/main-loader.test.cjs tests/timeflow-core.test.cjs tests/timeflow-layout.test.cjs
+            tests/timeflow-cloud.test.cjs tests/site-smoke.sh
           )
           for file in "${required[@]}"; do
             test -f "$file" || { echo "Missing required file: $file"; exit 1; }
@@ -99,6 +100,7 @@ jobs:
           node --check JS/football-lab.js
           node --check JS/timeflow-v5-core.js
           node --check JS/timeflow-v5-layout.js
+          node --check JS/timeflow-cloud.js
           node --check tests/build-site.test.cjs
           node --check tests/football-bundle.test.cjs
           node --check tests/football-core-esm.test.cjs
@@ -118,6 +120,7 @@ jobs:
           node --check tests/main-loader.test.cjs
           node --check tests/timeflow-core.test.cjs
           node --check tests/timeflow-layout.test.cjs
+          node --check tests/timeflow-cloud.test.cjs
           bash -n tests/site-smoke.sh
       - name: Run main loader tests
         run: node tests/main-loader.test.cjs
@@ -125,6 +128,8 @@ jobs:
         run: node tests/timeflow-core.test.cjs
       - name: Run timeflow layout tests
         run: node tests/timeflow-layout.test.cjs
+      - name: Run timeflow cloud tests
+        run: node tests/timeflow-cloud.test.cjs
       - name: Run football named core tests
         run: node tests/football-core-esm.test.cjs
       - name: Run football named scoring tests

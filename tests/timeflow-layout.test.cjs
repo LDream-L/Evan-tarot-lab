@@ -301,11 +301,14 @@ function bruteAllocate(items, gap) {
   refreshContextIndexes();
 
   TF.app.signedIn = true;
+  state.ui.activeTopicId = "stale-topic-filter";
   let data = TF.visibleData();
   assert.deepEqual(data.lines.map((line) => line.id), ["root-public", "root-private"]);
+  assert.equal(data.lines.length, 2, "整體視角不得受殘留的分支群組值篩選");
   assert.equal(data.collapsedCounts.get("root-public"), 1, "收合分支應隱藏下層並保留數量");
 
   state.ui.viewMode = "single";
+  state.ui.activeTopicId = "topic-1";
   state.ui.activeTimelineId = "child-public";
   data = TF.visibleData();
   assert.deepEqual(data.lines.map((line) => line.id), ["child-public"], "聚焦下層時不受畫面外祖先的收合影響");

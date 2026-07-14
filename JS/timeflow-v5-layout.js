@@ -137,9 +137,9 @@
     const state = ctx.state;
     const keyword = state.ui.search.trim().toLowerCase();
     const ownerCanSeePrivate = Boolean(TF.app?.signedIn) && state.ui.showPrivate !== false;
-    const topicScoped = activeTimelines().filter(
-      (line) => state.ui.activeTopicId === "all" || line.topicId === state.ui.activeTopicId
-    );
+    const topicScoped = state.ui.viewMode === "all" || state.ui.activeTopicId === "all"
+      ? activeTimelines()
+      : activeTimelines().filter((line) => line.topicId === state.ui.activeTopicId);
     const privacyScoped = topicScoped.filter(
       (line) => ownerCanSeePrivate || !isTimelinePrivate(line.id)
     );

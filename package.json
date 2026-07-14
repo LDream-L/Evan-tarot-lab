@@ -6,7 +6,7 @@
   "scripts": {
     "build": "node scripts/build-site.cjs",
     "format:timeflow": "node scripts/format-timeflow-css.cjs",
-    "test:build": "node tests/build-site.test.cjs && node tests/service-management.test.cjs && node tests/site-quality.test.cjs && node tests/site-architecture.test.cjs && node tests/apps-script-auth.test.cjs",
+    "test:build": "node tests/build-site.test.cjs && node tests/service-management.test.cjs && node tests/site-quality.test.cjs && node tests/site-architecture.test.cjs && node tests/apps-script-auth.test.cjs && node tests/timeflow-cloud.test.cjs",
     "test:e2e": "playwright test",
     "test:e2e:root": "playwright test --config=playwright.root.config.cjs"
   },

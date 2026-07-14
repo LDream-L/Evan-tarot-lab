@@ -40,6 +40,7 @@
       openTrash: "map-open-trash",
       viewMode: "map-view-mode",
       activeTopic: "map-active-topic",
+      activeTimelineField: "map-active-timeline-field",
       activeTimeline: "map-active-timeline",
       showPrivate: "map-show-private",
       filterStatus: "map-filter-status",
@@ -110,7 +111,9 @@
 
     refs.viewMode.addEventListener("change", () => {
       ctx.state.ui.viewMode = refs.viewMode.value === "single" ? "single" : "all";
-      if (ctx.state.ui.viewMode === "single" && ctx.state.ui.activeTopicId === "all") {
+      if (ctx.state.ui.viewMode === "all") {
+        ctx.state.ui.activeTopicId = "all";
+      } else if (ctx.state.ui.activeTopicId === "all") {
         ctx.state.ui.activeTopicId = lineTopic(ctx.state.ui.activeTimelineId) || "all";
       }
       save();

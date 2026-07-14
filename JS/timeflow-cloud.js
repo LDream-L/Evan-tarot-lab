@@ -51,6 +51,83 @@
     element.classList.toggle("is-signed-in", Boolean(success));
   }
 
+  function cloneState(state) {
+    return state && typeof state === "object" ? JSON.parse(JSON.stringify(state)) : state;
+  }
+
+  /**
+   * 現有 Apps Script 仍以 themes／readings／events 驗證輸入；同步時附上相容欄位，
+   * 但 topics／timelines／nodes／links 仍是唯一正式資料，樹狀親緣不會被降級。
+   * 時間／空間 O(T+L+N+E)。
+   */
+  function prepareStateForCloud(state) {
+    const prepared = cloneState(state);
+    if (!prepared || !Array.isArray(prepared.topics)) return prepared;
+
+    const firstTopicId = String(prepared.topics[0]?.id || "");
+    const topicByTimelineId = new Map(
+      (prepared.timelines || []).map((line) => [String(line.id || ""), String(line.topicId || firstTopicId)])
+    );
+    const nodeById = new Map((prepared.nodes || []).map((node) => [String(node.id || ""), node]));
+    const readingByTimelineId = new Map();
+    const relatedReadingByNodeId = new Map();
+
+    (prepared.nodes || []).forEach((node) => {
+      if (node.type === "reading" && !readingByTimelineId.has(node.timelineId)) {
+        readingByTimelineId.set(node.timelineId, node.id);
+      }
+    });
+    (prepared.links || []).forEach((link) => {
+      if (link.deletedAt) return;
+      const from = nodeById.get(String(link.fromNodeId || ""));
+      const to = nodeById.get(String(link.toNodeId || ""));
+      if (from?.type === "reading" && to && to.type !== "reading") relatedReadingByNodeId.set(to.id, from.id);
+      if (to?.type === "reading" && from && from.type !== "reading") relatedReadingByNodeId.set(from.id, to.id);
+    });
+
+    const legacyNode = (node) => ({
+      ...node,
+      themeId: topicByTimelineId.get(String(node.timelineId || "")) || firstTopicId,
+      date: String(node.dateValue || ""),
+    });
+    prepared.themes = prepared.topics.map((topic) => ({ ...topic }));
+    prepared.readings = (prepared.nodes || [])
+      .filter((node) => node.type === "reading")
+      .map(legacyNode);
+    prepared.events = (prepared.nodes || [])
+      .filter((node) => node.type !== "reading")
+      .map((node) => ({
+        ...legacyNode(node),
+        relatedReadingId: String(
+          relatedReadingByNodeId.get(node.id)
+          || readingByTimelineId.get(node.timelineId)
+          || ""
+        ),
+      }));
+    prepared.ui = {
+      ...(prepared.ui || {}),
+      activeThemeId: String(prepared.ui?.activeTopicId || firstTopicId),
+    };
+    prepared.cloudCompatibility = { schema: "themes-v1", treeVersion: Number(prepared.version || 0) };
+    return prepared;
+  }
+
+  /** 移除只供舊後端驗證的鏡像欄位；時間／空間 O(S)。 */
+  function cleanStateFromCloud(state) {
+    const cleaned = cloneState(state);
+    if (!cleaned || !Array.isArray(cleaned.topics)) return cleaned;
+    delete cleaned.themes;
+    delete cleaned.readings;
+    delete cleaned.events;
+    delete cleaned.cloudCompatibility;
+    if (cleaned.ui && typeof cleaned.ui === "object") delete cleaned.ui.activeThemeId;
+    return cleaned;
+  }
+
+  function isLegacySchemaError(value) {
+    return /至少需要一條主題流/.test(String(value || ""));
+  }
+
   function stableNormalize(value) {
     if (Array.isArray(value)) return value.map(stableNormalize);
     if (!value || typeof value !== "object") return value;
@@ -199,13 +276,43 @@
   async function saveSnapshot(local, expectedRevision) {
     const result = await request("timeflowSave", {
       expectedRevision,
-      state: local.state,
+      state: prepareStateForCloud(local.state),
     });
     if (result?.conflict || result?.code === "REVISION_CONFLICT") return result;
     if (!result?.success) throw new Error(result?.error || "儲存失敗");
     writeMeta(result.revision, local.hash, result.user?.userKey || userKey);
     lastRaw = local.raw;
     return result;
+  }
+
+  /** 已存在的不相容雲端資料只在使用者確認後修復；最多重試一次版本衝突。 */
+  async function repairLegacyCloud(local, payload = {}) {
+    if (!local.state) return false;
+    const branchCount = (local.state.timelines || []).filter((item) => !item.deletedAt).length;
+    const nodeCount = (local.state.nodes || []).filter((item) => !item.deletedAt).length;
+    const confirmed = window.confirm(
+      `Google Sheets 仍是舊版時間流格式，無法辨識目前的時間樹。\n\n` +
+      `是否用此瀏覽器內的 ${branchCount} 條分支、${nodeCount} 個事件修復雲端資料？\n` +
+      `按「確定」會寫入目前時間樹；按「取消」會保留本機並暫停同步。`
+    );
+    if (!confirmed) {
+      paused = true;
+      status("已保留本機時間樹並暫停同步；Google Sheets 尚未修復。", false);
+      return true;
+    }
+
+    let expectedRevision = Number(payload.revision || payload.currentRevision || revision || 0);
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const result = await saveSnapshot(local, expectedRevision);
+      if (!result?.conflict) {
+        status(`已修復並同步 Google Sheets｜版本 ${result.revision}`, true);
+        return true;
+      }
+      const nextRevision = Number(result.revision || result.currentRevision || 0);
+      if (!nextRevision || nextRevision === expectedRevision) break;
+      expectedRevision = nextRevision;
+    }
+    throw new Error("雲端版本同時被其他裝置更新，請重新整理後再修復。");
   }
 
   async function saveCloud() {
@@ -276,18 +383,23 @@
     ready = true;
     status("正在讀取 Google Sheets 時間樹…", false);
     try {
-      const cloud = await request("timeflowLoad");
-      if (!cloud?.success) throw new Error(cloud?.error || "讀取失敗");
-
       const local = readLocal();
       const meta = readMeta();
-      const cloudHash = stateHash(cloud.state);
+
+      const cloud = await request("timeflowLoad");
+      if (!cloud?.success) {
+        if (isLegacySchemaError(cloud?.error) && await repairLegacyCloud(local, cloud)) return;
+        throw new Error(cloud?.error || "讀取失敗");
+      }
+
+      const cloudState = cleanStateFromCloud(cloud.state);
+      const cloudHash = stateHash(cloudState);
       const cloudUserKey = String(cloud.user?.userKey || "");
       const sameUserMeta = Boolean(meta?.userKey && cloudUserKey && meta.userKey === cloudUserKey);
       revision = Number(cloud.revision || 0);
       userKey = cloudUserKey;
 
-      if (!cloud.exists || !cloud.state) {
+      if (!cloud.exists || !cloudState) {
         if (!local.state) throw new Error("找不到可建立雲端版本的本機資料。");
         const saved = await saveSnapshot(local, 0);
         if (saved?.conflict) throw new Error("首次建立時發生版本衝突，請重新整理。");
@@ -304,7 +416,7 @@
 
       if (sameUserMeta && Number(meta.revision || 0) === Number(cloud.revision || 0)) {
         if (!local.state) {
-          loadStateIntoPage(cloud.state, cloud.revision, cloudUserKey);
+          loadStateIntoPage(cloudState, cloud.revision, cloudUserKey);
           return;
         }
         const saved = await saveSnapshot(local, cloud.revision);
@@ -322,17 +434,17 @@
         local.hash === String(meta.lastSavedHash || "") &&
         Number(meta.revision || 0) !== Number(cloud.revision || 0)
       ) {
-        loadStateIntoPage(cloud.state, cloud.revision, cloudUserKey);
+        loadStateIntoPage(cloudState, cloud.revision, cloudUserKey);
         return;
       }
 
       if (!meaningful(local.state)) {
-        loadStateIntoPage(cloud.state, cloud.revision, cloudUserKey);
+        loadStateIntoPage(cloudState, cloud.revision, cloudUserKey);
         return;
       }
 
       if (askWhichVersion()) {
-        loadStateIntoPage(cloud.state, cloud.revision, cloudUserKey);
+        loadStateIntoPage(cloudState, cloud.revision, cloudUserKey);
       } else {
         paused = true;
         status("已保留本機版本並暫停同步；請先下載 JSON 備份。", false);
@@ -368,6 +480,12 @@
     window.EvanGoogleAuth?.onChange?.(authChanged);
     watchLocal();
   }
+
+  window.EvanTimeflowCloud = Object.freeze({
+    prepareStateForCloud,
+    cleanStateFromCloud,
+    isLegacySchemaError,
+  });
 
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", init, { once: true });
