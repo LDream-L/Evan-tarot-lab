@@ -20,11 +20,11 @@ Evan Tarot 的正式靜態網站、公開實驗工具與私人 Google Sheets 資
 │  ├─ core/                     # 共用載入器與無障礙對話框
 │  ├─ security/                 # 動態連結安全
 │  ├─ articles/                 # 文章備援
-│  ├─ timeflow/                 # 時間流匯入／匯出介面
+│  ├─ timeflow/                 # 時間樹匯入／匯出介面
 │  └─ bootstrap/                # 非阻塞帳戶與管理入口啟動
 ├─ src/
-│  ├─ timeflow/                 # 可閱讀的時間流 JavaScript source
-│  └─ styles/timeflow.css       # 可閱讀的時間流 CSS source
+│  ├─ timeflow/                 # 可閱讀的時間樹 JavaScript source
+│  └─ styles/timeflow.css       # 可閱讀的時間樹 CSS source
 ├─ scripts/                     # 結構化 HTML、CSS 與 JavaScript 建置器
 ├─ tests/                       # 靜態契約與 Playwright 回歸測試
 ├─ cloud/google-apps-script-v47/

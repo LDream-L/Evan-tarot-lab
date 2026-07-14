@@ -1,11 +1,12 @@
 // ==============================
 // timeflow-v5-core.js
-// 主題時間流 v5：資料模型、遷移、日期與軟刪除
+// 時間樹 v6：單一時空主幹、遞迴分支、私密狀態、遷移與軟刪除
 // ==============================
 // 主要函式複雜度：
 // - normalizeState：時間／空間 O(T+L+N+E)
 // - rebuildIndexes：時間／空間 O(T+L+N+E)
 // - descendants：時間 O(D)、空間 O(D)，D 為實際後代時間線數
+// - timelinePath：時間／空間 O(H)，H 為分支祖先深度
 // - sortNodes：時間 O(N log N)、空間 O(N)，日期鍵只計算一次
 //
 // 更快替代方案比較：
@@ -20,7 +21,7 @@
   const C = TF.constants = Object.freeze({
     STORAGE_KEY: "evanTarotDivinationTimeflowV4",
     LEGACY_KEYS: ["evanTarotDivinationTimeflowV3", "evanTarotDivinationTimeflowV2", "evanTarotDivinationMapV1"],
-    VERSION: 5,
+    VERSION: 6,
     MIN_ZOOM: 0.35,
     MAX_ZOOM: 1.65,
     DAY_MS: 86400000,
@@ -44,6 +45,8 @@
     linkIndex: new Map(),
     childrenByTimelineId: new Map(),
     childTimelinesByParentNodeId: new Map(),
+    parentTimelineByTimelineId: new Map(),
+    privateTimelineIds: new Set(),
   };
 
   const nowIso = () => window.nowTaipeiISO ? window.nowTaipeiISO() : new Date().toISOString();
@@ -65,9 +68,21 @@
     return { id: id("topic"), title: String(title || `主題 ${index + 1}`).trim(), description: String(description || "").trim(), color: C.COLORS[index % C.COLORS.length], createdAt: at, updatedAt: at, deletedAt: "", deletedBatchId: "" };
   }
 
-  function createTimeline(topicId, title, description, parentNodeId = "") {
+  function createTimeline(topicId, title, description, parentNodeId = "", visibility = "private") {
     const at = nowIso();
-    return { id: id("timeline"), topicId, title: String(title || "新案例時間線").trim(), description: String(description || "").trim(), parentNodeId: String(parentNodeId || ""), createdAt: at, updatedAt: at, deletedAt: "", deletedBatchId: "" };
+    return {
+      id: id("timeline"),
+      topicId,
+      title: String(title || "新分支").trim(),
+      description: String(description || "").trim(),
+      parentNodeId: String(parentNodeId || ""),
+      visibility: visibility === "public" ? "public" : "private",
+      collapsed: false,
+      createdAt: at,
+      updatedAt: at,
+      deletedAt: "",
+      deletedBatchId: "",
+    };
   }
 
   function createNode(timelineId, type = "event") {
@@ -77,9 +92,28 @@
   }
 
   function initialState() {
-    const topic = createTopic("第一主題", "可用於人物、關係、專案、研究或事物。", 0);
-    const timeline = createTimeline(topic.id, "第一案例時間線", "同一脈絡下的事件、占卜與驗證。");
-    return { version: C.VERSION, topics: [topic], timelines: [timeline], nodes: [], links: [], ui: { zoom: .85, panX: 0, panY: 0, selectedId: "", activeTopicId: topic.id, activeTimelineId: timeline.id, viewMode: "single", filterStatus: "all", filterCategory: "all", search: "" } };
+    const topic = createTopic("第一分支", "從全域時空主幹長出的案例或研究主題。", 0);
+    const timeline = createTimeline(topic.id, "第一分支", "事件會沿著這條分支發展，也能從任一節點再長出平行分支。");
+    return {
+      version: C.VERSION,
+      topics: [topic],
+      timelines: [timeline],
+      nodes: [],
+      links: [],
+      ui: {
+        zoom: .85,
+        panX: 0,
+        panY: 0,
+        selectedId: "",
+        activeTopicId: topic.id,
+        activeTimelineId: timeline.id,
+        viewMode: "all",
+        showPrivate: true,
+        filterStatus: "all",
+        filterCategory: "all",
+        search: "",
+      },
+    };
   }
 
   function precision(value, supplied) {
@@ -106,7 +140,20 @@
 
   function normalizeTimeline(item, fallback, index) {
     const at = nowIso();
-    return { id: String(item?.id || id("timeline")), topicId: String(item?.topicId || fallback), title: String(item?.title || `案例時間線 ${index + 1}`).trim(), description: String(item?.description || "").trim(), parentNodeId: String(item?.parentNodeId || ""), createdAt: String(item?.createdAt || at), updatedAt: String(item?.updatedAt || item?.createdAt || at), deletedAt: String(item?.deletedAt || ""), deletedBatchId: String(item?.deletedBatchId || "") };
+    return {
+      id: String(item?.id || id("timeline")),
+      topicId: String(item?.topicId || fallback),
+      title: String(item?.title || `分支 ${index + 1}`).trim(),
+      description: String(item?.description || "").trim(),
+      parentNodeId: String(item?.parentNodeId || ""),
+      // 舊資料沒有可見性欄位時採私密，避免升級後意外顯示個人研究。
+      visibility: item?.visibility === "public" ? "public" : "private",
+      collapsed: Boolean(item?.collapsed),
+      createdAt: String(item?.createdAt || at),
+      updatedAt: String(item?.updatedAt || item?.createdAt || at),
+      deletedAt: String(item?.deletedAt || ""),
+      deletedBatchId: String(item?.deletedBatchId || ""),
+    };
   }
 
   function normalizeNode(item, fallback) {
@@ -151,28 +198,28 @@
       nodes.push(node);
       if (related && readingTimeline.has(related)) links.push(normalizeLink({ fromNodeId: related, toNodeId: node.id, type: event?.status === "pending" ? "related" : "verification", note: event?.note || "由舊版關聯轉入" }));
     });
-    if (!timelines.length) timelines.push(createTimeline(fallbackTopic, "第一案例時間線", "同一脈絡下的事件、占卜與驗證。"));
+    if (!timelines.length) timelines.push(createTimeline(fallbackTopic, "第一分支", "同一脈絡下的事件、占卜與驗證。"));
     const rawUi = raw?.ui || {}, mappedTopic = validTopics.has(String(rawUi.activeThemeId)) ? String(rawUi.activeThemeId) : fallbackTopic;
     const firstLine = timelines.find((v) => v.topicId === mappedTopic) || timelines[0];
-    return { version: C.VERSION, topics, timelines, nodes, links, ui: { zoom: clamp(Number(rawUi.zoom || .85), C.MIN_ZOOM, C.MAX_ZOOM), panX: Number(rawUi.panX || 0), panY: Number(rawUi.panY || 0), selectedId: String(rawUi.selectedId || ""), activeTopicId: rawUi.activeThemeId === "all" ? "all" : mappedTopic, activeTimelineId: firstLine.id, viewMode: rawUi.viewMode === "parallel" ? "all" : "single", filterStatus: C.STATUSES[rawUi.filterStatus] ? rawUi.filterStatus : "all", filterCategory: C.CATEGORIES[rawUi.filterCategory] ? rawUi.filterCategory : "all", search: String(rawUi.search || "") } };
+    return { version: C.VERSION, topics, timelines, nodes, links, ui: { zoom: clamp(Number(rawUi.zoom || .85), C.MIN_ZOOM, C.MAX_ZOOM), panX: Number(rawUi.panX || 0), panY: Number(rawUi.panY || 0), selectedId: String(rawUi.selectedId || ""), activeTopicId: rawUi.activeThemeId === "all" ? "all" : mappedTopic, activeTimelineId: firstLine.id, viewMode: rawUi.viewMode === "parallel" ? "all" : "single", showPrivate: true, filterStatus: C.STATUSES[rawUi.filterStatus] ? rawUi.filterStatus : "all", filterCategory: C.CATEGORIES[rawUi.filterCategory] ? rawUi.filterCategory : "all", search: String(rawUi.search || "") } };
   }
 
   /** 正規化：時間 O(T+L+N+E)，空間 O(T+L+N+E)。 */
   function normalizeState(raw) {
-    if (!raw || Number(raw.version || 0) < C.VERSION || !Array.isArray(raw.topics)) return migrate(raw || {});
+    if (!raw || !Array.isArray(raw.topics)) return migrate(raw || {});
     const seed = initialState();
     const topics = raw.topics.length ? raw.topics.map(normalizeTopic) : seed.topics;
     const validTopics = new Set(topics.map((v) => v.id));
     const fallbackTopic = topics.find((v) => !v.deletedAt)?.id || topics[0].id;
     const timelines = (Array.isArray(raw.timelines) ? raw.timelines : []).map((v, i) => normalizeTimeline(v, fallbackTopic, i));
     timelines.forEach((v) => { if (!validTopics.has(v.topicId)) v.topicId = fallbackTopic; });
-    if (!timelines.length) timelines.push(createTimeline(fallbackTopic, "第一案例時間線", ""));
+    if (!timelines.length) timelines.push(createTimeline(fallbackTopic, "第一分支", ""));
     const validLines = new Set(timelines.map((v) => v.id));
     const fallbackLine = timelines.find((v) => !v.deletedAt)?.id || timelines[0].id;
     const nodes = (Array.isArray(raw.nodes) ? raw.nodes : []).map((v) => normalizeNode(v, fallbackLine));
     nodes.forEach((v) => { if (!validLines.has(v.timelineId)) v.timelineId = fallbackLine; });
     const ui = raw.ui || {};
-    return { version: C.VERSION, topics, timelines, nodes, links: (Array.isArray(raw.links) ? raw.links : []).map(normalizeLink), ui: { zoom: clamp(Number(ui.zoom || .85), C.MIN_ZOOM, C.MAX_ZOOM), panX: Number(ui.panX || 0), panY: Number(ui.panY || 0), selectedId: String(ui.selectedId || ""), activeTopicId: String(ui.activeTopicId || fallbackTopic), activeTimelineId: String(ui.activeTimelineId || fallbackLine), viewMode: ui.viewMode === "all" ? "all" : "single", filterStatus: C.STATUSES[ui.filterStatus] ? ui.filterStatus : "all", filterCategory: C.CATEGORIES[ui.filterCategory] ? ui.filterCategory : "all", search: String(ui.search || "") } };
+    return { version: C.VERSION, topics, timelines, nodes, links: (Array.isArray(raw.links) ? raw.links : []).map(normalizeLink), ui: { zoom: clamp(Number(ui.zoom || .85), C.MIN_ZOOM, C.MAX_ZOOM), panX: Number(ui.panX || 0), panY: Number(ui.panY || 0), selectedId: String(ui.selectedId || ""), activeTopicId: String(ui.activeTopicId || fallbackTopic), activeTimelineId: String(ui.activeTimelineId || fallbackLine), viewMode: ui.viewMode === "all" ? "all" : "single", showPrivate: ui.showPrivate !== false, filterStatus: C.STATUSES[ui.filterStatus] ? ui.filterStatus : "all", filterCategory: C.CATEGORIES[ui.filterCategory] ? ui.filterCategory : "all", search: String(ui.search || "") } };
   }
 
   /** 本機載入：時間 O(T+L+N+E)，空間 O(T+L+N+E)。 */
@@ -225,6 +272,7 @@
 
     const childrenByTimelineId = new Map();
     const childTimelinesByParentNodeId = new Map();
+    const parentTimelineByTimelineId = new Map();
 
     state.timelines.forEach((line) => {
       const parentNodeId = String(line.parentNodeId || "");
@@ -234,6 +282,8 @@
       const parentTimelineId = String(parentNode?.timelineId || "");
       if (!parentTimelineId || parentTimelineId === line.id) return;
 
+      parentTimelineByTimelineId.set(line.id, parentTimelineId);
+
       if (!childrenByTimelineId.has(parentTimelineId)) childrenByTimelineId.set(parentTimelineId, []);
       childrenByTimelineId.get(parentTimelineId).push(line.id);
 
@@ -241,12 +291,39 @@
       childTimelinesByParentNodeId.get(parentNodeId).push(line.id);
     });
 
+    // 由父層向下繼承私密狀態；使用記憶化路徑壓縮，總計 O(L)。
+    const privateMemo = new Map();
+    const resolvePrivate = (lineId) => {
+      if (privateMemo.has(lineId)) return privateMemo.get(lineId);
+      const path = [];
+      const seen = new Set();
+      let cursor = lineId;
+
+      while (cursor && !privateMemo.has(cursor) && !seen.has(cursor)) {
+        seen.add(cursor);
+        path.push(cursor);
+        cursor = parentTimelineByTimelineId.get(cursor) || "";
+      }
+
+      // 循環來源屬於損壞資料，採私密以避免意外曝光。
+      let inherited = cursor && seen.has(cursor) ? true : Boolean(privateMemo.get(cursor));
+      for (let index = path.length - 1; index >= 0; index -= 1) {
+        const currentId = path[index];
+        inherited = inherited || timelineIndex.get(currentId)?.visibility !== "public";
+        privateMemo.set(currentId, inherited);
+      }
+      return Boolean(privateMemo.get(lineId));
+    };
+    state.timelines.forEach((line) => resolvePrivate(line.id));
+
     ctx.topicIndex = topicIndex;
     ctx.timelineIndex = timelineIndex;
     ctx.nodeIndex = nodeIndex;
     ctx.linkIndex = linkIndex;
     ctx.childrenByTimelineId = childrenByTimelineId;
     ctx.childTimelinesByParentNodeId = childTimelinesByParentNodeId;
+    ctx.parentTimelineByTimelineId = parentTimelineByTimelineId;
+    ctx.privateTimelineIds = new Set([...privateMemo].filter(([, value]) => value).map(([lineId]) => lineId));
   }
 
   const activeTopics = () => ctx.state.topics.filter((v) => !v.deletedAt);
@@ -263,7 +340,7 @@
     if (ctx.state.ui.viewMode === "single" && ctx.state.ui.activeTopicId === "all") ctx.state.ui.activeTopicId = topics[0].id;
     if (ctx.state.ui.activeTopicId !== "all" && !topics.some((v) => v.id === ctx.state.ui.activeTopicId)) ctx.state.ui.activeTopicId = topics[0].id;
     let lines = activeTimelines();
-    if (!lines.length) { const line = createTimeline(ctx.state.ui.activeTopicId === "all" ? topics[0].id : ctx.state.ui.activeTopicId, "第一案例時間線", "系統自動建立。"); ctx.state.timelines.push(line); lines = [line]; rebuildIndexes(); }
+    if (!lines.length) { const line = createTimeline(ctx.state.ui.activeTopicId === "all" ? topics[0].id : ctx.state.ui.activeTopicId, "第一分支", "系統自動建立。"); ctx.state.timelines.push(line); lines = [line]; rebuildIndexes(); }
     const available = ctx.state.ui.activeTopicId === "all" ? lines : lines.filter((v) => v.topicId === ctx.state.ui.activeTopicId);
     if (!available.some((v) => v.id === ctx.state.ui.activeTimelineId)) ctx.state.ui.activeTimelineId = (available[0] || lines[0]).id;
     const selected = ctx.nodeIndex.get(ctx.state.ui.selectedId); if (!selected || selected.deletedAt) ctx.state.ui.selectedId = "";
@@ -317,6 +394,23 @@
     return found;
   }
 
+  /** 祖先路徑：時間／空間 O(H)，並以 Set 防止損壞資料形成循環。 */
+  function timelinePath(lineId) {
+    const reversed = [];
+    const seen = new Set();
+    let cursor = String(lineId || "");
+    while (cursor && !seen.has(cursor)) {
+      seen.add(cursor);
+      const line = ctx.timelineIndex.get(cursor);
+      if (!line) break;
+      reversed.push(line);
+      cursor = ctx.parentTimelineByTimelineId.get(cursor) || "";
+    }
+    return reversed.reverse();
+  }
+
+  const isTimelinePrivate = (lineId) => ctx.privateTimelineIds.has(String(lineId || ""));
+
   const markDeleted = (item, batch, at) => { item.deletedAt = at; item.deletedBatchId = batch; };
 
   function deleteNode(nodeId, includeChildren) {
@@ -357,5 +451,5 @@
     [ctx.state.topics, ctx.state.timelines, ctx.state.nodes, ctx.state.links].forEach((list) => list.forEach((value) => { if (value.deletedBatchId === batch) { value.deletedAt = ""; value.deletedBatchId = ""; } }));
   }
 
-  Object.assign(TF, { C, nowIso, today, id, clamp, esc, truncate, rgba, tags, createTopic, createTimeline, createNode, initialState, normalizeState, load, save, rebuildIndexes, activeTopics, activeTimelines, activeNodes, topicTitle, topicColor, lineTitle, lineTopic, ensureSelection, dayNumber, dayParts, dateRange, sortNodes, parentLineId, descendants, deleteNode, deleteTimeline, deleteTopic, restoreBatch, normalizeLink });
+  Object.assign(TF, { C, nowIso, today, id, clamp, esc, truncate, rgba, tags, createTopic, createTimeline, createNode, initialState, normalizeState, load, save, rebuildIndexes, activeTopics, activeTimelines, activeNodes, topicTitle, topicColor, lineTitle, lineTopic, ensureSelection, dayNumber, dayParts, dateRange, sortNodes, parentLineId, descendants, timelinePath, isTimelinePrivate, deleteNode, deleteTimeline, deleteTopic, restoreBatch, normalizeLink });
 })(window.EvanTimeflowV5 = window.EvanTimeflowV5 || {});

@@ -4,13 +4,13 @@
 <meta charset="utf-8"/>
 <meta content="width=device-width, initial-scale=1" name="viewport"/>
 <meta name="referrer" content="strict-origin-when-cross-origin"/>
-<title>Evan Tarot｜主題時間流</title>
-<meta content="Evan Tarot 主題時間流：以主題、案例時間線、事件、占卜與驗證連結，建立可回顧的共用時間軸。" name="description"/>
+<title>Evan Tarot｜時間樹</title>
+<meta content="Evan Tarot 時間樹：從唯一時空主幹追蹤案例、研究、事件與可遞迴的平行分支。" name="description"/>
 <meta content="#050518" name="theme-color"/>
 <link href="style.css?v=20260704-timeflow-v5" rel="stylesheet"/>
 <link href="google-auth.css?v=20260626-unified-account-v1" rel="stylesheet"/>
 <link href="site-account.css?v=20260629-stability-v1" rel="stylesheet"/>
-<link href="timeflow.css?v=20260704-context-tree-v5" rel="stylesheet"/>
+<link href="timeflow.css?v=20260714-single-trunk-v6" rel="stylesheet"/>
 </head>
 <body>
 <header class="site-header">
@@ -34,28 +34,29 @@
 <div aria-hidden="true" class="hero-bg-orbit"></div>
 <div class="container hero-inner">
 <div class="hero-text">
-<h1>把主題、案例與結果，放回同一條真實時間。</h1>
-<p>最上層可以是人物、關係、專案、研究或事物；案例時間線承接事件、占卜、補充與驗證。檢視全部時共用絕對時間，檢視單一案例時則依內容重新縮放。</p>
+<h1>從同一條時空主幹，看見事件如何長成分支。</h1>
+<p>全域只有一條時間主流；案例與研究從事件節點長成分支，分支上的事件仍能繼續產生新的平行時間流。聚焦分支只改變觀看視角，不會改寫它在整棵時間樹中的位置。</p>
 <div class="hero-cta">
-<a class="btn primary" href="#divination-map-app">開始建立時間流</a>
+<a class="btn primary" href="#divination-map-app">開始建立時間樹</a>
 <a class="btn ghost" href="lab.html#projects">回實驗室</a>
 </div>
 <div class="hero-meta">
-<span class="pill pill-soft">主題脈絡樹</span>
-<span class="pill pill-outline">共用絕對時間</span>
+<span class="pill pill-soft">單一時空主幹</span>
+<span class="pill pill-outline">遞迴平行分支</span>
 <span class="pill pill-outline">Google Sheets 同步</span>
 </div>
 </div>
-<aside aria-label="時間流功能" class="hero-card">
+<aside aria-label="時間樹功能" class="hero-card">
 <div class="hero-card-inner">
-<p class="hero-tag">資料層級</p>
+<p class="hero-tag">時間樹結構</p>
 <ul>
-<li>主題：人物、事物、研究或專案</li>
-<li>案例時間線：同一脈絡下的完整發展</li>
-<li>節點：占卜、事件、結果與補充</li>
+<li>時空主幹：唯一的全域時間主流</li>
+<li>第一階分支：案例、研究主題或專案</li>
+<li>事件節點：占卜、事件、結果與補充</li>
+<li>次級分支：由任一事件延伸的平行時間流</li>
 <li>虛擬連結：驗證、因果、對照或相關</li>
 </ul>
-<p class="hero-note">回溯背景使用虛線；月份與年份資料以期間帶呈現，不假設為月初或年初。</p>
+<p class="hero-note">聚焦某條分支時，它會暫時成為畫面主軸；上方路徑仍保留它與全域主幹的真實關係。</p>
 </div>
 </aside>
 </div>
@@ -65,34 +66,33 @@
 <div class="tool-card map-tool-card standalone-map-card">
 <div class="tool-header timeflow-tool-header">
 <div>
-<h2>主題時間流</h2>
-<p>以「主題 → 案例時間線 → 節點」整理資料；只有形成獨立追蹤脈絡時，才從節點建立子時間線。</p>
+<h2>時間樹</h2>
+<p>全域主幹只有一條；案例與研究是由主幹或既有分支長出的樹枝。</p>
 </div>
 <p class="timeflow-storage-notice" id="map-auth-hint">訪客僅能瀏覽；登入 Google 帳號後讀取與同步雲端資料。</p>
 </div>
 <div class="map-tool-layout" id="divination-map-app">
-<div aria-label="主題時間流工具列" class="map-toolbar">
+<div aria-label="時間樹工具列" class="map-toolbar">
 <div class="map-toolbar-group map-toolbar-actions">
-<button class="btn ghost" id="map-add-topic" type="button">新增主題</button>
-<button class="btn ghost" id="map-add-timeline" type="button">新增案例時間線</button>
-<button class="btn primary" id="map-add-reading" type="button">新增占卜</button>
-<button class="btn ghost" id="map-add-event" type="button">新增事件</button>
-<button class="btn ghost" id="map-add-note" type="button">新增補充</button>
-<button class="btn ghost" id="map-add-child-timeline" type="button">由節點建立子時間線</button>
+<button class="btn primary" id="map-add-event" type="button">新增事件</button>
+<button class="btn ghost" id="map-add-reading" type="button">新增占卜</button>
+<button class="btn ghost" id="map-add-child-timeline" type="button">從所選節點建立分支</button>
 </div>
-<div class="map-toolbar-group map-toolbar-filters">
-<label>檢視方式
+<div class="map-toolbar-group map-toolbar-focus">
+<label>觀看視角
 <select id="map-view-mode">
-<option value="single">單一案例時間線</option>
-<option value="all">檢視所有時間線</option>
+<option value="all">查看整體時間樹</option>
+<option value="single">聚焦目前分支</option>
 </select>
 </label>
-<label>主題
-<select id="map-active-topic"></select>
-</label>
-<label>目前案例時間線
+<label>目前分支
 <select id="map-active-timeline"></select>
 </label>
+</div>
+<details class="map-toolbar-panel map-toolbar-filter-panel">
+<summary>篩選與檢視</summary>
+<div class="map-toolbar-group map-toolbar-filters">
+<label>分支群組<select id="map-active-topic"></select></label>
 <label>驗證狀態
 <select id="map-filter-status">
 <option value="all">全部狀態</option>
@@ -106,42 +106,88 @@
 <select id="map-filter-category"><option value="all">全部分類</option></select>
 </label>
 <label class="map-search-field">關鍵字搜尋
-<input id="map-search" placeholder="搜尋主題、案例、標題、牌名、事件或 Tag" type="search"/>
+<input id="map-search" placeholder="搜尋分支、標題、牌名、事件或 Tag" type="search"/>
 </label>
+<label class="map-private-toggle"><input id="map-show-private" type="checkbox"/>顯示僅自己可見的分支</label>
 </div>
+</details>
 <div class="map-toolbar-group map-toolbar-management">
-<button class="map-icon-btn map-text-btn" id="map-manage-topic" type="button">管理主題</button>
-<button class="map-icon-btn map-text-btn" id="map-manage-timeline" type="button">管理時間線</button>
+<details class="map-toolbar-panel map-toolbar-more-panel">
+<summary>更多</summary>
+<div class="map-toolbar-more-actions">
+<button class="map-icon-btn map-text-btn" id="map-add-topic" type="button">新增第一階分支</button>
+<button class="map-icon-btn map-text-btn" id="map-add-note" type="button">新增補充</button>
+<button class="map-icon-btn map-text-btn" id="map-manage-timeline" type="button">管理目前分支</button>
 <button class="map-icon-btn map-text-btn" id="map-open-trash" type="button">回收區</button>
+<button class="map-icon-btn map-text-btn" id="map-export-json" type="button">下載 JSON</button>
+<button class="map-icon-btn map-text-btn map-danger-btn" id="map-reset-data" type="button">重設時間樹</button>
+</div>
+</details>
 </div>
 </div>
 <div class="map-workspace">
-<section aria-label="主題時間流畫布" class="map-canvas-shell">
+<section aria-label="時間樹畫布" class="map-canvas-shell">
 <div class="map-canvas-topbar">
 <div aria-live="polite" class="map-stats" id="map-stats"></div>
-<div class="map-view-controls">
+<nav aria-label="目前分支來源路徑" class="map-breadcrumb" id="map-breadcrumb"></nav>
+</div>
+<div class="map-view-controls" aria-label="畫布縮放">
 <button aria-label="縮小畫布" class="map-icon-btn" id="map-zoom-out" type="button">－</button>
-<button aria-label="依目前內容自動置中" class="map-icon-btn" id="map-zoom-reset" title="依目前內容自動置中" type="button">85%</button>
+<span aria-live="polite" class="map-zoom-level" id="map-zoom-level">85%</span>
 <button aria-label="放大畫布" class="map-icon-btn" id="map-zoom-in" type="button">＋</button>
-<button class="map-icon-btn map-text-btn" id="map-export-json" type="button">下載 JSON</button>
-<button class="map-icon-btn map-text-btn map-danger-btn" id="map-reset-data" type="button">重設時間流</button>
+<button aria-label="依目前內容自動置中" class="map-icon-btn map-text-btn" id="map-zoom-reset" title="依目前內容自動置中" type="button">適合畫面</button>
 </div>
-</div>
-<div aria-label="可平移與縮放的時間流畫布" class="map-viewport" id="map-viewport" tabindex="0">
+<div aria-label="可平移與縮放的時間樹畫布" class="map-viewport" id="map-viewport" tabindex="0">
 <div class="map-scene" id="map-scene">
 <svg aria-hidden="true" class="map-connections" id="map-connections"></svg>
 <div class="map-canvas" id="map-canvas"></div>
 </div>
 </div>
-<p class="tool-note-small">操作方式：全部檢視時，每條案例時間線共用同一個水平日期座標；單一檢視會依該案例的日期範圍重新縮放。縮小時相近節點會聚合，放大後自動展開。拖曳空白處可平移，滑鼠滾輪可縮放。</p>
+<p class="tool-note-small">操作方式：整體檢視保留唯一時空主幹，分支只從來源節點開始延伸；雙擊分支名稱可聚焦。縮小時文字維持可讀，相近節點會自動聚合。拖曳空白處可平移，滑鼠滾輪可縮放。</p>
 </section>
 <aside aria-label="節點詳細資料" class="map-sidebar">
-<div class="map-empty-state" id="map-empty-state"><h4>選擇或新增節點</h4><p>先建立主題與案例時間線，再加入占卜、事件或補充。新增子時間線前，請先選擇來源節點。</p></div>
+<div class="map-empty-state" id="map-empty-state"><h4>選擇或新增節點</h4><p>事件會加入目前分支；要建立平行時間流時，先選擇它的來源節點。</p></div>
 <form class="map-detail-form hidden" id="map-detail-form">
 <div class="map-form-header"><div><p class="map-form-kicker" id="map-detail-type-label">節點</p><h4 id="map-detail-title">節點內容</h4></div><span class="map-id-pill" id="map-selected-id"></span></div>
 <input id="map-detail-id" type="hidden"/>
 <div class="form-row">
-<label>案例時間線<select id="map-field-timeline"></select></label>
+<label>日期精度
+<select id="map-field-precision">
+<option value="day">精確到日</option>
+<option value="month">只知道月份</option>
+<option value="year">只知道年份</option>
+<option value="unknown">日期不詳</option>
+</select>
+</label>
+</div>
+<div class="form-row map-date-row" id="map-date-fields">
+<label data-date-field="day">日期<input id="map-field-date-day" type="date"/></label>
+<label class="hidden" data-date-field="month">月份<input id="map-field-date-month" type="month"/></label>
+<label class="hidden" data-date-field="year">年份<input id="map-field-date-year" type="number" min="1900" max="2200" step="1" inputmode="numeric"/></label>
+<p class="map-date-unknown hidden" data-date-field="unknown">此節點不會被強制放到月初或年初，會顯示在「日期不詳」區。</p>
+</div>
+<div class="form-row">
+<label>標題 / 問題<input id="map-field-title" placeholder="例如：賽前攻防占卜、發生爭執、模型規則修正" type="text"/></label>
+<label>驗證狀態
+<select id="map-field-status">
+<option value="pending">尚未驗證</option>
+<option value="partial">部分驗證</option>
+<option value="verified">驗證成立</option>
+<option value="missed">未應驗</option>
+</select>
+</label>
+</div>
+<div data-reading-only>
+<label>牌組 / 牌陣（可一行一張）<textarea id="map-field-cards" placeholder="例如：&#10;主牌｜寶劍國王正位&#10;主隊進攻｜權杖六正位" rows="3"></textarea></label>
+<label>當下解讀<textarea id="map-field-interpretation" placeholder="保留當時的原始解讀，不用事後改寫。" rows="4"></textarea></label>
+<label>推測 / 驗證重點<textarea id="map-field-predictions" placeholder="例如：&#10;上半場節奏封閉&#10;主隊後段取得優勢" rows="3"></textarea></label>
+</div>
+<label data-description-field>內容 / 事件描述<textarea id="map-field-description" placeholder="寫下實際發生的事件、結果或補充內容。" rows="4"></textarea></label>
+<details class="map-detail-advanced">
+<summary>進階設定</summary>
+<p class="map-inline-help">只有需要搬移分支、標記回溯背景或建立跨節點關係時才需調整。</p>
+<div class="form-row">
+<label>所屬分支<select id="map-field-timeline"></select></label>
 <label>節點類型
 <select id="map-field-type">
 <option value="reading">占卜</option>
@@ -160,23 +206,6 @@
 <option value="supplement">補充說明</option>
 </select>
 </label>
-<label>日期精度
-<select id="map-field-precision">
-<option value="day">精確到日</option>
-<option value="month">只知道月份</option>
-<option value="year">只知道年份</option>
-<option value="unknown">日期不詳</option>
-</select>
-</label>
-</div>
-<div class="form-row map-date-row" id="map-date-fields">
-<label data-date-field="day">日期<input id="map-field-date-day" type="date"/></label>
-<label class="hidden" data-date-field="month">月份<input id="map-field-date-month" type="month"/></label>
-<label class="hidden" data-date-field="year">年份<input id="map-field-date-year" type="number" min="1900" max="2200" step="1" inputmode="numeric"/></label>
-<p class="map-date-unknown hidden" data-date-field="unknown">此節點不會被強制放到月初或年初，會顯示在「日期不詳」區。</p>
-</div>
-<div class="form-row">
-<label>標題 / 問題<input id="map-field-title" placeholder="例如：賽前攻防占卜、發生爭執、模型規則修正" type="text"/></label>
 <label>主題分類
 <select id="map-field-category">
 <option value="relationship">人際 / 感情</option>
@@ -192,27 +221,11 @@
 </select>
 </label>
 </div>
-<div class="form-row">
 <label>對象 / 關鍵事物<input id="map-field-subject" placeholder="人物、球隊、模型、專案或研究對象" type="text"/></label>
-<label>驗證狀態
-<select id="map-field-status">
-<option value="pending">尚未驗證</option>
-<option value="partial">部分驗證</option>
-<option value="verified">驗證成立</option>
-<option value="missed">未應驗</option>
-</select>
-</label>
-</div>
-<div data-reading-only>
-<label>牌組 / 牌陣（可一行一張）<textarea id="map-field-cards" placeholder="例如：&#10;主牌｜寶劍國王正位&#10;主隊進攻｜權杖六正位" rows="3"></textarea></label>
-<label>當下解讀<textarea id="map-field-interpretation" placeholder="保留當時的原始解讀，不用事後改寫。" rows="4"></textarea></label>
-<label>推測 / 驗證重點<textarea id="map-field-predictions" placeholder="例如：&#10;上半場節奏封閉&#10;主隊後段取得優勢" rows="3"></textarea></label>
-</div>
-<label data-description-field>內容 / 事件描述<textarea id="map-field-description" placeholder="寫下實際發生的事件、結果或補充內容。" rows="4"></textarea></label>
 <label>Tag（以逗號分隔）<input id="map-field-tags" placeholder="例如：足球, 主牌濾鏡, 賽後驗證" type="text"/></label>
 <label>備註<input id="map-field-note" placeholder="例如：與原預測部分一致，但時間點偏晚" type="text"/></label>
 <section class="map-link-editor" aria-label="虛擬連結">
-<div class="map-link-editor-header"><div><h5>虛擬連結</h5><p>只說明節點間的關係，不改變案例時間線的父子結構。</p></div></div>
+<div class="map-link-editor-header"><div><h5>虛擬連結</h5><p>只說明節點間的關係，不改變時間樹的真實父子結構。</p></div></div>
 <div class="form-row map-link-create-row">
 <label>關聯類型
 <select id="map-link-type">
@@ -231,6 +244,7 @@
 <button class="map-icon-btn map-text-btn" id="map-add-link" type="button">新增虛擬連結</button>
 <div class="map-link-list" id="map-link-list"></div>
 </section>
+</details>
 <div class="map-form-actions"><button class="btn primary" type="submit">儲存內容</button><button class="btn ghost map-danger-action" id="map-delete-node" type="button">移到回收區</button></div>
 </form>
 </aside>
@@ -239,7 +253,7 @@
 <div class="map-timeline-header"><h4>時間順序清單</h4><p>精確日期依時間排序；只知道月份或年份的資料會獨立標示，不假設為月初或年初。</p></div>
 <div class="map-timeline" id="map-timeline"></div>
 </section>
-<p class="timeflow-local-note"><strong>資料位置：</strong>登入後正式資料會同步到專用 Google Sheets；瀏覽器 localStorage 保留本機快取。刪除採軟刪除，可從回收區復原；下載 JSON 仍可作為額外離線備份。</p>
+<p class="timeflow-local-note"><strong>資料位置：</strong>登入後正式資料同步到專用 Google Sheets；「僅自己可見」的分支在未登入與隱藏私密分支時完全不顯示。瀏覽器 localStorage 僅作本機快取；刪除採軟刪除，可從回收區復原。</p>
 </div>
 </div>
 </div>
@@ -247,22 +261,22 @@
 </main>
 <footer class="site-footer">
 <div class="container footer-inner">
-<p>Evan Tarot ｜塔羅實驗室 / 主題時間流</p>
-<p class="footer-sub">以主題脈絡、真實時間與後續驗證，保留可回顧的案例紀錄。</p>
+<p>Evan Tarot ｜塔羅實驗室 / 時間樹</p>
+<p class="footer-sub">以唯一主幹、遞迴分支與後續驗證，保留可回顧的案例紀錄。</p>
 </div>
 </footer>
 <script src="https://accounts.google.com/gsi/client?hl=zh-TW" async defer></script>
 <script src="JS/utils.js?v=20260629-stability-v1"></script>
 <script src="JS/cloud-config.js?v=20260624-articles-cloud-v1"></script>
-<script src="JS/timeflow-config.js?v=20260629-anchor-center-v1"></script>
+<script src="JS/timeflow-config.js?v=20260714-single-trunk-v2"></script>
 <script src="JS/google-auth.js?v=20260629-stability-v1"></script>
 <script src="JS/site-account.js?v=20260629-stability-v1"></script>
-<script src="JS/timeflow-v5-core.js?v=20260704-context-tree-v5"></script>
-<script src="JS/timeflow-v5-layout.js?v=20260704-context-tree-v5"></script>
-<script src="JS/timeflow-v5-ui.js?v=20260704-context-tree-v5"></script>
-<script src="JS/timeflow-v5-actions.js?v=20260704-context-tree-v5"></script>
-<script src="JS/divination-map.js?v=20260704-context-tree-v5"></script>
-<script src="JS/timeflow-cloud.js?v=20260704-context-tree-v5"></script>
+<script src="JS/timeflow-v5-core.js?v=20260714-single-trunk-v6"></script>
+<script src="JS/timeflow-v5-layout.js?v=20260714-single-trunk-v6"></script>
+<script src="JS/timeflow-v5-ui.js?v=20260714-single-trunk-v6"></script>
+<script src="JS/timeflow-v5-actions.js?v=20260714-single-trunk-v6"></script>
+<script src="JS/divination-map.js?v=20260714-single-trunk-v6"></script>
+<script src="JS/timeflow-cloud.js?v=20260714-single-trunk-v6"></script>
 <script src="JS/ripple-effect.js?v=20260505-fixed-axis-free-card-v5"></script>
 <script src="JS/main.js?v=20260702-podcast-nav-v2"></script>
 </body>

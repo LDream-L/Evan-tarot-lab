@@ -16,16 +16,16 @@ function loadCore(localStorage) {
 
 function buildState() {
   return {
-    version: 5,
+    version: 6,
     topics: [
       { id: "topic-1", title: "測試", color: "#b794ff", deletedAt: "", deletedBatchId: "" },
     ],
     timelines: [
-      { id: "root", topicId: "topic-1", title: "根", parentNodeId: "", deletedAt: "", deletedBatchId: "" },
-      { id: "child-a", topicId: "topic-1", title: "子 A", parentNodeId: "node-root", deletedAt: "", deletedBatchId: "" },
-      { id: "child-b", topicId: "topic-1", title: "子 B", parentNodeId: "node-root", deletedAt: "", deletedBatchId: "" },
-      { id: "grandchild", topicId: "topic-1", title: "孫", parentNodeId: "node-child", deletedAt: "", deletedBatchId: "" },
-      { id: "orphan", topicId: "topic-1", title: "孤兒", parentNodeId: "missing-node", deletedAt: "", deletedBatchId: "" },
+      { id: "root", topicId: "topic-1", title: "根", parentNodeId: "", visibility: "public", collapsed: false, deletedAt: "", deletedBatchId: "" },
+      { id: "child-a", topicId: "topic-1", title: "子 A", parentNodeId: "node-root", visibility: "private", collapsed: false, deletedAt: "", deletedBatchId: "" },
+      { id: "child-b", topicId: "topic-1", title: "子 B", parentNodeId: "node-root", visibility: "public", collapsed: false, deletedAt: "", deletedBatchId: "" },
+      { id: "grandchild", topicId: "topic-1", title: "孫", parentNodeId: "node-child", visibility: "public", collapsed: false, deletedAt: "", deletedBatchId: "" },
+      { id: "orphan", topicId: "topic-1", title: "孤兒", parentNodeId: "missing-node", visibility: "public", collapsed: false, deletedAt: "", deletedBatchId: "" },
     ],
     nodes: [
       { id: "node-root", timelineId: "root", title: "根節點", deletedAt: "", deletedBatchId: "" },
@@ -47,6 +47,7 @@ function buildState() {
       activeTopicId: "topic-1",
       activeTimelineId: "root",
       viewMode: "all",
+      showPrivate: true,
       filterStatus: "all",
       filterCategory: "all",
       search: "",
@@ -68,6 +69,30 @@ function buildState() {
     ["child-a", "child-b"]
   );
   assert.equal(TF.descendants("orphan").size, 1);
+  assert.deepEqual(TF.timelinePath("grandchild").map((line) => line.id), ["root", "child-a", "grandchild"]);
+  assert.equal(TF.isTimelinePrivate("root"), false);
+  assert.equal(TF.isTimelinePrivate("child-a"), true);
+  assert.equal(TF.isTimelinePrivate("grandchild"), true, "子分支必須繼承上層私密狀態");
+  assert.equal(TF.isTimelinePrivate("child-b"), false);
+})();
+
+(function testV5MigrationKeepsModernCollections() {
+  const TF = loadCore({ getItem: () => null, setItem: () => {} });
+  const migrated = TF.normalizeState({
+    version: 5,
+    topics: [{ id: "topic-old", title: "舊主題" }],
+    timelines: [{ id: "line-old", topicId: "topic-old", title: "第一案例時間線", parentNodeId: "" }],
+    nodes: [{ id: "node-old", timelineId: "line-old", title: "舊節點", precision: "day", dateValue: "2026-07-01" }],
+    links: [],
+    ui: { activeTopicId: "topic-old", activeTimelineId: "line-old", viewMode: "single" },
+  });
+
+  assert.equal(migrated.version, 6);
+  assert.equal(migrated.topics[0].id, "topic-old");
+  assert.equal(migrated.timelines[0].id, "line-old");
+  assert.equal(migrated.nodes[0].id, "node-old");
+  assert.equal(migrated.timelines[0].visibility, "private", "舊資料升級預設採私密");
+  assert.equal(migrated.ui.showPrivate, true);
 })();
 
 (function testSortNodes() {
@@ -120,7 +145,7 @@ function buildState() {
   });
 
   const state = TF.load();
-  assert.equal(state.version, 5);
+  assert.equal(state.version, 6);
   TF.ctx.state = state;
   assert.equal(TF.save(), false);
 })();

@@ -18,7 +18,7 @@ const PUBLIC_PAGES = [
   { path: "/articles.html", title: "Evan Tarot｜塔羅記事 / 文章", marker: "main h1" },
   { path: "/lab.html", title: "Evan Tarot｜塔羅實驗室", marker: "#projects" },
   { path: "/methodology.html", title: "Evan Tarot｜驗證方法", marker: "#process" },
-  { path: "/timeflow.html", title: "Evan Tarot｜主題時間流", marker: "#divination-map-app" },
+  { path: "/timeflow.html", title: "Evan Tarot｜時間樹", marker: "#divination-map-app" },
   { path: "/football-lab.html", title: "Evan Tarot｜世足賽事驗證｜模型 v1.6.0・介面 v1.7.6", marker: "#football-match-form" },
 ];
 
@@ -378,8 +378,90 @@ test("時間流未登入時仍呈現瀏覽介面", async ({ page }) => {
   await page.goto("/timeflow.html", { waitUntil: "domcontentloaded" });
   await expect(page.locator("#map-auth-hint")).toContainText("訪客");
   await expect(page.locator("#map-viewport")).toBeVisible();
-  await expect(page.locator("#map-add-topic")).toBeVisible();
-  await expect(page.locator("#map-export-json")).toBeVisible();
+  await expect(page.locator("#map-add-event")).toBeVisible();
+  await expect(page.locator("#map-add-event")).toBeDisabled();
+});
+
+test("時間樹只保留一條主幹，聚焦分支不改變資料親緣", async ({ page }) => {
+  const fixture = {
+    version: 6,
+    topics: [
+      { id: "topic-public", title: "公開研究", color: "#b794ff" },
+      { id: "topic-private", title: "秘密主題", color: "#ffd27a" },
+    ],
+    timelines: [
+      { id: "branch-root", topicId: "topic-public", title: "公開研究", parentNodeId: "", visibility: "public", collapsed: false, createdAt: "2026-01-01" },
+      { id: "branch-child", topicId: "topic-public", title: "平行假設", parentNodeId: "node-root", visibility: "public", collapsed: false, createdAt: "2026-01-02" },
+      { id: "branch-private", topicId: "topic-private", title: "不公開研究", parentNodeId: "", visibility: "private", collapsed: false, createdAt: "2026-01-03" },
+    ],
+    nodes: [
+      { id: "node-root", timelineId: "branch-root", type: "event", title: "分枝起點", precision: "day", dateValue: "2026-03-19", status: "pending", category: "research", tags: [] },
+      { id: "node-child", timelineId: "branch-child", type: "event", title: "平行事件", precision: "day", dateValue: "2026-04-02", status: "pending", category: "research", tags: [] },
+      { id: "node-private", timelineId: "branch-private", type: "event", title: "私密事件", precision: "day", dateValue: "2026-04-09", status: "pending", category: "research", tags: [] },
+    ],
+    links: [],
+    ui: {
+      zoom: 1,
+      panX: 0,
+      panY: 0,
+      selectedId: "",
+      activeTopicId: "all",
+      activeTimelineId: "branch-root",
+      viewMode: "all",
+      showPrivate: true,
+      filterStatus: "all",
+      filterCategory: "all",
+      search: "",
+    },
+  };
+  await page.addInitScript((state) => {
+    window.localStorage.setItem("evanTarotDivinationTimeflowV4", JSON.stringify(state));
+  }, fixture);
+  await page.goto("/timeflow.html", { waitUntil: "domcontentloaded" });
+
+  await expect(page.locator(".map-global-trunk")).toHaveCount(1);
+  await expect(page.locator(".map-branch-axis")).toHaveCount(2);
+  await expect(page.locator('[data-branch-id="branch-private"]')).toHaveCount(0);
+  await expect(page.locator("#map-breadcrumb")).toContainText("全域時空主幹");
+  await expect(page.locator("#map-astro-controls")).toHaveCount(1);
+  await expect(page.locator("#map-astro-visible")).not.toBeChecked();
+  await expect(page.locator(".map-astro-axis")).toHaveCount(0);
+  await page.locator("#map-astro-controls summary").click();
+  await page.locator("#map-astro-visible").check();
+  await expect(page.locator(".map-astro-lane-label")).toBeVisible();
+  await expect(page.locator(".map-global-trunk")).toHaveCount(1);
+  await expect(page.locator(".map-astro-axis")).toHaveCount(0);
+  await page.locator("#map-astro-visible").uncheck();
+
+  await page.evaluate(() => {
+    const TF = window.EvanTimeflowV5;
+    TF.ctx.state.ui.viewMode = "single";
+    TF.ctx.state.ui.activeTimelineId = "branch-private";
+    TF.ctx.state.ui.selectedId = "node-private";
+    TF.ui.render(false);
+  });
+  await expect(page.locator("#map-detail-form")).toBeHidden();
+  await expect(page.locator("#map-breadcrumb")).not.toContainText("不公開研究");
+  expect(await page.locator("#map-field-timeline option").allTextContents()).not.toContain("不公開研究");
+  expect(await page.locator("#map-active-topic option").allTextContents()).not.toContain("秘密主題");
+
+  await page.locator("#map-view-mode").selectOption("all");
+  await page.locator("#map-view-mode").selectOption("single");
+  await expect(page.locator(".map-global-trunk.map-visual-trunk")).toHaveCount(1);
+  await expect(page.locator(".map-branch-axis")).toHaveCount(1);
+  await expect(page.locator("#map-breadcrumb")).toContainText("公開研究");
+  expect(await page.evaluate(() => window.EvanTimeflowV5.ctx.timelineIndex.get("branch-child").parentNodeId)).toBe("node-root");
+
+  const physicalWidths = await page.evaluate(() => {
+    window.EvanTimeflowV5.ctx.state.ui.zoom = 1;
+    window.EvanTimeflowV5.ui.render(false);
+    const normal = document.querySelector('[data-node-id="node-root"]').getBoundingClientRect().width;
+    window.EvanTimeflowV5.ctx.state.ui.zoom = .5;
+    window.EvanTimeflowV5.ui.render(false);
+    const zoomedOut = document.querySelector('[data-node-id="node-root"]').getBoundingClientRect().width;
+    return { normal, zoomedOut };
+  });
+  expect(Math.abs(physicalWidths.normal - physicalWidths.zoomedOut)).toBeLessThan(2);
 });
 
 test("手機尺寸仍可操作主要內容、導覽與隱私頁", async ({ page }, testInfo) => {

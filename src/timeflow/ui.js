@@ -1,513 +1,569 @@
 /**
- * 主題時間流 v5｜可閱讀 UI 原始碼
+ * 時間樹 v6｜可閱讀 UI 原始碼
  *
- * 主要流程：render／畫布／側欄／時間順序清單。
+ * 主要流程：單一主幹畫布、分支導覽、側欄與時間順序清單。
  * 時間複雜度：O(N log N + L log L)；空間複雜度：O(N + L)。
  *
- * 替代方案比較：
- * - 單行壓縮檔：瀏覽器載入較小，但無法有效審查與維護。
- * - 本檔：保留完全相同行為與符號，只做結構化格式化，作為後續命名重構的正式 source。
+ * 更快替代方案比較：
+ * - 每個案例各畫一條全寬時間軸：實作直接，但重複日期與主軸，畫布高度隨 L 線性浪費。
+ * - 本版：日期尺只畫一次，分支線段只覆蓋必要範圍；Map 查表避免重複搜尋父節點。
  */
-/*! 主題時間流 v5 UI｜render: 時間 O(N log N + L log L)、空間 O(N+L)；Map 查表與單次 layout 取代重複掃描。 */
-!(function (e) {
+/*! 時間樹 v6 UI｜render: 時間 O(N log N + L log L)、空間 O(N+L)。 */
+(function initTimeflowUi(TF) {
   "use strict";
+
   const {
-      ctx: t,
-      C: n,
-      clamp: i,
-      esc: a,
-      truncate: s,
-      rgba: o,
-      save: l,
-      rebuildIndexes: d,
-      ensureSelection: c,
-      activeTopics: p,
-      activeTimelines: r,
-      activeNodes: u,
-      topicTitle: m,
-      topicColor: $,
-      lineTitle: h,
-      lineTopic: g,
-      dateRange: v,
-      sortNodes: f,
-      visibleData: y,
-      buildLayout: x,
-      orderTimelines: I,
-    } = e,
-    T = (e.app = e.app || { refs: {}, signedIn: !1, pan: null, layout: null }),
-    E = T.refs,
-    b = (e) =>
-      "reading" === e.type
-        ? e.interpretation || e.cards || e.predictions || "尚未填入解讀"
-        : e.description || e.note || "尚未填入內容",
-    M = () => t.nodeIndex.get(t.state.ui.selectedId);
-  function w(e) {
-    if (((t.state.ui.activeTimelineId = e), "single" === t.state.ui.viewMode)) {
-      const n = g(e);
-      n && (t.state.ui.activeTopicId = n);
+    ctx,
+    C,
+    clamp,
+    esc,
+    truncate,
+    rgba,
+    save,
+    rebuildIndexes,
+    ensureSelection,
+    activeTopics,
+    activeTimelines,
+    activeNodes,
+    topicTitle,
+    topicColor,
+    lineTitle,
+    lineTopic,
+    dateRange,
+    sortNodes,
+    visibleData,
+    buildLayout,
+    orderTimelines,
+    timelinePath,
+    isTimelinePrivate,
+  } = TF;
+
+  const app = TF.app = TF.app || { refs: {}, signedIn: false, pan: null, layout: null };
+  const refs = app.refs;
+
+  const preview = (node) => node.type === "reading"
+    ? node.interpretation || node.cards || node.predictions || "尚未填入解讀"
+    : node.description || node.note || "尚未填入內容";
+
+  const selected = () => ctx.nodeIndex.get(ctx.state.ui.selectedId);
+
+  function branchName(line) {
+    if (!line) return "未命名分支";
+    const topic = topicTitle(line.topicId);
+    const generic = /^(第一(?:案例)?時間線|第一條時間線|新案例時間線|第一分支)$/.test(line.title);
+    if (generic || line.title === topic) return topic || line.title || "未命名分支";
+    return line.parentNodeId ? line.title : `${topic}｜${line.title}`;
+  }
+
+  /** 選擇分支：時間／空間 O(1)。 */
+  function selectLine(lineId) {
+    ctx.state.ui.activeTimelineId = lineId;
+    if (ctx.state.ui.viewMode === "single") {
+      const topicId = lineTopic(lineId);
+      if (topicId) ctx.state.ui.activeTopicId = topicId;
     }
   }
-  function L(e) {
-    const n = [t.state.topics, t.state.timelines, t.state.nodes, t.state.links]
-      .flat()
-      .filter((e) => e.deletedAt).length;
-    E.stats.innerHTML = [
-      `<span class="map-stat-pill">主題 ${p().length}</span>`,
-      `<span class="map-stat-pill">案例時間線 ${r().length}</span>`,
-      `<span class="map-stat-pill">節點 ${u().length}</span>`,
-      `<span class="map-stat-pill">目前顯示 ${e.nodes.length}</span>`,
-      n ? `<span class="map-stat-pill is-warning">回收區 ${n}</span>` : "",
-      '<span class="map-stat-pill map-storage-pill">Google Sheets＋本機快取</span>',
-      `<span class="map-stat-pill ${T.signedIn ? "map-auth-ok" : "map-auth-readonly"}">${T.signedIn ? "已登入・可編輯" : "訪客唯讀"}</span>`,
-    ]
-      .filter(Boolean)
-      .join("");
-  }
-  function S() {
-    const e = T.layout;
-    e &&
-      ((E.scene.style.width = `${e.sceneWidth}px`),
-      (E.scene.style.minHeight = `${e.sceneHeight}px`),
-      (E.scene.style.transform = `translate(${t.state.ui.panX}px,${t.state.ui.panY}px) scale(${t.state.ui.zoom})`),
-      (E.zoomReset.textContent = `${Math.round(100 * t.state.ui.zoom)}%`));
-  }
-  function k(e) {
-    ((t.state.ui.selectedId = e.id), w(e.timelineId), l(), X(!1));
-  }
-  function C(i) {
-    T.layout = x(i);
-    const d = T.layout;
-    E.canvas.replaceChildren();
-    const c = document.createElement("div");
-    ((c.className = "map-unknown-zone"),
-      (c.style.left = `${d.unknownX}px`),
-      (c.style.top = "54px"),
-      (c.style.height = `${Math.max(200, d.sceneHeight - 80)}px`),
-      E.canvas.appendChild(c));
-    const p = document.createElement("div");
-    if (
-      ((p.className = "map-unknown-zone-label"),
-      (p.style.left = `${d.unknownX + 16}px`),
-      (p.style.top = "24px"),
-      (p.textContent = "日期不詳"),
-      E.canvas.appendChild(p),
-      d.topicHeadings.forEach(({ topic: e, y: t }) => {
-        const n = document.createElement("div");
-        ((n.className = "map-topic-heading"),
-          (n.style.top = `${t}px`),
-          (n.textContent = `${e.title}${e.description ? `｜${e.description}` : ""}`),
-          E.canvas.appendChild(n));
-      }),
-      d.rows.forEach((e) => {
-        const n = document.createElement("button");
-        ((n.type = "button"),
-          (n.className = "map-timeline-label-button"),
-          (n.style.left = 18 + 14 * e.depth + "px"),
-          (n.style.top = e.axisY - 30 + "px"));
-        const i = e.line.parentNodeId
-          ? t.nodeIndex.get(e.line.parentNodeId)
-          : null;
-        ((n.innerHTML = `<strong>${a(e.line.title)}</strong><span>${a(i ? `來源：${i.deletedAt ? "節點在回收區" : i.title || "未命名節點"}` : `${e.nodeCount} 個節點`)}${"all" === t.state.ui.viewMode ? "・雙擊聚焦" : ""}</span>`),
-          n.addEventListener("click", (t) => {
-            (t.stopPropagation(), w(e.line.id), l(), X(!1));
-          }),
-          n.addEventListener("dblclick", (n) => {
-            (n.stopPropagation(),
-              (t.state.ui.viewMode = "single"),
-              (t.state.ui.activeTopicId = e.line.topicId),
-              (t.state.ui.activeTimelineId = e.line.id),
-              l(),
-              X(!0));
-          }),
-          E.canvas.appendChild(n));
-      }),
-      d.items.forEach((i) => {
-        E.canvas.appendChild(
-          "cluster" === i.kind
-            ? (function (t) {
-                const i = document.createElement("button");
-                return (
-                  (i.type = "button"),
-                  (i.className = "map-node-cluster"),
-                  (i.style.left = `${t.x}px`),
-                  (i.style.top = `${t.y}px`),
-                  (i.innerHTML = `<strong>＋${t.members.length}</strong><span>${a(s(t.members.map((e) => e.title || n.TYPES[e.type]).join("、"), 22))}</span>`),
-                  i.addEventListener("click", (n) => {
-                    (n.stopPropagation(), e.actions?.clusterModal(t.members));
-                  }),
-                  i
-                );
-              })(i)
-            : "band" === i.kind
-              ? (function (e) {
-                  const i = e.node,
-                    s = document.createElement("button");
-                  return (
-                    (s.type = "button"),
-                    (s.className = `map-period-band role-${i.role}${t.state.ui.selectedId === i.id ? " is-selected" : ""}`),
-                    (s.style.left = `${e.x}px`),
-                    (s.style.top = `${e.y}px`),
-                    (s.style.width = `${e.width}px`),
-                    (s.innerHTML = `<span class="map-period-band-title">${a(i.title || n.TYPES[i.type])}</span><span class="map-period-band-date">${a(e.range.label)}</span>`),
-                    s.addEventListener("click", (e) => {
-                      (e.stopPropagation(), k(i));
-                    }),
-                    s
-                  );
-                })(i)
-              : (function (e) {
-                  const i = e.node,
-                    o = t.timelineIndex.get(i.timelineId),
-                    l = document.createElement("button");
-                  return (
-                    (l.type = "button"),
-                    (l.className = `map-node ${i.type} role-${i.role} status-${i.status}${t.state.ui.selectedId === i.id ? " is-selected" : ""}`),
-                    (l.style.left = `${e.x}px`),
-                    (l.style.top = `${e.y}px`),
-                    l.style.setProperty("--theme-color", $(o?.topicId)),
-                    (l.innerHTML = `
-      <span class="map-node-header">
-        <span class="map-node-type">${n.TYPES[i.type]}</span>
-        ${"normal" !== i.role ? `<span class="map-node-role${"background" === i.role ? " is-background" : ""}">${n.ROLES[i.role]}</span>` : ""}
-      </span>
-      <span class="map-node-title">${a(i.title || "未命名節點")}</span>
-      <span class="map-node-meta">${a(n.CATEGORIES[i.category] || "其他")}${i.subject ? `・${a(i.subject)}` : ""}</span>
-      <span class="map-node-preview">${a(s(b(i), 62))}</span>
-      <span class="map-node-footer">
-        <span class="map-node-status">${n.STATUSES[i.status]}</span>
-        <span class="map-date-precision-pill">${a(v(i).label)}</span>
-      </span>`),
-                    l.addEventListener("click", (e) => {
-                      (e.stopPropagation(), k(i));
-                    }),
-                    l
-                  );
-                })(i),
-        );
-      }),
-      !i.lines.length || !i.nodes.length)
-    ) {
-      const e = document.createElement("div");
-      ((e.className = "map-canvas-empty"),
-        (e.textContent = i.lines.length
-          ? "目前篩選條件下沒有節點。"
-          : "目前沒有可顯示的案例時間線。"),
-        E.canvas.appendChild(e));
+
+  /** 修正為目前權限下可見的分支，避免名稱或節點從側欄洩漏；時間 O(L)，空間 O(L)。 */
+  function ensureVisibleActiveLine() {
+    const includePrivate = app.signedIn && ctx.state.ui.showPrivate !== false;
+    const viewable = activeTimelines().filter((line) => includePrivate || !isTimelinePrivate(line.id));
+    let scoped = ctx.state.ui.activeTopicId === "all"
+      ? viewable
+      : viewable.filter((line) => line.topicId === ctx.state.ui.activeTopicId);
+
+    if (!scoped.length && viewable.length) {
+      ctx.state.ui.activeTopicId = viewable[0].topicId;
+      scoped = viewable.filter((line) => line.topicId === ctx.state.ui.activeTopicId);
     }
-    !(function () {
-      const e = T.layout;
-      (E.connections.setAttribute(
-        "viewBox",
-        `0 0 ${e.sceneWidth} ${e.sceneHeight}`,
-      ),
-        E.connections.setAttribute("width", String(e.sceneWidth)),
-        E.connections.setAttribute("height", String(e.sceneHeight)));
-      const n = [];
-      (e.ticks.forEach((t) =>
-        n.push(
-          `<line class="map-time-grid" x1="${t.x}" y1="42" x2="${t.x}" y2="${e.sceneHeight - 24}"/>`,
-          `<line class="map-time-tick" x1="${t.x}" y1="42" x2="${t.x}" y2="54"/>`,
-          `<text class="map-time-label" x="${t.x}" y="28" text-anchor="middle">${a(t.label)}</text>`,
-        ),
-      ),
-        n.push(
-          `<line class="map-time-axis" x1="${e.axisStart}" y1="48" x2="${e.axisEnd}" y2="48"/>`,
-        ),
-        e.rows.forEach((t) => {
-          if (
-            (n.push(
-              `<line class="map-timeline-axis" x1="${e.axisStart}" y1="${t.axisY}" x2="${e.axisEnd}" y2="${t.axisY}" style="stroke:${o($(t.line.topicId), 0.7)}"/>`,
-            ),
-            !t.line.parentNodeId)
-          )
-            return;
-          const i = e.placements.get(t.line.parentNodeId);
-          if (!i) return;
-          const a = i.centerX + 0.48 * (e.axisStart - i.centerX);
-          n.push(
-            `<path class="map-timeline-source-line" d="M ${i.centerX} ${i.centerY} C ${a} ${i.centerY},${a} ${t.axisY},${e.axisStart} ${t.axisY}"/>`,
-          );
-        }));
-      const i = new Set();
-      e.items.forEach((e) => {
-        const t =
-          "cluster" === e.kind
-            ? e.members.map((e) => e.id).join(",")
-            : e.node.id;
-        if (i.has(t)) return;
-        i.add(t);
-        const a = "cluster" !== e.kind && "background" === e.node.role,
-          s = e.centerY < e.axisY ? e.y + e.height : e.y;
-        n.push(
-          `<path class="map-node-anchor-line${a ? " is-background" : ""}" d="M ${e.centerX} ${s} C ${e.centerX} ${(s + e.axisY) / 2},${e.centerX} ${(s + e.axisY) / 2},${e.centerX} ${e.axisY}"/>`,
-        );
+    if (!scoped.some((line) => line.id === ctx.state.ui.activeTimelineId)) {
+      ctx.state.ui.activeTimelineId = scoped[0]?.id || "";
+    }
+  }
+
+  /** 選擇節點：索引查找 O(1)，其後重繪由 render 負責。 */
+  function selectNode(node) {
+    ctx.state.ui.selectedId = node.id;
+    selectLine(node.timelineId);
+    save();
+    render(false);
+  }
+
+  /** 統計列只呈現目前判讀所需資訊；時間 O(T+L+N+E)，額外空間 O(1)。 */
+  function renderStats(data) {
+    let deletedCount = 0;
+    if (app.signedIn) {
+      [ctx.state.topics, ctx.state.timelines, ctx.state.nodes, ctx.state.links].forEach((collection) => {
+        collection.forEach((item) => { if (item.deletedAt) deletedCount += 1; });
       });
-      const s = new Set();
-      (t.state.links.forEach((t) => {
-        if (t.deletedAt) return;
-        const i = e.placements.get(t.fromNodeId),
-          o = e.placements.get(t.toNodeId);
-        if (!i || !o || i === o) return;
-        const l = [t.fromNodeId, t.toNodeId, t.type].sort().join(":");
-        if (s.has(l)) return;
-        s.add(l);
-        const d = Math.max(42, 0.22 * Math.abs(o.centerX - i.centerX));
-        n.push(
-          `<path class="map-virtual-link ${a(t.type)}" d="M ${i.centerX} ${i.centerY} C ${i.centerX + d} ${i.centerY},${o.centerX - d} ${o.centerY},${o.centerX} ${o.centerY}"/>`,
-        );
-      }),
-        (E.connections.innerHTML = n.join("")));
-    })();
+    }
+    refs.stats.innerHTML = [
+      `<span><strong>${data.nodes.length}</strong> 個事件</span>`,
+      `<span><strong>${data.lines.length}</strong> 條分支</span>`,
+      data.hiddenPrivateCount ? "<span>私密分支已隱藏</span>" : "",
+      deletedCount ? `<span>回收區 ${deletedCount}</span>` : "",
+    ].filter(Boolean).join('<span class="map-stats-separator" aria-hidden="true">・</span>');
   }
-  function N(e) {
-    E.dateFields.querySelectorAll("[data-date-field]").forEach((t) => {
-      t.classList.toggle("hidden", t.dataset.dateField !== e);
+
+  /** 套用平移縮放：時間／空間 O(1)。文字與卡片使用反向比例維持清晰。 */
+  function applyTransform() {
+    const layout = app.layout;
+    if (!layout) return;
+    const zoom = ctx.state.ui.zoom;
+    const panX = Math.round(ctx.state.ui.panX * 2) / 2;
+    const panY = Math.round(ctx.state.ui.panY * 2) / 2;
+    refs.scene.style.width = `${layout.sceneWidth}px`;
+    refs.scene.style.minHeight = `${layout.sceneHeight}px`;
+    refs.scene.style.setProperty("--map-zoom", String(zoom));
+    refs.scene.style.setProperty("--map-inverse-zoom", String(1 / zoom));
+    refs.scene.style.transform = `translate3d(${panX}px,${panY}px,0) scale(${zoom})`;
+    refs.zoomLevel.textContent = `${Math.round(zoom * 100)}%`;
+    refs.viewport.dataset.zoomBand = zoom < .76 ? "compact" : "normal";
+  }
+
+  /** 分支來源路徑：時間／空間 O(H)。 */
+  function renderBreadcrumb() {
+    if (ctx.state.ui.viewMode === "all") {
+      refs.breadcrumb.innerHTML = '<span class="map-breadcrumb-current">全域時空主幹</span>';
+      return;
+    }
+    const path = timelinePath(ctx.state.ui.activeTimelineId);
+    refs.breadcrumb.innerHTML = [
+      '<button type="button" data-global-tree>全域主幹</button>',
+      ...path.map((line, index) => `${index || path.length ? '<span aria-hidden="true">›</span>' : ""}<button type="button" data-focus-branch="${esc(line.id)}"${index === path.length - 1 ? ' aria-current="page"' : ""}>${esc(branchName(line))}</button>`),
+    ].join("");
+    refs.breadcrumb.querySelector("[data-global-tree]")?.addEventListener("click", () => {
+      ctx.state.ui.viewMode = "all";
+      ctx.state.ui.activeTopicId = "all";
+      save();
+      render(true);
+    });
+    refs.breadcrumb.querySelectorAll("[data-focus-branch]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const lineId = button.dataset.focusBranch;
+        ctx.state.ui.viewMode = "single";
+        selectLine(lineId);
+        save();
+        render(true);
+      });
     });
   }
-  function Y() {
-    const i = M();
-    if (!i || i.deletedAt)
-      return (
-        E.emptyState.classList.remove("hidden"),
-        void E.detailForm.classList.add("hidden")
+
+  function createClusterElement(placement) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "map-node-cluster";
+    button.style.left = `${placement.x}px`;
+    button.style.top = `${placement.y}px`;
+    button.innerHTML = `<strong>${placement.members.length} 個事件</strong><span>${esc(truncate(placement.members.map((node) => node.title || C.TYPES[node.type]).join("、"), 28))}</span>`;
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      TF.actions?.clusterModal(placement.members);
+    });
+    return button;
+  }
+
+  function createBandElement(placement) {
+    const node = placement.node;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = `map-period-band role-${node.role}${ctx.state.ui.selectedId === node.id ? " is-selected" : ""}`;
+    button.style.left = `${placement.x}px`;
+    button.style.top = `${placement.y}px`;
+    button.style.width = `${placement.width}px`;
+    button.style.height = `${placement.height}px`;
+    button.innerHTML = `<span class="map-period-band-title">${esc(node.title || C.TYPES[node.type])}</span><span class="map-period-band-date">${esc(placement.range.label)}</span>`;
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      selectNode(node);
+    });
+    return button;
+  }
+
+  function createNodeElement(placement) {
+    const node = placement.node;
+    const line = ctx.timelineIndex.get(node.timelineId);
+    const button = document.createElement("button");
+    button.type = "button";
+    button.dataset.nodeId = node.id;
+    button.className = `map-node ${node.type} role-${node.role} status-${node.status}${ctx.state.ui.selectedId === node.id ? " is-selected" : ""}`;
+    button.style.left = `${placement.x}px`;
+    button.style.top = `${placement.y}px`;
+    button.style.setProperty("--theme-color", topicColor(line?.topicId));
+    button.innerHTML = `
+      <span class="map-node-header">
+        <span class="map-node-type">${C.TYPES[node.type]}</span>
+        ${node.role !== "normal" ? `<span class="map-node-role${node.role === "background" ? " is-background" : ""}">${C.ROLES[node.role]}</span>` : ""}
+      </span>
+      <span class="map-node-title">${esc(node.title || "未命名節點")}</span>
+      <span class="map-node-meta">${esc(C.CATEGORIES[node.category] || "其他")}${node.subject ? `・${esc(node.subject)}` : ""}</span>
+      <span class="map-node-preview">${esc(truncate(preview(node), 62))}</span>
+      <span class="map-node-footer">
+        <span class="map-node-status">${C.STATUSES[node.status]}</span>
+        <span class="map-date-precision-pill">${esc(dateRange(node).label)}</span>
+      </span>`;
+    button.addEventListener("click", (event) => {
+      event.stopPropagation();
+      selectNode(node);
+    });
+    return button;
+  }
+
+  function renderBranchLabels(layout) {
+    layout.rows.forEach((row) => {
+      const button = document.createElement("button");
+      const privateBranch = isTimelinePrivate(row.line.id);
+      button.type = "button";
+      button.dataset.branchId = row.line.id;
+      button.className = `map-timeline-label-button${row.isVisualTrunk ? " is-visual-trunk" : ""}${privateBranch ? " is-private" : ""}`;
+      button.style.left = `${Math.max(18 * layout.inverseZoom, row.branchOriginX + 14 * layout.inverseZoom)}px`;
+      button.style.top = `${row.axisY - (TF.geometry.LABEL_H + 12) * layout.inverseZoom}px`;
+      const sourceNode = row.line.parentNodeId ? ctx.nodeIndex.get(row.line.parentNodeId) : null;
+      const sourceText = row.isVisualTrunk
+        ? "目前的觀看主軸"
+        : sourceNode
+          ? `由「${sourceNode.title || "未命名節點"}」分出`
+          : "由全域主幹分出";
+      button.innerHTML = `<strong>${privateBranch ? '<span aria-label="僅自己可見">🔒</span> ' : ""}${esc(branchName(row.line))}</strong><span>${esc(sourceText)}・${row.nodeCount} 個事件${row.collapsedCount ? `・已收合 ${row.collapsedCount} 條下層分支` : ""}</span>`;
+      button.addEventListener("click", (event) => {
+        event.stopPropagation();
+        selectLine(row.line.id);
+        save();
+        render(false);
+      });
+      button.addEventListener("dblclick", (event) => {
+        event.stopPropagation();
+        ctx.state.ui.viewMode = "single";
+        selectLine(row.line.id);
+        save();
+        render(true);
+      });
+      refs.canvas.appendChild(button);
+    });
+  }
+
+  /** SVG 關係線：時間 O(N + L + E)，空間 O(N + L + E)。 */
+  function renderConnections(layout) {
+    refs.connections.setAttribute("viewBox", `0 0 ${layout.sceneWidth} ${layout.sceneHeight}`);
+    refs.connections.setAttribute("width", String(layout.sceneWidth));
+    refs.connections.setAttribute("height", String(layout.sceneHeight));
+    const svg = [];
+    const labelY = layout.trunkY - 28 * layout.inverseZoom;
+    layout.ticks.forEach((tick) => svg.push(
+      `<line class="map-time-grid" x1="${tick.x}" y1="${layout.trunkY}" x2="${tick.x}" y2="${layout.sceneHeight - 24 * layout.inverseZoom}"/>`,
+      `<line class="map-time-tick" x1="${tick.x}" y1="${layout.trunkY - 7 * layout.inverseZoom}" x2="${tick.x}" y2="${layout.trunkY + 7 * layout.inverseZoom}"/>`,
+      `<text class="map-time-label" x="${tick.x}" y="${labelY}" text-anchor="middle">${esc(tick.label)}</text>`,
+    ));
+    svg.push(`<line class="map-global-trunk${layout.visualTrunkLineId ? " map-visual-trunk" : ""}" x1="${layout.axisStart}" y1="${layout.trunkY}" x2="${layout.axisEnd}" y2="${layout.trunkY}"/>`);
+
+    layout.rows.forEach((row) => {
+      if (row.isVisualTrunk) return;
+      const color = rgba(topicColor(row.line.topicId), .78);
+      svg.push(`<line class="map-branch-axis" x1="${row.branchStartX}" y1="${row.axisY}" x2="${row.branchEndX}" y2="${row.axisY}" style="stroke:${color}"/>`);
+      if (row.branchStartX < row.branchOriginX) {
+        svg.push(`<line class="map-branch-history" x1="${row.branchStartX}" y1="${row.axisY}" x2="${row.branchOriginX}" y2="${row.axisY}"/>`);
+      }
+      const midY = row.sourcePoint.y + (row.axisY - row.sourcePoint.y) * .54;
+      svg.push(
+        `<path class="map-branch-source" d="M ${row.sourcePoint.x} ${row.sourcePoint.y} C ${row.sourcePoint.x} ${midY},${row.branchOriginX} ${midY},${row.branchOriginX} ${row.axisY}"/>`,
+        `<circle class="map-branch-origin" cx="${row.branchOriginX}" cy="${row.axisY}" r="${4.5 * layout.inverseZoom}"/>`,
       );
-    (E.emptyState.classList.add("hidden"),
-      E.detailForm.classList.remove("hidden"),
-      (E.detailId.value = i.id),
-      (E.selectedId.textContent = i.id),
-      (E.detailTypeLabel.textContent = n.TYPES[i.type]),
-      (E.detailTitle.textContent = i.title || "未命名節點"),
-      (E.fieldTimeline.value = i.timelineId),
-      (E.fieldType.value = i.type),
-      (E.fieldRole.value = i.role),
-      (E.fieldPrecision.value = i.precision),
-      (E.fieldDateDay.value = "day" === i.precision ? i.dateValue : ""),
-      (E.fieldDateMonth.value = "month" === i.precision ? i.dateValue : ""),
-      (E.fieldDateYear.value = "year" === i.precision ? i.dateValue : ""),
-      (E.fieldTitle.value = i.title),
-      (E.fieldCategory.value = i.category),
-      (E.fieldSubject.value = i.subject),
-      (E.fieldStatus.value = i.status),
-      (E.fieldCards.value = i.cards),
-      (E.fieldInterpretation.value = i.interpretation),
-      (E.fieldPredictions.value = i.predictions),
-      (E.fieldDescription.value = i.description),
-      (E.fieldTags.value = i.tags.join(", ")),
-      (E.fieldNote.value = i.note),
-      N(i.precision));
-    const s = "reading" === i.type;
-    (document
-      .querySelectorAll("[data-reading-only]")
-      .forEach((e) => e.classList.toggle("hidden", !s)),
-      document
-        .querySelectorAll("[data-description-field]")
-        .forEach((e) => e.classList.toggle("hidden", s)),
-      (function (i) {
-        const s = u().filter((e) => e.id !== i.id);
-        E.linkTarget.innerHTML = `<option value="">選擇節點</option>${s.map((e) => `<option value="${a(e.id)}">${a(m(g(e.timelineId)))}｜${a(h(e.timelineId))}｜${a(e.title || n.TYPES[e.type])}</option>`).join("")}`;
-        const o = t.state.links.filter(
-          (e) => !e.deletedAt && (e.fromNodeId === i.id || e.toNodeId === i.id),
-        );
-        ((E.linkList.innerHTML = o.length
-          ? o
-              .map((e) => {
-                const s = e.fromNodeId === i.id ? e.toNodeId : e.fromNodeId,
-                  o = t.nodeIndex.get(s);
-                return `<div class="map-link-item"><p><strong>${n.LINKS[e.type]}</strong>｜${a(o?.title || "節點已刪除")}${e.note ? `<br>${a(e.note)}` : ""}</p><button type="button" class="map-link-remove" data-remove-link="${a(e.id)}">移除</button></div>`;
-              })
-              .join("")
-          : '<p class="map-inline-help">尚未建立虛擬連結。</p>'),
-          E.linkList.querySelectorAll("[data-remove-link]").forEach((t) => {
-            t.addEventListener("click", () =>
-              e.actions?.removeLink(t.dataset.removeLink),
-            );
-          }));
-      })(i));
+    });
+
+    const anchored = new Set();
+    layout.items.forEach((item) => {
+      const key = item.kind === "cluster" ? item.members.map((node) => node.id).join(",") : item.node.id;
+      if (anchored.has(key)) return;
+      anchored.add(key);
+      const background = item.kind !== "cluster" && item.node.role === "background";
+      const endY = item.centerY < item.axisY ? item.y + item.height : item.y;
+      svg.push(`<path class="map-node-anchor-line${background ? " is-background" : ""}" d="M ${item.centerX} ${endY} C ${item.centerX} ${(endY + item.axisY) / 2},${item.centerX} ${(endY + item.axisY) / 2},${item.centerX} ${item.axisY}"/>`);
+    });
+
+    const renderedLinks = new Set();
+    ctx.state.links.forEach((link) => {
+      if (link.deletedAt) return;
+      const from = layout.placements.get(link.fromNodeId);
+      const to = layout.placements.get(link.toNodeId);
+      if (!from || !to || from === to) return;
+      const key = [link.fromNodeId, link.toNodeId, link.type].sort().join(":");
+      if (renderedLinks.has(key)) return;
+      renderedLinks.add(key);
+      const strength = Math.max(42 * layout.inverseZoom, .22 * Math.abs(to.centerX - from.centerX));
+      svg.push(`<path class="map-virtual-link ${esc(link.type)}" d="M ${from.centerX} ${from.centerY} C ${from.centerX + strength} ${from.centerY},${to.centerX - strength} ${to.centerY},${to.centerX} ${to.centerY}"/>`);
+    });
+    refs.connections.innerHTML = svg.join("");
   }
-  function H(e) {
-    ((T.signedIn = Boolean(e)),
-      [
-        E.addTopic,
-        E.addTimeline,
-        E.addReading,
-        E.addEvent,
-        E.addNote,
-        E.addChildTimeline,
-        E.manageTopic,
-        E.manageTimeline,
-        E.openTrash,
-        E.deleteNode,
-        E.addLink,
-        E.resetData,
-      ].forEach((e) => {
-        ((e.disabled = !T.signedIn),
-          (e.title = T.signedIn ? "" : "請先從右上角登入 Google 帳號"));
-      }),
-      E.detailForm
-        .querySelectorAll("input,select,textarea,button")
-        .forEach((e) => {
-          "map-detail-id" !== e.id && (e.disabled = !T.signedIn);
-        }),
-      E.detailForm.classList.toggle("is-auth-readonly", !T.signedIn));
+
+  /** 畫布：時間 O(N + L + E)，空間 O(N + L + E)。 */
+  function renderCanvas(data) {
+    app.layout = buildLayout(data);
+    const layout = app.layout;
+    refs.canvas.replaceChildren();
+
+    const unknownZone = document.createElement("div");
+    unknownZone.className = "map-unknown-zone";
+    unknownZone.style.left = `${layout.unknownX}px`;
+    unknownZone.style.top = `${layout.trunkY + 24 * layout.inverseZoom}px`;
+    unknownZone.style.height = `${Math.max(200 * layout.inverseZoom, layout.sceneHeight - layout.trunkY - 60 * layout.inverseZoom)}px`;
+    refs.canvas.appendChild(unknownZone);
+    const unknownLabel = document.createElement("div");
+    unknownLabel.className = "map-unknown-zone-label";
+    unknownLabel.style.left = `${layout.unknownX + 16 * layout.inverseZoom}px`;
+    unknownLabel.style.top = `${layout.trunkY - 28 * layout.inverseZoom}px`;
+    unknownLabel.textContent = "日期不詳";
+    refs.canvas.appendChild(unknownLabel);
+
+    renderBranchLabels(layout);
+    layout.items.forEach((item) => {
+      refs.canvas.appendChild(
+        item.kind === "cluster" ? createClusterElement(item)
+          : item.kind === "band" ? createBandElement(item)
+            : createNodeElement(item)
+      );
+    });
+
+    if (!data.lines.length || !data.nodes.length) {
+      const empty = document.createElement("div");
+      empty.className = "map-canvas-empty";
+      empty.textContent = data.lines.length
+        ? "目前篩選條件下沒有事件。"
+        : app.signedIn
+          ? "目前沒有可顯示的分支；若已隱藏私密分支，可從「篩選與檢視」重新顯示。"
+          : "訪客不會取得僅自己可見的時間樹；請登入後查看。";
+      refs.canvas.appendChild(empty);
+    }
+    renderConnections(layout);
   }
-  function A(e = !0) {
-    const a = E.viewport.clientWidth,
-      s = E.viewport.clientHeight,
-      o = T.layout;
-    if (!a || !s || !o) return;
-    const d = i(
-      Math.min(
-        (a - 108) / Math.max(320, o.sceneWidth),
-        (s - 108) / Math.max(260, o.sceneHeight),
-        0.92,
-      ),
-      n.MIN_ZOOM,
-      n.MAX_ZOOM,
+
+  function showDateFields(precision) {
+    refs.dateFields.querySelectorAll("[data-date-field]").forEach((element) => {
+      element.classList.toggle("hidden", element.dataset.dateField !== precision);
+    });
+  }
+
+  /** 詳細資料：節點與連結查詢 O(N + E)，空間 O(N + E)。 */
+  function renderDetails(data) {
+    const node = selected();
+    if (!node || node.deletedAt) {
+      refs.emptyState.classList.remove("hidden");
+      refs.detailForm.classList.add("hidden");
+      return;
+    }
+    refs.emptyState.classList.add("hidden");
+    refs.detailForm.classList.remove("hidden");
+    refs.detailId.value = node.id;
+    refs.selectedId.textContent = node.id;
+    refs.detailTypeLabel.textContent = C.TYPES[node.type];
+    refs.detailTitle.textContent = node.title || "未命名節點";
+    refs.fieldTimeline.value = node.timelineId;
+    refs.fieldType.value = node.type;
+    refs.fieldRole.value = node.role;
+    refs.fieldPrecision.value = node.precision;
+    refs.fieldDateDay.value = node.precision === "day" ? node.dateValue : "";
+    refs.fieldDateMonth.value = node.precision === "month" ? node.dateValue : "";
+    refs.fieldDateYear.value = node.precision === "year" ? node.dateValue : "";
+    refs.fieldTitle.value = node.title;
+    refs.fieldCategory.value = node.category;
+    refs.fieldSubject.value = node.subject;
+    refs.fieldStatus.value = node.status;
+    refs.fieldCards.value = node.cards;
+    refs.fieldInterpretation.value = node.interpretation;
+    refs.fieldPredictions.value = node.predictions;
+    refs.fieldDescription.value = node.description;
+    refs.fieldTags.value = node.tags.join(", ");
+    refs.fieldNote.value = node.note;
+    showDateFields(node.precision);
+    const reading = node.type === "reading";
+    document.querySelectorAll("[data-reading-only]").forEach((element) => element.classList.toggle("hidden", !reading));
+    document.querySelectorAll("[data-description-field]").forEach((element) => element.classList.toggle("hidden", reading));
+
+    const targets = activeNodes().filter(
+      (item) => item.id !== node.id && data.lineIds.has(item.timelineId)
     );
-    ((t.state.ui.zoom = d),
-      (t.state.ui.panX = (a - o.sceneWidth * d) / 2),
-      (t.state.ui.panY = (s - o.sceneHeight * d) / 2),
-      S(),
-      e && l());
+    refs.linkTarget.innerHTML = `<option value="">選擇節點</option>${targets.map((item) => `<option value="${esc(item.id)}">${esc(branchName(ctx.timelineIndex.get(item.timelineId)))}｜${esc(item.title || C.TYPES[item.type])}</option>`).join("")}`;
+    const links = ctx.state.links.filter((link) => {
+      if (link.deletedAt || (link.fromNodeId !== node.id && link.toNodeId !== node.id)) return false;
+      const targetId = link.fromNodeId === node.id ? link.toNodeId : link.fromNodeId;
+      const target = ctx.nodeIndex.get(targetId);
+      return Boolean(target && data.lineIds.has(target.timelineId));
+    });
+    refs.linkList.innerHTML = links.length ? links.map((link) => {
+      const targetId = link.fromNodeId === node.id ? link.toNodeId : link.fromNodeId;
+      const target = ctx.nodeIndex.get(targetId);
+      return `<div class="map-link-item"><p><strong>${C.LINKS[link.type]}</strong>｜${esc(target?.title || "節點已刪除")}${link.note ? `<br>${esc(link.note)}` : ""}</p><button type="button" class="map-link-remove" data-remove-link="${esc(link.id)}">移除</button></div>`;
+    }).join("") : '<p class="map-inline-help">尚未建立虛擬連結。</p>';
+    refs.linkList.querySelectorAll("[data-remove-link]").forEach((button) => {
+      button.addEventListener("click", () => TF.actions?.removeLink(button.dataset.removeLink));
+    });
   }
-  function X(e = !1) {
-    (d(),
-      c(),
-      d(),
-      (E.viewMode.value = t.state.ui.viewMode),
-      (E.filterStatus.value = t.state.ui.filterStatus),
-      (E.search.value = t.state.ui.search),
-      (function () {
-        const e = p(),
-          i =
-            "all" === t.state.ui.viewMode
-              ? ['<option value="all">全部主題</option>']
-              : [];
-        (i.push(
-          ...e.map((e) => `<option value="${a(e.id)}">${a(e.title)}</option>`),
-        ),
-          (E.activeTopic.innerHTML = i.join("")),
-          (E.activeTopic.value = t.state.ui.activeTopicId));
-        const s = r().filter(
-            (e) =>
-              "all" === t.state.ui.activeTopicId ||
-              e.topicId === t.state.ui.activeTopicId,
-          ),
-          o = new Map();
-        s.forEach((e) => {
-          (o.has(e.topicId) || o.set(e.topicId, []), o.get(e.topicId).push(e));
-        });
-        const l = [];
-        (e.forEach((e) => {
-          I(o.get(e.id) || []).forEach((e) => l.push(e));
-        }),
-          (E.activeTimeline.innerHTML = l
-            .map(
-              ({ line: e, depth: n }) =>
-                `<option value="${a(e.id)}">${"　".repeat(n)}${"all" === t.state.ui.activeTopicId ? `${a(m(e.topicId))}｜` : ""}${a(e.title)}</option>`,
-            )
-            .join("")),
-          (E.activeTimeline.value = t.state.ui.activeTimelineId),
-          (E.fieldTimeline.innerHTML = r()
-            .map(
-              (e) =>
-                `<option value="${a(e.id)}">${a(m(e.topicId))}｜${a(e.title)}</option>`,
-            )
-            .join("")));
-        const d = new Set(u().map((e) => e.category));
-        ((E.filterCategory.innerHTML = [
-          '<option value="all">全部分類</option>',
-          ...Object.entries(n.CATEGORIES)
-            .filter(([e]) => d.has(e) || t.state.ui.filterCategory === e)
-            .map(([e, t]) => `<option value="${e}">${t}</option>`),
-        ].join("")),
-          (E.filterCategory.value = t.state.ui.filterCategory));
-      })());
-    const i = y();
-    (L(i),
-      C(i),
-      Y(),
-      (function (e) {
-        if (!e.lines.length)
-          return void (E.timeline.innerHTML =
-            '<p class="map-timeline-empty">目前沒有符合條件的時間線。</p>');
-        const i = new Map(e.lines.map((e) => [e.id, []]));
-        (e.nodes.forEach((e) => i.get(e.timelineId)?.push(e)),
-          (E.timeline.innerHTML = e.lines
-            .map(
-              (e) => `
+
+  /** 編輯權限：時間 O(F)，空間 O(1)，F 為固定欄位數。 */
+  function setEditing(signedIn) {
+    app.signedIn = Boolean(signedIn);
+    [
+      refs.addRootBranch,
+      refs.addReading,
+      refs.addEvent,
+      refs.addNote,
+      refs.addChildTimeline,
+      refs.manageTimeline,
+      refs.openTrash,
+      refs.exportJson,
+      refs.deleteNode,
+      refs.addLink,
+      refs.resetData,
+    ].forEach((element) => {
+      element.disabled = !app.signedIn;
+      element.title = app.signedIn ? "" : "請先從右上角登入 Google 帳號";
+    });
+    refs.showPrivate.disabled = !app.signedIn;
+    refs.detailForm.querySelectorAll("input,select,textarea,button").forEach((element) => {
+      if (element.id !== "map-detail-id") element.disabled = !app.signedIn;
+    });
+    refs.detailForm.classList.toggle("is-auth-readonly", !app.signedIn);
+  }
+
+  /** 適合畫面：時間／空間 O(1)。最低自動比例避免拓樸被壓成不可判讀的一點。 */
+  function fit(persist = true) {
+    const width = refs.viewport.clientWidth;
+    const height = refs.viewport.clientHeight;
+    const layout = app.layout;
+    if (!width || !height || !layout) return;
+    const target = clamp(Math.min(
+      (width - 84) / Math.max(320, layout.sceneWidth),
+      (height - 84) / Math.max(260, layout.sceneHeight),
+      .96,
+    ), Math.max(C.MIN_ZOOM, .52), C.MAX_ZOOM);
+    ctx.state.ui.zoom = target;
+    ctx.state.ui.panX = (width - layout.sceneWidth * target) / 2;
+    ctx.state.ui.panY = (height - layout.sceneHeight * target) / 2;
+    applyTransform();
+    if (persist) save();
+  }
+
+  /** 控制項選單：時間 O(T + L + N)，空間 O(T + L + N)。 */
+  function renderControls() {
+    refs.viewMode.value = ctx.state.ui.viewMode;
+    refs.filterStatus.value = ctx.state.ui.filterStatus;
+    refs.search.value = ctx.state.ui.search;
+    refs.showPrivate.checked = app.signedIn && ctx.state.ui.showPrivate !== false;
+
+    const includePrivate = app.signedIn && ctx.state.ui.showPrivate !== false;
+    const availableLines = activeTimelines().filter((line) => includePrivate || !isTimelinePrivate(line.id));
+    const availableTopicIds = new Set(availableLines.map((line) => line.topicId));
+    const topics = activeTopics().filter((topic) => availableTopicIds.has(topic.id));
+    refs.activeTopic.innerHTML = [
+      '<option value="all">全部分支群組</option>',
+      ...topics.map((topic) => `<option value="${esc(topic.id)}">${esc(topic.title)}</option>`),
+    ].join("");
+    refs.activeTopic.value = ctx.state.ui.activeTopicId === "all" || availableTopicIds.has(ctx.state.ui.activeTopicId)
+      ? ctx.state.ui.activeTopicId
+      : "all";
+
+    const ordered = orderTimelines(availableLines);
+    refs.activeTimeline.innerHTML = ordered.map(({ line, depth }) => `<option value="${esc(line.id)}">${"　".repeat(depth)}${isTimelinePrivate(line.id) ? "🔒 " : ""}${esc(branchName(line))}</option>`).join("");
+    refs.activeTimeline.value = ctx.state.ui.activeTimelineId;
+    refs.fieldTimeline.innerHTML = ordered.map(({ line, depth }) => `<option value="${esc(line.id)}">${"　".repeat(depth)}${esc(branchName(line))}</option>`).join("");
+
+    const usedCategories = new Set(activeNodes().map((node) => node.category));
+    refs.filterCategory.innerHTML = [
+      '<option value="all">全部分類</option>',
+      ...Object.entries(C.CATEGORIES)
+        .filter(([key]) => usedCategories.has(key) || ctx.state.ui.filterCategory === key)
+        .map(([key, label]) => `<option value="${key}">${label}</option>`),
+    ].join("");
+    refs.filterCategory.value = ctx.state.ui.filterCategory;
+  }
+
+  /** 時間順序清單：時間 O(N log N + L)，空間 O(N + L)。 */
+  function renderTimelineList(data) {
+    if (!data.lines.length) {
+      refs.timeline.innerHTML = '<p class="map-timeline-empty">目前沒有符合條件的分支。</p>';
+      return;
+    }
+    const nodesByLine = new Map(data.lines.map((line) => [line.id, []]));
+    data.nodes.forEach((node) => nodesByLine.get(node.timelineId)?.push(node));
+    refs.timeline.innerHTML = data.lines.map((line) => `
       <section class="map-timeline-group">
-        <div class="map-timeline-group-header"><h5>${a(m(e.topicId))}｜${a(e.title)}</h5><p>${a(e.description || "未填案例說明")}</p></div>
-        ${
-          f(i.get(e.id) || [])
-            .map(
-              (e) => `
-          <article class="map-timeline-item ${e.type} role-${e.role}">
-            <div class="map-timeline-top"><span class="map-node-type">${n.TYPES[e.type]}${"normal" !== e.role ? `・${n.ROLES[e.role]}` : ""}</span><span class="map-timeline-date">${a(v(e).label)}</span></div>
-            <h5>${a(e.title || "未命名節點")}</h5><p>${a(s(b(e), 145))}</p>
-            <div class="map-timeline-footer"><span class="map-theme-pill">${a(n.CATEGORIES[e.category])}</span><button type="button" class="map-timeline-open" data-open-node="${a(e.id)}">查看內容</button></div>
-          </article>`,
-            )
-            .join("") ||
-          '<p class="map-timeline-empty">此時間線目前沒有符合篩選條件的節點。</p>'
-        }
-      </section>`,
-            )
-            .join("")),
-          E.timeline.querySelectorAll("[data-open-node]").forEach((e) => {
-            e.addEventListener("click", () => {
-              const n = t.nodeIndex.get(e.dataset.openNode);
-              n &&
-                (k(n),
-                E.detailForm.scrollIntoView({
-                  behavior: "smooth",
-                  block: "nearest",
-                }));
-            });
-          }));
-      })(i),
-      H(T.signedIn),
-      S(),
-      e && window.requestAnimationFrame(() => A(!0)));
+        <div class="map-timeline-group-header"><h5>${isTimelinePrivate(line.id) ? "🔒 " : ""}${esc(branchName(line))}</h5><p>${esc(line.description || "未填分支說明")}</p></div>
+        ${sortNodes(nodesByLine.get(line.id) || []).map((node) => `
+          <article class="map-timeline-item ${node.type} role-${node.role}">
+            <div class="map-timeline-top"><span class="map-node-type">${C.TYPES[node.type]}${node.role !== "normal" ? `・${C.ROLES[node.role]}` : ""}</span><span class="map-timeline-date">${esc(dateRange(node).label)}</span></div>
+            <h5>${esc(node.title || "未命名節點")}</h5><p>${esc(truncate(preview(node), 145))}</p>
+            <div class="map-timeline-footer"><span class="map-theme-pill">${esc(C.CATEGORIES[node.category])}</span><button type="button" class="map-timeline-open" data-open-node="${esc(node.id)}">查看內容</button></div>
+          </article>`).join("") || '<p class="map-timeline-empty">此分支目前沒有符合篩選條件的事件。</p>'}
+      </section>`).join("");
+    refs.timeline.querySelectorAll("[data-open-node]").forEach((button) => {
+      button.addEventListener("click", () => {
+        const node = ctx.nodeIndex.get(button.dataset.openNode);
+        if (!node) return;
+        selectNode(node);
+        refs.detailForm.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    });
   }
-  e.ui = {
-    preview: b,
-    selected: M,
-    selectLine: w,
-    selectNode: k,
-    showDateFields: N,
-    renderStats: L,
-    applyTransform: S,
-    setEditing: H,
-    fit: A,
-    render: X,
-    zoom: function (e, a, s) {
-      const o = t.state.ui.zoom,
-        d = i(o + e, n.MIN_ZOOM, n.MAX_ZOOM);
-      if (d === o) return;
-      const c = E.viewport.getBoundingClientRect(),
-        p = null == a ? c.width / 2 : a - c.left,
-        r = null == s ? c.height / 2 : s - c.top,
-        u = (p - t.state.ui.panX) / o,
-        m = (r - t.state.ui.panY) / o;
-      ((t.state.ui.zoom = d),
-        (t.state.ui.panX = p - u * d),
-        (t.state.ui.panY = r - m * d),
-        l(),
-        X(!1));
+
+  /** 完整重繪：時間 O(N log N + L log L)，空間 O(N + L)。 */
+  function render(shouldFit = false) {
+    rebuildIndexes();
+    ensureSelection();
+    rebuildIndexes();
+    ensureVisibleActiveLine();
+    renderControls();
+    const data = visibleData();
+    const selectedNode = selected();
+    if (selectedNode && !data.lineIds.has(selectedNode.timelineId)) ctx.state.ui.selectedId = "";
+    renderStats(data);
+    renderBreadcrumb();
+    renderCanvas(data);
+    renderDetails(data);
+    renderTimelineList(data);
+    setEditing(app.signedIn);
+    applyTransform();
+    if (shouldFit) window.requestAnimationFrame(() => fit(true));
+  }
+
+  TF.ui = {
+    preview,
+    selected,
+    branchName,
+    selectLine,
+    ensureVisibleActiveLine,
+    selectNode,
+    showDateFields,
+    renderStats,
+    applyTransform,
+    setEditing,
+    fit,
+    render,
+    zoom(delta, clientX, clientY) {
+      const oldZoom = ctx.state.ui.zoom;
+      const nextZoom = clamp(oldZoom + delta, C.MIN_ZOOM, C.MAX_ZOOM);
+      if (nextZoom === oldZoom) return;
+      const rect = refs.viewport.getBoundingClientRect();
+      const pointerX = clientX == null ? rect.width / 2 : clientX - rect.left;
+      const pointerY = clientY == null ? rect.height / 2 : clientY - rect.top;
+      const worldX = (pointerX - ctx.state.ui.panX) / oldZoom;
+      const worldY = (pointerY - ctx.state.ui.panY) / oldZoom;
+      ctx.state.ui.zoom = nextZoom;
+      ctx.state.ui.panX = pointerX - worldX * nextZoom;
+      ctx.state.ui.panY = pointerY - worldY * nextZoom;
+      save();
+      render(false);
     },
-    auth: function (e) {
-      ((T.signedIn = Boolean(
-        e?.isSignedIn || window.EvanGoogleAuth?.isSignedIn?.(),
-      )),
-        H(T.signedIn),
-        L(y()));
-      const t = document.getElementById("map-auth-hint");
-      t &&
-        !T.signedIn &&
-        ((t.textContent =
-          "訪客僅能瀏覽；登入 Google 帳號後讀取與同步雲端資料。"),
-        t.classList.remove("is-signed-in"));
+    auth(authState) {
+      app.signedIn = Boolean(authState?.isSignedIn || window.EvanGoogleAuth?.isSignedIn?.());
+      setEditing(app.signedIn);
+      render(false);
+      const hint = document.getElementById("map-auth-hint");
+      if (!hint) return;
+      if (app.signedIn) {
+        hint.classList.add("is-signed-in");
+      } else {
+        hint.textContent = "訪客僅能瀏覽一般分支；登入 Google 帳號後讀取僅自己可見的資料。";
+        hint.classList.remove("is-signed-in");
+      }
     },
   };
-})((window.EvanTimeflowV5 = window.EvanTimeflowV5 || {}));
+})(window.EvanTimeflowV5 = window.EvanTimeflowV5 || {});

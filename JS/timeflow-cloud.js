@@ -1,6 +1,6 @@
 // ==============================
 // timeflow-cloud.js
-// 主題時間流 Google Sheets 同步 v5
+// 時間樹 Google Sheets 同步 v6
 // ==============================
 //
 // 主要函式時間複雜度／空間複雜度：
@@ -70,6 +70,7 @@
       activeTopicId: String(ui.activeTopicId || ui.activeThemeId || ""),
       activeTimelineId: String(ui.activeTimelineId || ""),
       viewMode: String(ui.viewMode || "single"),
+      showPrivate: ui.showPrivate !== false,
       filterStatus: String(ui.filterStatus || "all"),
       filterCategory: String(ui.filterCategory || "all"),
       search: String(ui.search || ""),
@@ -138,14 +139,14 @@
       if (activeNodes.length || activeLinks.length || activeTimelines.length > 1 || activeTopics.length > 1) return true;
       const topic = activeTopics[0] || {};
       const timeline = activeTimelines[0] || {};
-      const defaultTopic = !String(topic.title || "").trim() || topic.title === "第一主題";
-      const defaultTimeline = !String(timeline.title || "").trim() || timeline.title === "第一案例時間線";
+      const defaultTopic = !String(topic.title || "").trim() || ["第一主題", "第一分支"].includes(topic.title);
+      const defaultTimeline = !String(timeline.title || "").trim() || ["第一案例時間線", "第一分支"].includes(timeline.title);
       const topicDescription = String(topic.description || "").trim();
       const timelineDescription = String(timeline.description || "").trim();
       const defaultDescriptions = (
-        !topicDescription || topicDescription === "可用於人物、關係、專案、研究或事物。"
+        !topicDescription || ["可用於人物、關係、專案、研究或事物。", "從全域時空主幹長出的案例或研究主題。"].includes(topicDescription)
       ) && (
-        !timelineDescription || timelineDescription === "同一脈絡下的事件、占卜與驗證。"
+        !timelineDescription || ["同一脈絡下的事件、占卜與驗證。", "事件會沿著這條分支發展，也能從任一節點再長出平行分支。"].includes(timelineDescription)
       );
       return !(defaultTopic && defaultTimeline && defaultDescriptions);
     }
@@ -219,7 +220,7 @@
 
     saving = true;
     pending = false;
-    status("主題時間流正在同步到 Google Sheets…", false);
+    status("時間樹正在同步到 Google Sheets…", false);
     try {
       const result = await saveSnapshot(local, revision);
       if (result?.conflict) {
@@ -257,7 +258,7 @@
     conflictPromptOpen = true;
     try {
       return window.confirm(
-        "本機與 Google Sheets 都有主題時間流資料。\n\n按「確定」載入雲端版本；按「取消」保留本機並暫停同步。"
+        "本機與 Google Sheets 都有時間樹資料。\n\n按「確定」載入雲端版本；按「取消」保留本機並暫停同步。"
       );
     } finally {
       conflictPromptOpen = false;
@@ -273,7 +274,7 @@
     if (!token()) return;
 
     ready = true;
-    status("正在讀取 Google Sheets 主題時間流…", false);
+    status("正在讀取 Google Sheets 時間樹…", false);
     try {
       const cloud = await request("timeflowLoad");
       if (!cloud?.success) throw new Error(cloud?.error || "讀取失敗");
@@ -350,7 +351,7 @@
       paused = false;
       revision = 0;
       userKey = "";
-      status("訪客僅能瀏覽；登入 Google 帳號後讀取與同步雲端資料。", false);
+      status("訪客僅能瀏覽一般分支；登入 Google 帳號後讀取僅自己可見的時間樹。", false);
       return;
     }
     initialize();

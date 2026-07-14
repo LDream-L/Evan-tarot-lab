@@ -1,473 +1,420 @@
 /**
- * 主題時間流 v5｜可閱讀操作原始碼
+ * 時間樹 v6｜可閱讀操作原始碼
  *
- * 主要流程：新增、編輯、刪除、復原、連結、匯出與互動事件。
- * 各操作依既有 Map／Set 索引執行；批次刪除只走必要資料集合。
+ * 單筆新增與修改使用既有 Map 索引，時間／空間 O(1)；
+ * 連帶刪除時間 O(T+L+N+E)、空間 O(L+N)。
  *
- * 替代方案比較：
- * - 直接維護單行執行檔：差異難以檢查，錯誤風險高。
- * - 本檔：先以無行為變更的格式化建立可審查基線，再逐步改善命名。
+ * 更快替代方案比較：
+ * - 讓使用者先選「主題／案例時間線／子時間線」：程式簡單，但把內部模型成本轉嫁給使用者。
+ * - 本版依操作位置判斷：未選節點時新增第一階分支，選定節點後建立遞迴子分支。
  */
-/*! 主題時間流 v5 Actions｜單筆 O(1)；連帶刪除 O(T+L+N+E)、空間 O(L+N)；僅在批次操作掃描集合。 */
-!(function (e) {
+/*! 時間樹 v6 Actions｜單筆 O(1)；批次刪除 O(T+L+N+E)。 */
+(function initTimeflowActions(TF) {
   "use strict";
+
   const {
-      ctx: t,
-      C: i,
-      clamp: a,
-      esc: n,
-      tags: d,
-      createTopic: o,
-      createTimeline: l,
-      createNode: s,
-      save: c,
-      activeTopics: r,
-      activeTimelines: p,
-      activeNodes: u,
-      lineTopic: m,
-      descendants: v,
-      deleteNode: f,
-      deleteTimeline: I,
-      deleteTopic: g,
-      restoreBatch: b,
-      normalizeLink: h,
-      nowIso: y,
-      id: T,
-      sortNodes: k,
-      dateRange: w,
-    } = e,
-    E = e.app,
-    $ = E.refs,
-    S = e.ui,
-    N = () => window.EvanSiteAccount?.open?.(),
-    L = (e, t) =>
-      window.EvanDialog?.confirm
-        ? window.EvanDialog.confirm(e, t)
-        : Promise.resolve(window.confirm(e));
-  function M(e, t, i) {
-    (e.remove(), i?.(t));
+    ctx,
+    C,
+    clamp,
+    esc,
+    tags,
+    createTopic,
+    createTimeline,
+    createNode,
+    save,
+    activeTimelines,
+    activeNodes,
+    descendants,
+    isTimelinePrivate,
+    deleteNode,
+    deleteTimeline,
+    deleteTopic,
+    restoreBatch,
+    normalizeLink,
+    nowIso,
+    id,
+    sortNodes,
+    dateRange,
+  } = TF;
+
+  const app = TF.app;
+  const refs = app.refs;
+  const ui = TF.ui;
+  const openAccount = () => window.EvanSiteAccount?.open?.();
+  const confirmAction = (message, title) => window.EvanDialog?.confirm
+    ? window.EvanDialog.confirm(message, title)
+    : Promise.resolve(window.confirm(message));
+  const alertAction = (message, title) => window.EvanDialog?.alert
+    ? window.EvanDialog.alert(message, title)
+    : Promise.resolve(window.alert(message));
+
+  function closeModal(modal, value, resolve) {
+    modal.remove();
+    resolve?.(value);
   }
-  function A({
-    title: e,
-    description: t,
-    values: i = {},
-    topics: a = null,
-    allowDelete: d = !1,
+
+  /** 分支編輯器：時間／空間 O(P)，P 為可選群組數，通常很小。 */
+  function openBranchEditor({
+    title,
+    description,
+    values = {},
+    allowDelete = false,
+    includeSettings = true,
+    privacyLocked = false,
   }) {
-    return new Promise((o) => {
-      const l = document.createElement("div");
-      ((l.className = "map-modal-backdrop"),
-        (l.innerHTML = `
+    return new Promise((resolve) => {
+      const modal = document.createElement("div");
+      modal.className = "map-modal-backdrop";
+      modal.innerHTML = `
         <div class="map-modal" role="dialog" aria-modal="true">
-          <div class="map-modal-header"><p class="map-form-kicker">Timeflow</p><h3>${n(e)}</h3><p>${n(t)}</p></div>
+          <div class="map-modal-header"><p class="map-form-kicker">Time tree</p><h3>${esc(title)}</h3><p>${esc(description)}</p></div>
           <form class="map-modal-form">
-            ${a ? `<label>所屬主題<select name="topicId">${a.map((e) => `<option value="${n(e.id)}"${e.id === i.topicId ? " selected" : ""}>${n(e.title)}</option>`).join("")}</select></label>` : ""}
-            <label>名稱<input name="title" maxlength="80" value="${n(i.title || "")}" required></label>
-            <label>說明<textarea name="description" rows="3">${n(i.description || "")}</textarea></label>
+            <label>分支名稱<input name="title" maxlength="80" value="${esc(values.title || "")}" required></label>
+            <label>分支說明<textarea name="description" rows="3">${esc(values.description || "")}</textarea></label>
+            ${includeSettings ? `
+              <label>顯示範圍
+                <select name="visibility"${privacyLocked ? " disabled" : ""}>
+                  <option value="private"${values.visibility !== "public" ? " selected" : ""}>僅自己可見</option>
+                  <option value="public"${values.visibility === "public" ? " selected" : ""}>一般顯示</option>
+                </select>
+              </label>
+              ${privacyLocked ? '<p class="map-inline-help">上層分支僅自己可見，因此這條分支會自動繼承私密狀態。</p>' : '<p class="map-inline-help">僅自己可見的分支在未登入與隱藏私密分支時不顯示，也不計入畫面數量。</p>'}
+              <label class="map-modal-checkbox"><input name="collapsed" type="checkbox"${values.collapsed ? " checked" : ""}>收合這條分支底下的所有次級分支</label>
+            ` : ""}
             <div class="map-modal-actions">
-              ${d ? '<button type="button" class="btn ghost map-danger-action" data-delete>移到回收區</button>' : ""}
+              ${allowDelete ? '<button type="button" class="btn ghost map-danger-action" data-delete>移到回收區</button>' : ""}
               <button type="button" class="btn ghost" data-cancel>取消</button>
               <button type="submit" class="btn primary">儲存</button>
             </div>
           </form>
-        </div>`),
-        document.body.appendChild(l));
-      const s = l.querySelector("form");
-      (s.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const t = new FormData(s),
-          a = String(t.get("title") || "").trim();
-        a &&
-          M(
-            l,
-            {
-              action: "save",
-              title: a,
-              description: String(t.get("description") || "").trim(),
-              topicId: String(t.get("topicId") || i.topicId || ""),
-            },
-            o,
-          );
-      }),
-        l
-          .querySelector("[data-cancel]")
-          .addEventListener("click", () => M(l, null, o)),
-        l
-          .querySelector("[data-delete]")
-          ?.addEventListener("click", () => M(l, { action: "delete" }, o)),
-        l.addEventListener("click", (e) => {
-          e.target === l && M(l, null, o);
-        }),
-        window.requestAnimationFrame(() => s.elements.title.focus()));
+        </div>`;
+      document.body.appendChild(modal);
+      const form = modal.querySelector("form");
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        const formData = new FormData(form);
+        const branchTitle = String(formData.get("title") || "").trim();
+        if (!branchTitle) return;
+        closeModal(modal, {
+          action: "save",
+          title: branchTitle,
+          description: String(formData.get("description") || "").trim(),
+          visibility: privacyLocked ? "private" : (formData.get("visibility") === "public" ? "public" : "private"),
+          collapsed: formData.get("collapsed") === "on",
+        }, resolve);
+      });
+      modal.querySelector("[data-cancel]").addEventListener("click", () => closeModal(modal, null, resolve));
+      modal.querySelector("[data-delete]")?.addEventListener("click", () => closeModal(modal, { action: "delete" }, resolve));
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) closeModal(modal, null, resolve);
+      });
+      window.requestAnimationFrame(() => form.elements.title.focus());
     });
   }
-  e.actions = {
-    addTopic: async function () {
-      if (!E.signedIn) return N();
-      const e = await A({
-        title: "新增主題",
-        description:
-          "主題可以是人物、關係、足球 × 塔羅、研究、專案或任何事物。",
-      });
-      if (!e || "save" !== e.action) return;
-      const i = o(e.title, e.description, t.state.topics.length),
-        a = l(i.id, "第一案例時間線", "");
-      (t.state.topics.push(i),
-        t.state.timelines.push(a),
-        (t.state.ui.activeTopicId = i.id),
-        (t.state.ui.activeTimelineId = a.id),
-        (t.state.ui.viewMode = "single"),
-        (t.state.ui.selectedId = ""),
-        c(),
-        S.render(!0));
-    },
-    addTimeline: async function () {
-      if (!E.signedIn) return N();
-      const e =
-          "all" === t.state.ui.activeTopicId
-            ? m(t.state.ui.activeTimelineId)
-            : t.state.ui.activeTopicId,
-        i = await A({
-          title: "新增案例時間線",
-          description:
-            "同一案例脈絡中的占卜、事件、結果與補充應留在同一條時間線。",
-          values: { topicId: e },
-          topics: r(),
-        });
-      if (!i || "save" !== i.action) return;
-      const a = l(i.topicId, i.title, i.description);
-      (t.state.timelines.push(a),
-        (t.state.ui.activeTopicId = i.topicId),
-        (t.state.ui.activeTimelineId = a.id),
-        (t.state.ui.viewMode = "single"),
-        (t.state.ui.selectedId = ""),
-        c(),
-        S.render(!0));
-    },
-    addChildTimeline: async function () {
-      if (!E.signedIn) return N();
-      const e = S.selected();
-      if (!e)
-        return L(
-          "請先選擇一個節點，再由該節點建立子時間線。",
-          "尚未選擇來源節點",
-        );
-      const a = t.timelineIndex.get(e.timelineId),
-        n = await A({
-          title: "由節點建立子時間線",
-          description: `來源節點：${e.title || i.TYPES[e.type]}。只有形成獨立可追蹤事件鏈時才建議建立。`,
-          values: {
-            title: `${e.title || "節點"}｜後續發展`,
-            topicId: a.topicId,
-          },
-        });
-      if (!n || "save" !== n.action) return;
-      const d = l(a.topicId, n.title, n.description, e.id);
-      (t.state.timelines.push(d),
-        (t.state.ui.activeTopicId = d.topicId),
-        (t.state.ui.activeTimelineId = d.id),
-        (t.state.ui.viewMode = "single"),
-        (t.state.ui.selectedId = ""),
-        c(),
-        S.render(!0));
-    },
-    addNode: function (e) {
-      if (!E.signedIn) return N();
-      const i = t.timelineIndex.get(t.state.ui.activeTimelineId) || p()[0];
-      if (!i) return;
-      const a = s(i.id, e);
-      (t.state.nodes.push(a),
-        (t.state.ui.selectedId = a.id),
-        S.selectLine(i.id),
-        c(),
-        S.render(!0));
-    },
-    manageTopic: async function () {
-      if (!E.signedIn) return N();
-      const e =
-          "all" === t.state.ui.activeTopicId
-            ? m(t.state.ui.activeTimelineId)
-            : t.state.ui.activeTopicId,
-        i = t.topicIndex.get(e);
-      if (!i) return;
-      const a = await A({
-        title: "管理主題",
-        description: "修改主題名稱與說明，或將整個主題移到回收區。",
-        values: i,
-        allowDelete: r().length > 1,
-      });
-      if (a) {
-        if ("delete" === a.action) {
-          if (
-            !(await L(
-              "此主題下的時間線、節點與連結會一起移到回收區。",
-              "刪除主題",
-            ))
-          )
-            return;
-          g(i.id);
-        } else
-          ((i.title = a.title),
-            (i.description = a.description),
-            (i.updatedAt = y()));
-        (c(), S.render(!0));
-      }
-    },
-    manageTimeline: async function () {
-      if (!E.signedIn) return N();
-      const e = t.timelineIndex.get(t.state.ui.activeTimelineId);
-      if (!e) return;
-      const i = await A({
-        title: "管理案例時間線",
-        description: e.parentNodeId
-          ? "子時間線的主題跟隨來源，只能修改名稱與說明。"
-          : "修改名稱、說明或所屬主題。",
-        values: e,
-        topics: e.parentNodeId ? null : r(),
-        allowDelete: p().filter((t) => t.topicId === e.topicId).length > 1,
-      });
-      if (i) {
-        if ("delete" === i.action) {
-          if (
-            !(await L(
-              "此時間線、子時間線、節點與連結會一起移到回收區。",
-              "刪除時間線",
-            ))
-          )
-            return;
-          I(e.id);
-        } else {
-          ((e.title = i.title), (e.description = i.description));
-          const a = e.parentNodeId ? e.topicId : i.topicId || e.topicId;
-          if (a !== e.topicId) {
-            const i = v(e.id);
-            t.state.timelines.forEach((e) => {
-              i.has(e.id) && (e.topicId = a);
-            });
-          }
-          ((e.topicId = a),
-            (e.updatedAt = y()),
-            "single" === t.state.ui.viewMode && (t.state.ui.activeTopicId = a));
-        }
-        (c(), S.render(!0));
-      }
-    },
-    saveDetail: function (e) {
-      if ((e.preventDefault(), !E.signedIn)) return N();
-      const t = S.selected();
-      var a;
-      t &&
-        ((t.timelineId = $.fieldTimeline.value),
-        (t.type = i.TYPES[$.fieldType.value] ? $.fieldType.value : t.type),
-        (t.role = i.ROLES[$.fieldRole.value] ? $.fieldRole.value : "normal"),
-        (t.precision = $.fieldPrecision.value),
-        (t.dateValue =
-          "day" === (a = t.precision)
-            ? $.fieldDateDay.value
-            : "month" === a
-              ? $.fieldDateMonth.value
-              : "year" === a
-                ? String($.fieldDateYear.value || "").trim()
-                : ""),
-        (t.title = $.fieldTitle.value.trim()),
-        (t.category = $.fieldCategory.value),
-        (t.subject = $.fieldSubject.value.trim()),
-        (t.status = $.fieldStatus.value),
-        (t.cards = "reading" === t.type ? $.fieldCards.value.trim() : ""),
-        (t.interpretation =
-          "reading" === t.type ? $.fieldInterpretation.value.trim() : ""),
-        (t.predictions =
-          "reading" === t.type ? $.fieldPredictions.value.trim() : ""),
-        (t.description =
-          "reading" === t.type ? "" : $.fieldDescription.value.trim()),
-        (t.tags = d($.fieldTags.value)),
-        (t.note = $.fieldNote.value.trim()),
-        (t.updatedAt = y()),
-        S.selectLine(t.timelineId),
-        c(),
-        S.render(!1));
-    },
-    deleteSelected: async function () {
-      if (!E.signedIn) return N();
-      const e = S.selected();
-      if (!e) return;
-      let i = !1;
-      if (
-        t.state.timelines.some((t) => !t.deletedAt && t.parentNodeId === e.id)
-      ) {
-        const e = await ((a = "刪除節點"),
-        (d = "此節點已延伸出子時間線，請選擇處理方式。"),
-        (o = [
-          {
-            value: "node",
-            label: "只刪除此節點",
-            description: "子時間線保留，但來源會顯示在回收區。",
-          },
-          {
-            value: "tree",
-            label: "刪除此節點與衍生時間線",
-            description: "連帶移除所有子時間線與其節點。",
-          },
-        ]),
-        new Promise((e) => {
-          const t = document.createElement("div");
-          ((t.className = "map-modal-backdrop"),
-            (t.innerHTML = `
+
+  function saveAndRender(fit = false) {
+    save();
+    ui.render(fit);
+  }
+
+  async function chooseDeleteMode(title, description, choices) {
+    return new Promise((resolve) => {
+      const modal = document.createElement("div");
+      modal.className = "map-modal-backdrop";
+      modal.innerHTML = `
         <div class="map-modal" role="dialog" aria-modal="true">
-          <div class="map-modal-header"><p class="map-form-kicker">請選擇</p><h3>${n(a)}</h3><p>${n(d)}</p></div>
-          <div class="map-choice-list">${o.map((e) => `<button type="button" class="map-choice-button" data-choice="${n(e.value)}"><strong>${n(e.label)}</strong><span>${n(e.description)}</span></button>`).join("")}</div>
+          <div class="map-modal-header"><p class="map-form-kicker">請選擇</p><h3>${esc(title)}</h3><p>${esc(description)}</p></div>
+          <div class="map-choice-list">${choices.map((choice) => `<button type="button" class="map-choice-button" data-choice="${esc(choice.value)}"><strong>${esc(choice.label)}</strong><span>${esc(choice.description)}</span></button>`).join("")}</div>
           <div class="map-modal-actions"><button type="button" class="btn ghost" data-cancel>取消</button></div>
-        </div>`),
-            document.body.appendChild(t),
-            t.querySelectorAll("[data-choice]").forEach((i) => {
-              i.addEventListener("click", () => M(t, i.dataset.choice, e));
-            }),
-            t
-              .querySelector("[data-cancel]")
-              .addEventListener("click", () => M(t, "", e)));
-        }));
-        if (!e) return;
-        i = "tree" === e;
-      } else if (!(await L("此節點會移到回收區，之後可以復原。", "刪除節點")))
-        return;
-      var a, d, o;
-      (f(e.id, i), c(), S.render(!0));
-    },
-    addLink: function () {
-      if (!E.signedIn) return N();
-      const e = S.selected(),
-        a = t.nodeIndex.get($.linkTarget.value);
-      if (!e || !a || e.id === a.id) return;
-      const n = i.LINKS[$.linkType.value] ? $.linkType.value : "related";
-      t.state.links.some(
-        (t) =>
-          !t.deletedAt &&
-          t.type === n &&
-          ((t.fromNodeId === e.id && t.toNodeId === a.id) ||
-            (t.fromNodeId === a.id && t.toNodeId === e.id)),
-      ) ||
-        (t.state.links.push(
-          h({
-            id: T("link"),
-            fromNodeId: e.id,
-            toNodeId: a.id,
-            type: n,
-            note: $.linkNote.value.trim(),
-            createdAt: y(),
-          }),
-        ),
-        ($.linkTarget.value = ""),
-        ($.linkNote.value = ""),
-        c(),
-        S.render(!1));
-    },
-    removeLink: function (e) {
-      if (!E.signedIn) return N();
-      const i = t.linkIndex.get(e);
-      i &&
-        ((i.deletedAt = y()),
-        (i.deletedBatchId = T("trash")),
-        c(),
-        S.render(!1));
-    },
-    trashModal: function () {
-      if (!E.signedIn) return N();
-      const e = [
-          ...t.state.topics.map((e) => ({ ...e, kind: "主題" })),
-          ...t.state.timelines.map((e) => ({ ...e, kind: "案例時間線" })),
-          ...t.state.nodes.map((e) => ({
-            ...e,
-            kind: i.TYPES[e.type] || "節點",
-          })),
-          ...t.state.links.map((e) => ({
-            ...e,
-            kind: "虛擬連結",
-            title: i.LINKS[e.type],
-          })),
-        ].filter((e) => e.deletedAt),
-        a = new Map();
-      e.forEach((e) => {
-        const t = e.deletedBatchId || e.id;
-        (a.has(t) || a.set(t, { id: t, at: e.deletedAt, items: [] }),
-          a.get(t).items.push(e));
+        </div>`;
+      document.body.appendChild(modal);
+      modal.querySelectorAll("[data-choice]").forEach((button) => {
+        button.addEventListener("click", () => closeModal(modal, button.dataset.choice, resolve));
       });
-      const d = [...a.values()].sort((e, t) => t.at.localeCompare(e.at)),
-        o = document.createElement("div");
-      ((o.className = "map-modal-backdrop"),
-        (o.innerHTML = `
-      <div class="map-modal"><div class="map-modal-header"><p class="map-form-kicker">Recycle bin</p><h3>回收區</h3><p>同一次連帶刪除會以同一批次復原。</p></div>
-      <div class="map-modal-list">${
-        d
-          .map((e) => {
-            const t = e.items[0],
-              i = e.items.length - 1;
-            return `<div class="map-trash-item"><div><strong>${n(t.kind)}｜${n(t.title || t.id)}${i ? ` ＋${i} 項` : ""}</strong><span>${n(e.at.replace("T", " ").slice(0, 19))}</span></div><button type="button" class="map-trash-restore" data-batch="${n(e.id)}">復原此批</button></div>`;
-          })
-          .join("") || '<p class="map-inline-help">回收區目前是空的。</p>'
-      }</div>
-      <div class="map-modal-actions"><button type="button" class="btn ghost" data-close>關閉</button></div></div>`),
-        document.body.appendChild(o),
-        o.querySelectorAll("[data-batch]").forEach((e) => {
-          e.addEventListener("click", () => {
-            (b(e.dataset.batch), c(), o.remove(), S.render(!0));
-          });
-        }),
-        o
-          .querySelector("[data-close]")
-          .addEventListener("click", () => o.remove()));
+      modal.querySelector("[data-cancel]").addEventListener("click", () => closeModal(modal, "", resolve));
+    });
+  }
+
+  TF.actions = {
+    /** 新增第一階分支：時間／空間 O(1)。 */
+    async addRootBranch() {
+      if (!app.signedIn) return openAccount();
+      const result = await openBranchEditor({
+        title: "新增第一階分支",
+        description: "這會從全域時空主幹長出一條案例、研究或專案分支。",
+        values: { visibility: "private", collapsed: false },
+      });
+      if (!result || result.action !== "save") return;
+      const topic = createTopic(result.title, result.description, ctx.state.topics.length);
+      const line = createTimeline(topic.id, result.title, result.description, "", result.visibility);
+      line.collapsed = result.collapsed;
+      ctx.state.topics.push(topic);
+      ctx.state.timelines.push(line);
+      ctx.state.ui.activeTopicId = topic.id;
+      ctx.state.ui.activeTimelineId = line.id;
+      ctx.state.ui.viewMode = "single";
+      ctx.state.ui.showPrivate = true;
+      ctx.state.ui.selectedId = "";
+      saveAndRender(true);
     },
-    clusterModal: function (e) {
-      const d = document.createElement("div");
-      ((d.className = "map-modal-backdrop"),
-        (d.innerHTML = `
-      <div class="map-modal"><div class="map-modal-header"><p class="map-form-kicker">節點聚合</p><h3>此區共有 ${e.length} 個節點</h3><p>放大後會自動垂直展開。</p></div>
-      <div class="map-modal-list">${k(e)
-        .map(
-          (e) =>
-            `<button type="button" class="map-choice-button" data-node="${n(e.id)}"><strong>${n(e.title || i.TYPES[e.type])}</strong><span>${n(w(e).label)}｜${i.TYPES[e.type]}</span></button>`,
-        )
-        .join("")}</div>
-      <div class="map-modal-actions"><button type="button" class="btn ghost" data-close>關閉</button><button type="button" class="btn primary" data-zoom>放大展開</button></div></div>`),
-        document.body.appendChild(d),
-        d.querySelectorAll("[data-node]").forEach((e) => {
-          e.addEventListener("click", () => {
-            const i = t.nodeIndex.get(e.dataset.node);
-            (i && S.selectNode(i), d.remove());
-          });
-        }),
-        d.querySelector("[data-zoom]").addEventListener("click", () => {
-          ((t.state.ui.zoom = a(
-            Math.max(t.state.ui.zoom + 0.35, 0.9),
-            i.MIN_ZOOM,
-            i.MAX_ZOOM,
-          )),
-            c(),
-            d.remove(),
-            S.render(!1));
-        }),
-        d
-          .querySelector("[data-close]")
-          .addEventListener("click", () => d.remove()));
+
+    /** 由所選節點建立遞迴分支：時間／空間 O(1)。 */
+    async addChildTimeline() {
+      if (!app.signedIn) return openAccount();
+      const sourceNode = ui.selected();
+      if (!sourceNode) {
+        await alertAction("請先選擇一個事件節點，再從該節點建立平行分支。", "尚未選擇來源節點");
+        return;
+      }
+      const parentLine = ctx.timelineIndex.get(sourceNode.timelineId);
+      if (!parentLine) return;
+      const inheritedPrivate = isTimelinePrivate(parentLine.id);
+      const result = await openBranchEditor({
+        title: "從此建立平行分支",
+        description: `來源節點：${sourceNode.title || C.TYPES[sourceNode.type]}。新分支會保留這個真實父節點。`,
+        values: {
+          title: `${sourceNode.title || "事件"}｜後續分支`,
+          visibility: "private",
+          collapsed: false,
+        },
+        privacyLocked: inheritedPrivate,
+      });
+      if (!result || result.action !== "save") return;
+      const line = createTimeline(parentLine.topicId, result.title, result.description, sourceNode.id, result.visibility);
+      line.collapsed = result.collapsed;
+      ctx.state.timelines.push(line);
+      ctx.state.ui.activeTopicId = line.topicId;
+      ctx.state.ui.activeTimelineId = line.id;
+      ctx.state.ui.viewMode = "single";
+      ctx.state.ui.showPrivate = true;
+      ctx.state.ui.selectedId = "";
+      saveAndRender(true);
     },
-    exportJson: function () {
-      const i = new Blob([JSON.stringify(t.state, null, 2)], {
-          type: "application/json;charset=UTF-8",
-        }),
-        a = URL.createObjectURL(i),
-        n = document.createElement("a");
-      ((n.href = a),
-        (n.download = `evan-tarot-timeflow-${e.today()}.json`),
-        document.body.appendChild(n),
-        n.click(),
-        n.remove(),
-        URL.revokeObjectURL(a));
+
+    /** 新增節點：陣列尾端加入 O(1)。 */
+    addNode(type) {
+      if (!app.signedIn) return openAccount();
+      const line = ctx.timelineIndex.get(ctx.state.ui.activeTimelineId) || activeTimelines()[0];
+      if (!line) return;
+      const node = createNode(line.id, type);
+      ctx.state.nodes.push(node);
+      ctx.state.ui.selectedId = node.id;
+      ui.selectLine(line.id);
+      saveAndRender(true);
     },
-    reset: async function () {
-      if (!E.signedIn) return N();
-      (await L(
-        "要清空全部主題時間流嗎？此動作不會進入回收區，請先下載 JSON。",
-        "重設時間流",
-      )) && ((t.state = e.initialState()), c(), S.render(!0));
+
+    /** 管理目前分支：時間 O(L+D)，只在根分支更名／刪除時同步必要群組。 */
+    async manageTimeline() {
+      if (!app.signedIn) return openAccount();
+      const line = ctx.timelineIndex.get(ctx.state.ui.activeTimelineId);
+      if (!line) return;
+      const parentLineId = ctx.parentTimelineByTimelineId.get(line.id) || "";
+      const privacyLocked = parentLineId ? isTimelinePrivate(parentLineId) : false;
+      const result = await openBranchEditor({
+        title: "管理目前分支",
+        description: line.parentNodeId
+          ? "修改分支名稱、顯示範圍或收合下層；真實來源節點不會因此改變。"
+          : "修改第一階分支；它仍會保留在全域時空主幹之下。",
+        values: line,
+        allowDelete: activeTimelines().length > 1,
+        privacyLocked,
+      });
+      if (!result) return;
+      if (result.action === "delete") {
+        if (!(await confirmAction("這條分支、所有下層分支、事件與連結都會一起移到回收區。", "刪除分支"))) return;
+        const subtreeIds = descendants(line.id);
+        const hasSiblingInTopic = activeTimelines().some(
+          (candidate) => candidate.topicId === line.topicId && !subtreeIds.has(candidate.id)
+        );
+        if (!line.parentNodeId && !hasSiblingInTopic) deleteTopic(line.topicId);
+        else deleteTimeline(line.id);
+        saveAndRender(true);
+        return;
+      }
+
+      const topic = ctx.topicIndex.get(line.topicId);
+      const generic = /^(第一(?:案例)?時間線|第一條時間線|新案例時間線|第一分支)$/.test(line.title);
+      const syncTopicTitle = !line.parentNodeId && topic && (generic || topic.title === line.title);
+      line.title = result.title;
+      line.description = result.description;
+      line.visibility = privacyLocked ? "private" : result.visibility;
+      line.collapsed = result.collapsed;
+      line.updatedAt = nowIso();
+      if (syncTopicTitle) {
+        topic.title = result.title;
+        topic.description = result.description;
+        topic.updatedAt = line.updatedAt;
+      }
+      saveAndRender(true);
+    },
+
+    /** 儲存節點詳細資料：時間／空間 O(1)。 */
+    saveDetail(event) {
+      event.preventDefault();
+      if (!app.signedIn) return openAccount();
+      const node = ui.selected();
+      if (!node) return;
+      node.timelineId = refs.fieldTimeline.value;
+      node.type = C.TYPES[refs.fieldType.value] ? refs.fieldType.value : node.type;
+      node.role = C.ROLES[refs.fieldRole.value] ? refs.fieldRole.value : "normal";
+      node.precision = refs.fieldPrecision.value;
+      node.dateValue = node.precision === "day" ? refs.fieldDateDay.value
+        : node.precision === "month" ? refs.fieldDateMonth.value
+          : node.precision === "year" ? String(refs.fieldDateYear.value || "").trim()
+            : "";
+      node.title = refs.fieldTitle.value.trim();
+      node.category = refs.fieldCategory.value;
+      node.subject = refs.fieldSubject.value.trim();
+      node.status = refs.fieldStatus.value;
+      node.cards = node.type === "reading" ? refs.fieldCards.value.trim() : "";
+      node.interpretation = node.type === "reading" ? refs.fieldInterpretation.value.trim() : "";
+      node.predictions = node.type === "reading" ? refs.fieldPredictions.value.trim() : "";
+      node.description = node.type === "reading" ? "" : refs.fieldDescription.value.trim();
+      node.tags = tags(refs.fieldTags.value);
+      node.note = refs.fieldNote.value.trim();
+      node.updatedAt = nowIso();
+      ui.selectLine(node.timelineId);
+      saveAndRender(false);
+    },
+
+    /** 刪除節點：單筆 O(1)，含子樹時 O(T+L+N+E)。 */
+    async deleteSelected() {
+      if (!app.signedIn) return openAccount();
+      const node = ui.selected();
+      if (!node) return;
+      let includeChildren = false;
+      if (ctx.state.timelines.some((line) => !line.deletedAt && line.parentNodeId === node.id)) {
+        const mode = await chooseDeleteMode(
+          "刪除節點",
+          "這個節點已長出分支，請決定是否連同整個子樹刪除。",
+          [
+            { value: "node", label: "只刪除此節點", description: "下層分支保留，但來源會顯示為回收區節點。" },
+            { value: "tree", label: "刪除節點與整個子樹", description: "連帶移除所有下層分支與事件。" },
+          ],
+        );
+        if (!mode) return;
+        includeChildren = mode === "tree";
+      } else if (!(await confirmAction("此節點會移到回收區，之後可以復原。", "刪除節點"))) {
+        return;
+      }
+      deleteNode(node.id, includeChildren);
+      saveAndRender(true);
+    },
+
+    /** 新增虛擬連結：重複檢查 O(E)，空間 O(1)。 */
+    addLink() {
+      if (!app.signedIn) return openAccount();
+      const from = ui.selected();
+      const to = ctx.nodeIndex.get(refs.linkTarget.value);
+      if (!from || !to || from.id === to.id) return;
+      const type = C.LINKS[refs.linkType.value] ? refs.linkType.value : "related";
+      const exists = ctx.state.links.some((link) => !link.deletedAt && link.type === type && (
+        (link.fromNodeId === from.id && link.toNodeId === to.id)
+        || (link.fromNodeId === to.id && link.toNodeId === from.id)
+      ));
+      if (exists) return;
+      ctx.state.links.push(normalizeLink({
+        id: id("link"),
+        fromNodeId: from.id,
+        toNodeId: to.id,
+        type,
+        note: refs.linkNote.value.trim(),
+        createdAt: nowIso(),
+      }));
+      refs.linkTarget.value = "";
+      refs.linkNote.value = "";
+      saveAndRender(false);
+    },
+
+    removeLink(linkId) {
+      if (!app.signedIn) return openAccount();
+      const link = ctx.linkIndex.get(linkId);
+      if (!link) return;
+      link.deletedAt = nowIso();
+      link.deletedBatchId = id("trash");
+      saveAndRender(false);
+    },
+
+    /** 回收區分批索引：時間／空間 O(T+L+N+E)。 */
+    trashModal() {
+      if (!app.signedIn) return openAccount();
+      const deleted = [
+        ...ctx.state.topics.map((item) => ({ ...item, kind: "分支群組" })),
+        ...ctx.state.timelines.map((item) => ({ ...item, kind: "分支" })),
+        ...ctx.state.nodes.map((item) => ({ ...item, kind: C.TYPES[item.type] || "節點" })),
+        ...ctx.state.links.map((item) => ({ ...item, kind: "虛擬連結", title: C.LINKS[item.type] })),
+      ].filter((item) => item.deletedAt);
+      const batches = new Map();
+      deleted.forEach((item) => {
+        const batchId = item.deletedBatchId || item.id;
+        if (!batches.has(batchId)) batches.set(batchId, { id: batchId, at: item.deletedAt, items: [] });
+        batches.get(batchId).items.push(item);
+      });
+      const sorted = [...batches.values()].sort((a, b) => b.at.localeCompare(a.at));
+      const modal = document.createElement("div");
+      modal.className = "map-modal-backdrop";
+      modal.innerHTML = `
+        <div class="map-modal"><div class="map-modal-header"><p class="map-form-kicker">Recycle bin</p><h3>回收區</h3><p>同一次連帶刪除會以同一批次復原。</p></div>
+        <div class="map-modal-list">${sorted.map((batch) => {
+          const first = batch.items[0];
+          const extra = batch.items.length - 1;
+          return `<div class="map-trash-item"><div><strong>${esc(first.kind)}｜${esc(first.title || first.id)}${extra ? ` ＋${extra} 項` : ""}</strong><span>${esc(batch.at.replace("T", " ").slice(0, 19))}</span></div><button type="button" class="map-trash-restore" data-batch="${esc(batch.id)}">復原此批</button></div>`;
+        }).join("") || '<p class="map-inline-help">回收區目前是空的。</p>'}</div>
+        <div class="map-modal-actions"><button type="button" class="btn ghost" data-close>關閉</button></div></div>`;
+      document.body.appendChild(modal);
+      modal.querySelectorAll("[data-batch]").forEach((button) => {
+        button.addEventListener("click", () => {
+          restoreBatch(button.dataset.batch);
+          modal.remove();
+          saveAndRender(true);
+        });
+      });
+      modal.querySelector("[data-close]").addEventListener("click", () => modal.remove());
+    },
+
+    clusterModal(nodes) {
+      const modal = document.createElement("div");
+      modal.className = "map-modal-backdrop";
+      modal.innerHTML = `
+        <div class="map-modal"><div class="map-modal-header"><p class="map-form-kicker">事件聚合</p><h3>此區共有 ${nodes.length} 個事件</h3><p>選擇一項查看，或放大畫布讓節點展開。</p></div>
+        <div class="map-modal-list">${sortNodes(nodes).map((node) => `<button type="button" class="map-choice-button" data-node="${esc(node.id)}"><strong>${esc(node.title || C.TYPES[node.type])}</strong><span>${esc(dateRange(node).label)}｜${C.TYPES[node.type]}</span></button>`).join("")}</div>
+        <div class="map-modal-actions"><button type="button" class="btn ghost" data-close>關閉</button><button type="button" class="btn primary" data-zoom>放大展開</button></div></div>`;
+      document.body.appendChild(modal);
+      modal.querySelectorAll("[data-node]").forEach((button) => {
+        button.addEventListener("click", () => {
+          const node = ctx.nodeIndex.get(button.dataset.node);
+          if (node) ui.selectNode(node);
+          modal.remove();
+        });
+      });
+      modal.querySelector("[data-zoom]").addEventListener("click", () => {
+        ctx.state.ui.zoom = clamp(Math.max(ctx.state.ui.zoom + .35, .9), C.MIN_ZOOM, C.MAX_ZOOM);
+        save();
+        modal.remove();
+        ui.render(false);
+      });
+      modal.querySelector("[data-close]").addEventListener("click", () => modal.remove());
+    },
+
+    /** 完整私密備份：時間／空間 O(S)，S 為序列化資料大小。 */
+    exportJson() {
+      if (!app.signedIn) return openAccount();
+      const blob = new Blob([JSON.stringify(ctx.state, null, 2)], { type: "application/json;charset=UTF-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `evan-tarot-time-tree-${TF.today()}.json`;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    },
+
+    async reset() {
+      if (!app.signedIn) return openAccount();
+      if (!(await confirmAction("要清空整棵時間樹嗎？此動作不會進入回收區，請先下載 JSON。", "重設時間樹"))) return;
+      ctx.state = TF.initialState();
+      saveAndRender(true);
     },
   };
-})((window.EvanTimeflowV5 = window.EvanTimeflowV5 || {}));
+})(window.EvanTimeflowV5 = window.EvanTimeflowV5 || {});
