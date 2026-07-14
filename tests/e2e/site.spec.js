@@ -215,7 +215,7 @@ test("世足已鎖定紀錄可修改賽事與比分並保留牌面解讀", async
     const match = {
       competition: "編輯前測試盃",
       stage: "小組賽",
-      kickoff: "2026-07-12T12:30:00.000Z",
+      kickoff: new Date(Date.now() + 86_400_000).toISOString(),
       infoState: "賽前且先發未公布",
       homeTeam: "甲隊",
       awayTeam: "乙隊",
@@ -281,7 +281,7 @@ test("世足決勝紀錄可由 90 分鐘勝負改為延長賽再進 PK", async (
     const draft = core.createDraft({
       competition: "決勝編輯測試盃",
       stage: "16強",
-      kickoff: "2026-07-13T12:30:00.000Z",
+      kickoff: new Date(Date.now() + 86_400_000).toISOString(),
       infoState: "賽前且先發未公布",
       homeTeam: "主隊",
       awayTeam: "客隊",
