@@ -1,0 +1,115 @@
+/* ===== 文章圖片上傳 ===== */
+.article-admin-media-upload {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0 18px;
+  border: 1px solid rgba(139, 123, 255, 0.34);
+  border-radius: 14px;
+  padding: 14px;
+  background: rgba(16, 16, 44, 0.72);
+}
+
+.article-admin-media-upload-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.article-admin-media-upload-heading h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.article-admin-media-upload-limit {
+  color: var(--text-muted);
+  font-size: 0.74rem;
+  line-height: 1.5;
+}
+
+.article-admin-media-upload label {
+  display: grid;
+  gap: 6px;
+  color: rgba(239, 238, 255, 0.9);
+  font-size: 0.8rem;
+  font-weight: 650;
+}
+
+.article-admin-media-upload input,
+.article-admin-media-upload select,
+.article-admin-media-upload textarea {
+  width: 100%;
+  border: 1px solid rgba(139, 123, 255, 0.34);
+  border-radius: 10px;
+  padding: 9px 10px;
+  background: rgba(4, 5, 20, 0.94);
+  color: var(--text-main);
+  font: inherit;
+}
+
+.article-admin-media-upload input:focus,
+.article-admin-media-upload select:focus,
+.article-admin-media-upload textarea:focus {
+  outline: 2px solid rgba(139, 123, 255, 0.35);
+  border-color: var(--accent-strong);
+}
+
+.article-admin-media-upload input[type="file"] {
+  padding: 7px;
+  color: var(--text-muted);
+}
+
+.article-admin-media-upload input[type="file"]::file-selector-button {
+  margin-right: 9px;
+  border: 1px solid rgba(139, 123, 255, 0.35);
+  border-radius: 8px;
+  padding: 7px 9px;
+  background: rgba(139, 123, 255, 0.14);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.article-admin-media-upload-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(150px, 0.42fr);
+  gap: 10px;
+}
+
+.article-admin-media-id-status {
+  min-height: 1.35em;
+  color: var(--text-muted);
+  font-size: 0.72rem;
+  font-weight: 500;
+}
+
+.article-admin-media-id-status[data-state="success"] {
+  color: #9ee7be;
+}
+
+.article-admin-media-id-status[data-state="error"] {
+  color: #ff9aaa;
+}
+
+.article-admin-media-id-status[data-state="checking"] {
+  color: #cdbdff;
+}
+
+.article-admin-media-upload .tool-feedback-message {
+  margin: 0;
+}
+
+.article-admin-media-upload button:disabled {
+  cursor: wait;
+  opacity: 0.7;
+}
+
+@media (max-width: 600px) {
+  .article-admin-media-upload-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .article-admin-media-upload-heading {
+    display: grid;
+  }
+}
