@@ -1,15 +1,16 @@
 // ==============================
-// Evan Tarot Cloud API v5.2.0
-// 後端驗證＋暱稱＋文章／服務管理＋歷史／備份＋留言＋塔羅尋物
+// Evan Tarot Cloud API v5.3.0
+// 後端驗證＋暱稱＋文章／圖片／服務管理＋歷史／備份＋留言＋塔羅尋物
 // ==============================
 //
 // 主要函式複雜度：
 // - doPost / createComment：O(p)，p = Profiles 列數
 // - doGet / listComments：O(n + p)，n = Comments 列數
 // - listPublishedArticles_：O(a log a)，a = Articles 列數
+// - listPublicArticleMedia_：O(m log m)，m = ArticleMedia 列數
 // - listPublishedServices_：O(s log s + q log q)，q = 方案總數
 // - handleLostItemRequest_：O(c × z + z log z)，c <= 3、z = 11 個大型區域
-// 空間複雜度：O(n + p + a + s + q + r × z)
+// 空間複雜度：O(n + p + a + m + s + q + r × z)
 //
 // 更快替代方案比較：
 // - 各功能各自建立 Web App：端點多、驗證與限流容易分歧。
@@ -33,7 +34,9 @@ const COMMENTS_CONFIG = Object.freeze({
 });
 
 const ADMIN_ACTIONS = new Set([
-  "adminarticles", "savearticle", "deletearticle", "adminservices", "saveservice", "deleteservice",
+  "adminarticles", "savearticle", "deletearticle",
+  "adminarticlemedia", "checkarticlemediaid", "uploadarticlemedia",
+  "adminservices", "saveservice", "deleteservice",
 ]);
 
 const LOST_ITEM_CONFIG = Object.freeze({
@@ -124,6 +127,27 @@ function doGet(e) {
       const article = getPublishedArticleById_(e?.parameter?.id);
       return jsonOutput_({ success: Boolean(article), article, error: article ? "" : "找不到已發布文章。" });
     }
+    if (action === "article-media-health") {
+      if (typeof getArticleMediaHealth_ !== "function") {
+        return jsonOutput_({ success: false, ready: false, error: "ArticleMedia.gs 尚未安裝", missingHeaders: [] });
+      }
+      const health = getArticleMediaHealth_();
+      return jsonOutput_({
+        success: health.ready,
+        ready: health.ready,
+        service: "Evan Tarot Article Media",
+        error: health.error || "",
+        missingHeaders: health.missingHeaders || [],
+        time: formatTaipeiDate_(new Date()),
+      });
+    }
+    if (action === "article-media") {
+      if (typeof listPublicArticleMedia_ !== "function") {
+        return jsonOutput_({ success: true, media: [], warning: "ArticleMedia.gs 尚未安裝。", time: formatTaipeiDate_(new Date()) });
+      }
+      const limit = clampInteger_(Number(e?.parameter?.limit) || 500, 1, 500);
+      return jsonOutput_({ success: true, media: listPublicArticleMedia_(limit), time: formatTaipeiDate_(new Date()) });
+    }
     if (action === "services-health") {
       if (typeof getServicesHealth_ !== "function") return jsonOutput_({ success: false, ready: false, error: "Services.gs 尚未安裝" });
       const health = getServicesHealth_();
@@ -161,6 +185,8 @@ function buildCompositeHealth_() {
     ? getAuthProfilesHealth_() : { ready: false, missing: ["AuthProfiles.gs 尚未安裝"] };
   const articlesHealth = typeof getArticlesHealth_ === "function"
     ? getArticlesHealth_() : { ready: false, error: "Articles.gs 尚未安裝" };
+  const articleMediaHealth = typeof getArticleMediaHealth_ === "function"
+    ? getArticleMediaHealth_() : { ready: false, error: "ArticleMedia.gs 尚未安裝" };
   const servicesHealth = typeof getServicesHealth_ === "function"
     ? getServicesHealth_() : { ready: false, error: "Services.gs 尚未安裝" };
   return {
@@ -175,6 +201,8 @@ function buildCompositeHealth_() {
     lostItemVersion: LOST_ITEM_CONFIG.version,
     articlesConfigured: articlesHealth.ready,
     articlesError: articlesHealth.error || "",
+    articleMediaConfigured: articleMediaHealth.ready,
+    articleMediaError: articleMediaHealth.error || "",
     servicesConfigured: servicesHealth.ready,
     servicesSchemaVersion: servicesHealth.schemaVersion || 1,
     servicesError: servicesHealth.error || "",
@@ -254,6 +282,14 @@ function handleAdminAction_(action, payload, lock, googleUser) {
     if (typeof listAdminArticles_ !== "function") throw new Error("ArticleAdmin.gs 尚未安裝。");
     return { success: true, articles: listAdminArticles_() };
   }
+  if (action === "adminarticlemedia") {
+    if (typeof listAdminArticleMedia_ !== "function") throw new Error("ArticleMedia.gs 尚未安裝。");
+    return { success: true, media: listAdminArticleMedia_() };
+  }
+  if (action === "checkarticlemediaid") {
+    if (typeof isArticleMediaIdAvailable_ !== "function") throw new Error("ArticleMedia.gs 尚未安裝。");
+    return Object.assign({ success: true }, isArticleMediaIdAvailable_(payload.mediaId));
+  }
   if (action === "adminservices") {
     if (typeof listAdminServices_ !== "function") throw new Error("Services.gs 尚未安裝。");
     return { success: true, services: listAdminServices_() };
@@ -261,6 +297,10 @@ function handleAdminAction_(action, payload, lock, googleUser) {
   if (!lock.tryLock(10000)) return { success: false, error: "系統忙碌中，請稍後重試。" };
   const actorEmail = googleUser?.email || "";
   const requestId = sanitizeText_(payload.requestId, 160);
+  if (action === "uploadarticlemedia") {
+    if (typeof uploadArticleMedia_ !== "function") throw new Error("ArticleMedia.gs 尚未安裝。");
+    return { success: true, media: uploadArticleMedia_(payload.media, payload.file) };
+  }
   if (action === "savearticle") {
     if (typeof saveArticle_ !== "function") throw new Error("ArticleAdmin.gs 尚未安裝。");
     const historyId = sanitizeText_(payload.originalId || payload.article?.id, 120);
