@@ -1,17 +1,17 @@
 // ==============================
 // article-media-library.js
-// 文章共用圖片索引：正文只保存圖片代碼，實際圖片集中由此處管理。
+// 文章共用圖片索引：內建圖片提供離線備援，上傳圖片由 Apps Script 公開索引載入。
 // ==============================
 //
 // 主要函式複雜度：
-// - get：時間 O(1)，空間 O(1)
-// - list：時間 O(m)，空間 O(m)，m = 圖片數量
+// - get / has / add：時間 O(1)，空間 O(1)
+// - list / refresh：時間 O(m)，空間 O(m)，m = 圖片數量
 // - resolveSrc：時間 O(1)，空間 O(1)
 // - upgrade：時間 O(i)，空間 O(i)，i = 掃描範圍內的圖片數量
 //
 // 更快替代方案比較：
-// - Base64 分段重組：需額外下載多個文字檔、合併、解碼並建立 Blob，失敗點多。
-// - 直接圖片檔：瀏覽器只需一次請求且可正常快取，因此採用此方案。
+// - 每次渲染圖片都向後端查詢：同一篇文章有多張圖時會產生重複網路請求。
+// - 本實作：啟動時批次載入一次並建立 Map，後續依圖片代碼查找；內建圖片在雲端失敗時仍可使用。
 // ==============================
 
 (function initArticleMediaLibrary() {
@@ -19,8 +19,9 @@
 
   const DEVIL_ID = "tarot-devil-xv";
   const VERSION = "20260701-devil-original-v1";
+  const VALID_ID_PATTERN = /^[a-z0-9][a-z0-9_-]{1,79}$/;
 
-  const MEDIA_LIBRARY = Object.freeze({
+  const STATIC_MEDIA_LIBRARY = Object.freeze({
     "case-shadow-dialogue": Object.freeze({
       src: "https://images.pexels.com/photos/6800200/pexels-photo-6800200.jpeg?auto=compress&cs=tinysrgb&w=1600",
       alt: "一對男女在昏暗空間中面對彼此，只看得到剪影。",
@@ -53,13 +54,113 @@
     }),
   });
 
+  const staticIds = new Set(Object.keys(STATIC_MEDIA_LIBRARY));
+  const remoteIds = new Set();
+  const mediaById = new Map(
+    Object.entries(STATIC_MEDIA_LIBRARY).map(([id, media]) => [id, Object.freeze({ id, ...media })])
+  );
+
+  function normalizeId(mediaId) {
+    const id = String(mediaId || "").trim().toLowerCase();
+    return VALID_ID_PATTERN.test(id) ? id : "";
+  }
+
+  function getApiUrl() {
+    return String(
+      window.EVAN_CLOUD_CONFIG?.articlesApiUrl ||
+      window.EVAN_CLOUD_CONFIG?.commentsApiUrl ||
+      ""
+    ).trim();
+  }
+
+  function normalizeHttpUrl(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    try {
+      const url = new URL(raw, window.location.href);
+      return ["https:", "http:"].includes(url.protocol) ? url.href : "";
+    } catch (error) {
+      return "";
+    }
+  }
+
+  /** 正規化雲端圖片。時間／空間 O(1)。 */
+  function normalizeRemoteMedia(raw) {
+    const id = normalizeId(raw?.id);
+    const src = normalizeHttpUrl(raw?.src);
+    if (!id || !src) return null;
+    return Object.freeze({
+      id,
+      src,
+      alt: String(raw?.alt || "").trim(),
+      caption: String(raw?.caption || "").trim(),
+      creditLabel: String(raw?.creditLabel || "").trim(),
+      creditUrl: normalizeHttpUrl(raw?.creditUrl),
+      defaultVariant: ["cover", "wide", "portrait", "inline"].includes(raw?.defaultVariant)
+        ? raw.defaultVariant
+        : "wide",
+      adminVariant: ["cover", "wide", "portrait", "inline"].includes(raw?.adminVariant)
+        ? raw.adminVariant
+        : "wide",
+      createdAt: String(raw?.createdAt || "").trim(),
+      updatedAt: String(raw?.updatedAt || "").trim(),
+    });
+  }
+
   function get(mediaId) {
-    const normalizedId = String(mediaId || "").trim().toLowerCase();
-    return MEDIA_LIBRARY[normalizedId] || null;
+    const normalizedId = normalizeId(mediaId);
+    return normalizedId ? mediaById.get(normalizedId) || null : null;
+  }
+
+  function has(mediaId) {
+    const normalizedId = normalizeId(mediaId);
+    return Boolean(normalizedId && mediaById.has(normalizedId));
   }
 
   function list() {
-    return Object.entries(MEDIA_LIBRARY).map(([id, media]) => ({ id, ...media }));
+    return Array.from(mediaById.values());
+  }
+
+  /** 加入單張雲端圖片。時間／空間 O(1)。 */
+  function add(rawMedia) {
+    const media = normalizeRemoteMedia(rawMedia);
+    if (!media) throw new Error("圖片資料不完整。");
+    if (staticIds.has(media.id)) throw new Error(`圖片名稱「${media.id}」已被內建圖片使用。`);
+    mediaById.set(media.id, media);
+    remoteIds.add(media.id);
+    document.dispatchEvent(new CustomEvent("evan:article-media-updated", { detail: { id: media.id } }));
+    return media;
+  }
+
+  /** 重新載入雲端圖片索引。時間／空間 O(m)。 */
+  async function refresh(options = {}) {
+    const apiUrl = getApiUrl();
+    if (!apiUrl) return list();
+
+    try {
+      const url = new URL(apiUrl);
+      url.searchParams.set("action", "article-media");
+      url.searchParams.set("limit", "500");
+      url.searchParams.set("_", Date.now().toString(36));
+      const response = await fetch(url.toString(), { cache: "no-store", redirect: "follow" });
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      const payload = await response.json();
+      if (!payload?.success) throw new Error(payload?.error || "圖片索引讀取失敗。");
+
+      remoteIds.forEach((id) => mediaById.delete(id));
+      remoteIds.clear();
+      (Array.isArray(payload.media) ? payload.media : []).forEach((rawMedia) => {
+        const media = normalizeRemoteMedia(rawMedia);
+        if (!media || staticIds.has(media.id)) return;
+        mediaById.set(media.id, media);
+        remoteIds.add(media.id);
+      });
+      document.dispatchEvent(new CustomEvent("evan:article-media-updated", { detail: { refreshed: true } }));
+      return list();
+    } catch (error) {
+      if (!options.silent) console.warn("[article-media] 雲端圖片索引讀取失敗：", error);
+      return list();
+    }
   }
 
   async function resolveSrc(mediaId) {
@@ -115,9 +216,15 @@
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
+  const ready = refresh({ silent: true });
+
   window.EvanArticleMedia = Object.freeze({
+    ready,
     get,
+    has,
     list,
+    add,
+    refresh,
     resolveSrc,
     upgrade,
   });
