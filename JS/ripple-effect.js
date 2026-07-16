@@ -7,6 +7,7 @@
 // - initPointerRippleEffect：O(1) / O(1)
 // - updatePointerGlow：O(1) / O(1)
 // - spawnRipple：O(1) / O(1)
+// - loadFootballScrollStability：O(1) / O(1)
 // - loadLostItemUx：O(1) / O(1)
 // - loadLostItemFormUx：O(1) / O(1)
 // - loadSiteLayoutOptimizer：O(1) / O(1)
@@ -102,6 +103,18 @@
   window.addEventListener('pointermove', handlePointerMove, { passive: true });
   window.addEventListener('pointerleave', handlePointerLeave, { passive: true });
   window.addEventListener('blur', handlePointerLeave);
+})();
+
+(function loadFootballScrollStability() {
+  if (!document.getElementById('football-tool')) return;
+  if (document.querySelector('script[data-football-scroll-stability="1"]')) return;
+
+  const script = document.createElement('script');
+  script.src = 'JS/football-scroll-stability.js?v=20260716-football-scroll-anchor-v1';
+  script.async = false;
+  script.dataset.footballScrollStability = '1';
+  script.onerror = () => console.warn('[football-scroll-stability] 賽果畫面穩定模組載入失敗。');
+  document.head.appendChild(script);
 })();
 
 (function loadLostItemFormUx() {
