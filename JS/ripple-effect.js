@@ -16,15 +16,14 @@
 // - 暴力法：每次 pointermove 都直接建立 DOM 動畫，事件頻率高時容易造成掉幀。
 // - 優化法：背景光點用 requestAnimationFrame 合併更新，波紋則加上時間與位移門檻，
 //   只在「真的有移動」時生成，因此互動感夠、成本也更穩定。
-// - 資料密集工作區：停用全畫面滑鼠光暈與波紋，避免大量卡片上方持續重繪造成閃動感。
+// - 世足頁跳動已由獨立的 scroll stability 模組處理；水波紋保留，不再把兩者混為同一問題。
 // ==============================
 
 (function initPointerRippleEffect() {
   const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   const supportsHover = window.matchMedia('(hover: hover)').matches;
-  const isDataDenseWorkspace = Boolean(document.getElementById('football-tool'));
 
-  if (prefersReducedMotion || !supportsHover || isDataDenseWorkspace) {
+  if (prefersReducedMotion || !supportsHover) {
     return;
   }
 
