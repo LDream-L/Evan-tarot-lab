@@ -16,7 +16,7 @@
 // - 暴力法：每次 pointermove 都直接建立 DOM 動畫，事件頻率高時容易造成掉幀。
 // - 優化法：背景光點用 requestAnimationFrame 合併更新，波紋則加上時間與位移門檻，
 //   只在「真的有移動」時生成，因此互動感夠、成本也更穩定。
-// - 世足頁跳動已由獨立的 scroll stability 模組處理；水波紋保留，不再把兩者混為同一問題。
+// - 世足頁跳動由有限次 scroll stability 校正處理；水波紋保留，兩者不共用 DOM 監看。
 // ==============================
 
 (function initPointerRippleEffect() {
@@ -109,7 +109,7 @@
   if (document.querySelector('script[data-football-scroll-stability="1"]')) return;
 
   const script = document.createElement('script');
-  script.src = 'JS/football-scroll-stability.js?v=20260716-football-scroll-anchor-v1';
+  script.src = 'JS/football-scroll-stability.js?v=20260720-football-scroll-anchor-v2';
   script.async = false;
   script.dataset.footballScrollStability = '1';
   script.onerror = () => console.warn('[football-scroll-stability] 賽果畫面穩定模組載入失敗。');
