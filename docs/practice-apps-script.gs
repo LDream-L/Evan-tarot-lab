@@ -29,82 +29,14 @@ const PRACTICE_FIELDS = [
 ];
 
 const PRACTICE_EMAIL_SECTIONS = Object.freeze([
-  Object.freeze({
-    title: '基本資料',
-    fields: [
-      ['practice-date', '日期'], ['practice-time', '時間'],
-      ['practice-session-number', '本週第幾次'],
-      ['practice-duration', '實際完成時間', '分鐘'],
-      ['practice-audio-duration', '實際音檔長度', '分鐘']
-    ]
-  }),
-  Object.freeze({
-    title: '開始前狀態',
-    fields: [
-      ['practice-willingness', '願意開始', '/10'],
-      ['practice-mental', '精神狀態', '/10'],
-      ['practice-fatigue', '身體疲累', '/10'],
-      ['practice-anxiety', '焦慮或躁動', '/10']
-    ]
-  }),
-  Object.freeze({
-    title: '過程與節奏',
-    fields: [
-      ['practice-distraction', '注意力最常跑去哪裡'],
-      ['practice-pace', '整體速度'],
-      ['practice-helpful-line', '最有幫助的一句'],
-      ['practice-awkward-line', '最出戲的一句'],
-      ['practice-repeated', '覺得重複的地方'],
-      ['practice-speed-notes', '太快／太慢的地方']
-    ]
-  }),
-  Object.freeze({
-    title: '身體反應',
-    fields: [
-      ['practice-brow', '眉心感覺'], ['practice-body-sensation', '其他身體感'],
-      ['practice-dizziness', '頭暈'], ['practice-head-pressure', '頭脹'],
-      ['practice-chest-tightness', '胸悶'], ['practice-nausea', '噁心'],
-      ['practice-floating', '飄忽或不真實感'], ['practice-anxiety-rise', '焦慮升高'],
-      ['practice-discomfort', '其他不舒服']
-    ]
-  }),
-  Object.freeze({
-    title: '出現的內容',
-    fields: [
-      ['practice-first-word', '第一個字'], ['practice-first-image', '第一個畫面'],
-      ['practice-first-emotion', '第一個情緒'], ['practice-first-body', '第一個身體感'],
-      ['practice-interpretation', '後來自己補上的解釋'],
-      ['practice-no-content', '本次沒有明顯內容']
-    ]
-  }),
-  Object.freeze({
-    title: '回神',
-    fields: [
-      ['practice-clear-after', '睜眼後是否清楚'],
-      ['practice-recovery-seconds', '完全回到正常狀態', '秒'],
-      ['practice-best-reorientation', '最有效的回神步驟'],
-      ['practice-sudden-step', '仍然太突然的步驟']
-    ]
-  }),
-  Object.freeze({
-    title: '塔羅校準',
-    optional: true,
-    fields: [
-      ['practice-card', '抽到的牌'], ['practice-card-orientation', '正逆位'],
-      ['practice-awake-for-tarot', '抽牌前是否已完全清醒'],
-      ['practice-tarot-match', '共同點'],
-      ['practice-tarot-mismatch', '不同點'],
-      ['practice-followup-event', '後續實際事件']
-    ]
-  }),
-  Object.freeze({
-    title: '練習後',
-    fields: [
-      ['practice-after-30', '30 分鐘後狀態'], ['practice-sleep', '當晚睡眠'],
-      ['practice-next-day', '隔天狀態'], ['practice-willing-next', '下一次是否願意再做'],
-      ['practice-next-change', '最希望下一版修改的地方']
-    ]
-  })
+  Object.freeze({ title: '基本資料', fields: [['practice-date', '日期'], ['practice-time', '時間'], ['practice-session-number', '本週第幾次'], ['practice-duration', '實際完成時間', '分鐘'], ['practice-audio-duration', '實際音檔長度', '分鐘']] }),
+  Object.freeze({ title: '開始前狀態', fields: [['practice-willingness', '願意開始', '/10'], ['practice-mental', '精神狀態', '/10'], ['practice-fatigue', '身體疲累', '/10'], ['practice-anxiety', '焦慮或躁動', '/10']] }),
+  Object.freeze({ title: '過程與節奏', fields: [['practice-distraction', '注意力最常跑去哪裡'], ['practice-pace', '整體速度'], ['practice-helpful-line', '最有幫助的一句'], ['practice-awkward-line', '最出戲的一句'], ['practice-repeated', '覺得重複的地方'], ['practice-speed-notes', '太快／太慢的地方']] }),
+  Object.freeze({ title: '身體反應', fields: [['practice-brow', '眉心感覺'], ['practice-body-sensation', '其他身體感'], ['practice-dizziness', '頭暈'], ['practice-head-pressure', '頭脹'], ['practice-chest-tightness', '胸悶'], ['practice-nausea', '噁心'], ['practice-floating', '飄忽或不真實感'], ['practice-anxiety-rise', '焦慮升高'], ['practice-discomfort', '其他不舒服']] }),
+  Object.freeze({ title: '出現的內容', fields: [['practice-first-word', '第一個字'], ['practice-first-image', '第一個畫面'], ['practice-first-emotion', '第一個情緒'], ['practice-first-body', '第一個身體感'], ['practice-interpretation', '後來自己補上的解釋'], ['practice-no-content', '本次沒有明顯內容']] }),
+  Object.freeze({ title: '回神', fields: [['practice-clear-after', '睜眼後是否清楚'], ['practice-recovery-seconds', '完全回到正常狀態', '秒'], ['practice-best-reorientation', '最有效的回神步驟'], ['practice-sudden-step', '仍然太突然的步驟']] }),
+  Object.freeze({ title: '塔羅校準', optional: true, fields: [['practice-card', '抽到的牌'], ['practice-card-orientation', '正逆位'], ['practice-awake-for-tarot', '抽牌前是否已完全清醒'], ['practice-tarot-match', '共同點'], ['practice-tarot-mismatch', '不同點'], ['practice-followup-event', '後續實際事件']] }),
+  Object.freeze({ title: '練習後', fields: [['practice-after-30', '30 分鐘後狀態'], ['practice-sleep', '當晚睡眠'], ['practice-next-day', '隔天狀態'], ['practice-willing-next', '下一次是否願意再做'], ['practice-next-change', '最希望下一版修改的地方']] })
 ]);
 
 const PRACTICE_WEEK_DETAIL_LABELS = Object.freeze({
@@ -145,6 +77,31 @@ const PRACTICE_WEEK_DETAIL_LABELS = Object.freeze({
     meditationRawContent: '冥想原始內容',
     cardFirstReaction: '看牌第一反應',
     basicCardMeaning: '基本牌義'
+  }),
+  'week-4-v11': Object.freeze({
+    goalClearAtStart: '03 當下｜開頭是否清楚知道今天只記錄，不解釋',
+    nonverbalReturnEase: '03 當下｜回到非語言觀察是否容易',
+    interpretationPaused: '03 當下｜是否有先忍住不解釋意義',
+    firstNonverbalType: '03 當下｜最先出現的非語言內容類型',
+    lightColor: '03 當下｜顏色／色調',
+    lightBrightness: '03 當下｜亮度',
+    lightLocation: '03 當下｜位置',
+    lightMotion: '03 當下｜動態',
+    lightDuration: '03 當下｜持續時間',
+    edgeClarity: '03 當下｜邊界清晰度',
+    spontaneousOrImagined: '03 當下｜內容來源判斷',
+    bodyEffectDuringLight: '03 當下｜光影出現時的身體反應',
+    meaningThatCameUp: '03 當下｜忍不住浮出的意義或聯想',
+    keptAsObservation: '03 當下｜是否能把它保留為觀察資料，而不是直接當答案',
+    tarotTimingEnough: '03 當下｜抽牌前準備時間是否足夠',
+    delayedTrackingDate: '04 延後｜追蹤日期',
+    trackingGap: '04 延後｜距離練習多久後追蹤',
+    relatedEvent: '04 延後｜後續是否出現可對應事件',
+    eventDescription: '04 延後｜後續事件簡述',
+    matchedFeature: '04 延後｜對應到哪個原始特徵',
+    matchStrength: '04 延後｜對應強度',
+    hardFitRisk: '04 延後｜是否有事後硬套風險',
+    ruleAdjustment: '04 延後｜是否需要修正下次觀察規則'
   })
 });
 
@@ -285,37 +242,22 @@ function notify_(record, updated) {
   const weekKey = record.weekKey || data['practice-week'] || '';
   const weekLabel = record.weekLabel || weekKey || '未分類';
   const version = record.version || '';
-  const sessionNumber = hasPracticeValue_(data['practice-session-number'])
-    ? `｜第${data['practice-session-number']}次`
-    : '';
+  const sessionNumber = hasPracticeValue_(data['practice-session-number']) ? `｜第${data['practice-session-number']}次` : '';
   const subject = `【修煉紀錄】${data['practice-date'] || '未填日期'}｜${weekLabel}${sessionNumber}`;
 
-  const bodyLines = [
-    updated ? '既有修煉紀錄已更新。' : '新增一筆修煉紀錄。',
-    '',
-    `週次：${weekLabel}`,
-    `版本：${version || '未填'}`
-  ];
+  const bodyLines = [updated ? '既有修煉紀錄已更新。' : '新增一筆修煉紀錄。', '', `週次：${weekLabel}`, `版本：${version || '未填'}`];
 
   PRACTICE_EMAIL_SECTIONS.forEach((section) => {
     const sectionLines = buildPracticeSectionLines_(section.fields, data);
     if (section.optional && sectionLines.length === 0) return;
     bodyLines.push('', `【${section.title}】`);
-    if (sectionLines.length) bodyLines.push(...sectionLines);
-    else bodyLines.push('未填');
+    bodyLines.push(...(sectionLines.length ? sectionLines : ['未填']));
   });
 
   const weekLines = buildWeekDetailLines_(weekKey, record.weekDetails || {});
-  bodyLines.push('', `【${weekLabel}｜本週專屬回饋】`);
-  bodyLines.push(...(weekLines.length ? weekLines : ['未填']));
-  bodyLines.push('', `Record ID：${record.id}`);
+  bodyLines.push('', `【${weekLabel}｜本週專屬回饋】`, ...(weekLines.length ? weekLines : ['未填']), '', `Record ID：${record.id}`);
 
-  MailApp.sendEmail({
-    to: email,
-    subject,
-    body: bodyLines.join('\n'),
-    name: 'Evan 修煉紀錄'
-  });
+  MailApp.sendEmail({ to: email, subject, body: bodyLines.join('\n'), name: 'Evan 修煉紀錄' });
 }
 
 // 時間複雜度 O(f)，空間複雜度 O(f)，f 為該區段欄位數。
