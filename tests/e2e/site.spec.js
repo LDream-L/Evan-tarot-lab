@@ -265,11 +265,11 @@ test("世足 36 個元件完整啟動且決勝編輯層依賴 review 快照", as
   await expect(page.locator("#football-direct-draw-tendency")).toHaveCount(1);
   await expect(page.locator(".subpage-hero .hero-text h1")).toHaveText("塔羅 X 賽事驗證。");
   await expect(page.locator("#football-match-form .football-version")).toHaveText("模型 v1.6.0｜介面 v1.8.0");
-await expect(page.locator("#football-sport-type")).toHaveValue("football");
-await expect(page.locator('#football-sport-type option[value="future"]')).toBeDisabled();
-await expect(page.locator("#football-card-source")).toHaveValue("compare");
-await expect(page.locator("#football-source-comparison")).toBeVisible();
-expect(await page.evaluate(() => Boolean(window.FootballSourceComparisonRuntime))).toBe(true);
+  await expect(page.locator("#football-sport-type")).toHaveValue("football");
+  await expect(page.locator('#football-sport-type option[value="future"]')).toHaveAttribute("disabled", "");
+  await expect(page.locator("#football-card-source")).toHaveValue("compare");
+  await expect(page.locator("#football-source-comparison")).toBeVisible();
+  expect(await page.evaluate(() => Boolean(window.FootballSourceComparisonRuntime))).toBe(true);
   await expect(page.locator('script[src*="JS/football-lab.js"]')).toHaveCount(1);
   await expect(page.locator('script[src*="football-record-knockout-edit.js"]')).toHaveCount(0);
   await expect(page.locator('#football-layout-final-style')).toHaveCount(1);
