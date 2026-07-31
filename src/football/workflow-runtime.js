@@ -1,16 +1,16 @@
 // 世足賽事驗證｜淘汰賽後流程執行層
 //
 // 載入順序：能量核心／Render → 晉級顯示 → 日期修正 → 淘汰賽流程
-// → 單張能量表單 → 雙牌源同場比較。雲端與事件由 application-runtime.js
-// 在本層完成後建立。
+// → 單張能量表單 → 雙牌源同場比較 → 現行能量統計。雲端與事件由
+// application-runtime.js 在本層完成後建立。
 //
 // 主要流程複雜度：
-// - 模組初始化：時間／空間 O(W)，W 為固定 5 個相容流程模組。
+// - 模組初始化：時間／空間 O(W)，W 為固定 6 個相容流程模組。
 // - 執行層契約檢查：時間／空間 O(1)。
 //
 // 更快替代方案比較：
 // - 事件與雲端直接讀取任意時點的 window 核心，會依賴隱性載入順序。
-// - 本層固定淘汰賽與雙牌源包裝完成的核心／Render，後續模組只接收這份快照。
+// - 本層固定淘汰賽、雙牌源與現行統計包裝完成的核心／Render，後續模組只接收這份快照。
 
 import { footballEnergyAdapter } from "./energy-adapter.js";
 import "../../JS/football-advance-visibility.js";
@@ -18,6 +18,7 @@ import "../../JS/football-datetime-fix.js";
 import "../../JS/football-knockout-flow.js";
 import "../../JS/football-direct-energy-form.js";
 import "./source-comparison-runtime.js?v=20260801-source-comparison-v1";
+import "./source-comparison-metrics.js?v=20260801-source-energy-metrics-v1";
 
 const workflowCore = window.FootballLabCore;
 const workflowRender = window.FootballLabRender;
