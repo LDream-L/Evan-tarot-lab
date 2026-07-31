@@ -1,4 +1,4 @@
-// 世足賽事驗證｜repository 根目錄安全載入器
+// 塔羅 X 賽事驗證｜repository 根目錄安全載入器
 //
 // GitHub Pages 正式流程會以 esbuild bundle 覆蓋 dist/JS/football-lab.js；
 // 本檔只負責 repository 根目錄、舊 Pages 發布來源或部署切換期間的相容啟動。
@@ -13,7 +13,7 @@
 (function bootstrapFootballLabRootEntry() {
   "use strict";
 
-  const ROOT_LOADER_VERSION = "20260712-football-root-esm-v2";
+  const ROOT_LOADER_VERSION = "20260801-source-comparison-v1";
   const LOAD_TIMEOUT_MS = 15_000;
   const currentScriptUrl = document.currentScript?.src || document.baseURI;
   const entryBaseUrl = new URL("../src/football/entry.js", currentScriptUrl);
@@ -48,7 +48,7 @@
 
     const message = document.getElementById("football-match-message");
     if (!message) return;
-    message.textContent = "世足驗證模組載入失敗。請重新整理；若仍無法顯示，請清除本頁快取後再試。";
+    message.textContent = "塔羅 X 賽事驗證模組載入失敗。請重新整理；若仍無法顯示，請清除本頁快取後再試。";
     message.classList.remove("football-hidden", "is-success");
     message.classList.add("is-error");
   }
@@ -57,7 +57,7 @@
   function createTimeoutPromise() {
     return new Promise((_, reject) => {
       window.setTimeout(
-        () => reject(new Error(`世足模組載入超過 ${LOAD_TIMEOUT_MS / 1000} 秒。`)),
+        () => reject(new Error(`賽事驗證模組載入超過 ${LOAD_TIMEOUT_MS / 1000} 秒。`)),
         LOAD_TIMEOUT_MS
       );
     });
