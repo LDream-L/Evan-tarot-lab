@@ -1,0 +1,174 @@
+name: One-time current energy source metrics
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/patch-source-energy-metrics-v2.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Patch source comparison metrics
+        shell: python
+        run: |
+          from pathlib import Path
+
+          runtime = Path("src/football/source-comparison-runtime.js")
+          source = runtime.read_text(encoding="utf-8")
+
+          old_bucket = '''    manual: {
+      directEligible: 0,
+      directHits: 0,
+      structureEligible: 0,
+      structureHits: 0,
+      exactHits: 0,
+      absoluteErrorTotal: 0,
+    },
+    random: {
+      directEligible: 0,
+      directHits: 0,
+      structureEligible: 0,
+      structureHits: 0,
+      exactHits: 0,
+      absoluteErrorTotal: 0,
+    },'''
+          new_bucket = '''    manual: {
+      directComponentEligible: 0,
+      directComponentHits: 0,
+      directGoalBandEligible: 0,
+      directGoalBandHits: 0,
+      directDrawEligible: 0,
+      directDrawHits: 0,
+      directLegacyEligible: 0,
+      directLegacyHits: 0,
+      structureEligible: 0,
+      structureHits: 0,
+      exactHits: 0,
+      absoluteErrorTotal: 0,
+    },
+    random: {
+      directComponentEligible: 0,
+      directComponentHits: 0,
+      directGoalBandEligible: 0,
+      directGoalBandHits: 0,
+      directDrawEligible: 0,
+      directDrawHits: 0,
+      directLegacyEligible: 0,
+      directLegacyHits: 0,
+      structureEligible: 0,
+      structureHits: 0,
+      exactHits: 0,
+      absoluteErrorTotal: 0,
+    },'''
+          if old_bucket not in source:
+              raise SystemExit("Source comparison bucket block not found")
+          source = source.replace(old_bucket, new_bucket, 1)
+
+          old_direct = '''      if (baseCore.modeIncludesDirect(evaluation.type)) {
+        bucket.directEligible += 1;
+        bucket.directHits += evaluation.directResultHit ? 1 : 0;
+      }'''
+          new_direct = '''      if (baseCore.modeIncludesDirect(evaluation.type)) {
+        const hasEnergyComponents = (
+          typeof evaluation.directGoalBandHit === "boolean"
+          && typeof evaluation.directDrawTendencyHit === "boolean"
+        );
+        if (hasEnergyComponents) {
+          bucket.directGoalBandEligible += 1;
+          bucket.directGoalBandHits += evaluation.directGoalBandHit ? 1 : 0;
+          bucket.directDrawEligible += 1;
+          bucket.directDrawHits += evaluation.directDrawTendencyHit ? 1 : 0;
+          bucket.directComponentEligible += 2;
+          bucket.directComponentHits += (
+            (evaluation.directGoalBandHit ? 1 : 0)
+            + (evaluation.directDrawTendencyHit ? 1 : 0)
+          );
+        } else if (typeof evaluation.directResultHit === "boolean") {
+          bucket.directLegacyEligible += 1;
+          bucket.directLegacyHits += evaluation.directResultHit ? 1 : 0;
+          bucket.directComponentEligible += 1;
+          bucket.directComponentHits += evaluation.directResultHit ? 1 : 0;
+        }
+      }'''
+          if old_direct not in source:
+              raise SystemExit("Direct metric block not found")
+          source = source.replace(old_direct, new_direct, 1)
+
+          marker = '''function formatRate(hits, eligible) {
+  return eligible ? `${Math.round((hits / eligible) * 1000) / 10}%` : "—";
+}
+'''
+          helper = '''function formatRate(hits, eligible) {
+  return eligible ? `${Math.round((hits / eligible) * 1000) / 10}%` : "—";
+}
+
+/** 單張能量的兩個可獨立核對欄位：時間／空間 O(1)。 */
+function formatDirectDetail(bucket) {
+  if (bucket.directGoalBandEligible || bucket.directDrawEligible) {
+    return `總進球 ${formatRate(bucket.directGoalBandHits, bucket.directGoalBandEligible)}（${bucket.directGoalBandHits}／${bucket.directGoalBandEligible}）・和局傾向 ${formatRate(bucket.directDrawHits, bucket.directDrawEligible)}（${bucket.directDrawHits}／${bucket.directDrawEligible}）`;
+  }
+  if (bucket.directLegacyEligible) {
+    return `舊版賽果 ${bucket.directLegacyHits}／${bucket.directLegacyEligible}`;
+  }
+  return "尚無可核對資料";
+}
+'''
+          if marker not in source:
+              raise SystemExit("formatRate block not found")
+          source = source.replace(marker, helper, 1)
+
+          old_cards = '''    createMetricCard(
+      "自己抽牌｜單張賽果",
+      formatRate(summary.manual.directHits, summary.manual.directEligible),
+      `${summary.manual.directHits}／${summary.manual.directEligible}`
+    ),
+    createMetricCard(
+      "網站抽牌｜單張賽果",
+      formatRate(summary.random.directHits, summary.random.directEligible),
+      `${summary.random.directHits}／${summary.random.directEligible}`
+    ),'''
+          new_cards = '''    createMetricCard(
+      "自己抽牌｜單張能量",
+      formatRate(summary.manual.directComponentHits, summary.manual.directComponentEligible),
+      formatDirectDetail(summary.manual)
+    ),
+    createMetricCard(
+      "網站抽牌｜單張能量",
+      formatRate(summary.random.directComponentHits, summary.random.directComponentEligible),
+      formatDirectDetail(summary.random)
+    ),'''
+          if old_cards not in source:
+              raise SystemExit("Direct metric cards not found")
+          source = source.replace(old_cards, new_cards, 1)
+          runtime.write_text(source, encoding="utf-8")
+
+          test = Path("tests/e2e/site.spec.js")
+          test_source = test.read_text(encoding="utf-8")
+          old_assertion = '''  await expect(page.locator("#football-source-comparison")).toBeVisible();
+  expect(await page.evaluate(() => Boolean(window.FootballSourceComparisonRuntime))).toBe(true);'''
+          new_assertion = '''  await expect(page.locator("#football-source-comparison")).toBeVisible();
+  await expect(page.locator("#football-source-comparison")).toContainText("自己抽牌｜單張能量");
+  await expect(page.locator("#football-source-comparison")).toContainText("網站抽牌｜單張能量");
+  expect(await page.evaluate(() => Boolean(window.FootballSourceComparisonRuntime))).toBe(true);'''
+          if old_assertion not in test_source:
+              raise SystemExit("E2E marker not found")
+          test.write_text(test_source.replace(old_assertion, new_assertion, 1), encoding="utf-8")
+
+      - name: Commit metric patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/football/source-comparison-runtime.js tests/e2e/site.spec.js
+          git commit -m "fix: compare current energy metrics by card source"
+          git push origin HEAD:main
