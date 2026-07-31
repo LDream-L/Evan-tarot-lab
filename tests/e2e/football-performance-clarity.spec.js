@@ -16,6 +16,7 @@ test("滾動績效卡片顯示本期、比較期、差異與明確樣本限制",
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
   await expect.poll(() => page.locator("#football-kpis > .football-kpi").count()).toBeGreaterThanOrEqual(7);
+  await page.locator("#football-stats-accordion > summary").click();
   await expect(page.locator("#football-kpis .football-kpi-readable-label").first()).toBeVisible();
 
   await page.evaluate(() => {

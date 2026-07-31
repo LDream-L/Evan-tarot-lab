@@ -185,6 +185,23 @@ function injectStatsAccordionStyles() {
 }
 
 /**
+ * 雲端同步屬於操作功能，不是統計資料；即使統計收合也必須保持可見。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ *
+ * 更快替代方案比較：
+ * - 每次掃描收合區所有子節點會增加不必要遍歷。
+ * - 本版以固定 ID 直接查找並搬回收合區外，維持常數成本。
+ */
+function keepOperationalPanelsVisible(details) {
+  const cloudPanel = byId("football-cloud-panel");
+  const content = byId(STATS_ACCORDION_CONTENT_ID);
+  const recordsContainer = details?.parentElement;
+  if (!cloudPanel || !content || !recordsContainer || !content.contains(cloudPanel)) return;
+  recordsContainer.insertBefore(cloudPanel, details);
+}
+
+/**
  * 建立並維持統計收合容器。
  * 時間複雜度：O(1)
  * 空間複雜度：O(1)
@@ -252,6 +269,7 @@ function ensureStatsAccordion() {
     content.insertBefore(comparison, kpis);
   }
 
+  keepOperationalPanelsVisible(details);
   return details;
 }
 
@@ -438,6 +456,8 @@ function observeLegacyMetricRender() {
   if (observer) return;
   const root = byId("football-records") || document.body;
   observer = new MutationObserver(() => {
+    const details = byId(STATS_ACCORDION_ID);
+    keepOperationalPanelsVisible(details);
     const panel = byId("football-source-comparison");
     if (!panel || rendering) return;
     if (panel.textContent.includes("單張賽果") || !panel.textContent.includes("單張能量")) {
