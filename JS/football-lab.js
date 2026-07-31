@@ -1,4 +1,4 @@
-// 塔羅 X 賽事驗證｜repository 根目錄安全載入器
+// 塔羅X賽事驗證｜repository 根目錄安全載入器
 //
 // GitHub Pages 正式流程會以 esbuild bundle 覆蓋 dist/JS/football-lab.js；
 // 本檔只負責 repository 根目錄、舊 Pages 發布來源或部署切換期間的相容啟動。
@@ -48,7 +48,7 @@
 
     const message = document.getElementById("football-match-message");
     if (!message) return;
-    message.textContent = "塔羅 X 賽事驗證模組載入失敗。請重新整理；若仍無法顯示，請清除本頁快取後再試。";
+    message.textContent = "塔羅X賽事驗證模組載入失敗。請重新整理；若仍無法顯示，請清除本頁快取後再試。";
     message.classList.remove("football-hidden", "is-success");
     message.classList.add("is-error");
   }

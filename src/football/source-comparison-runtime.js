@@ -1,4 +1,4 @@
-// 塔羅 X 賽事驗證｜同場雙牌源比較與運動種類擴充層
+// 塔羅X賽事驗證｜同場雙牌源比較與運動種類擴充層
 //
 // 目的：同一場足球賽先鎖定「自己抽牌」，再揭示並鎖定「網站隨機抽牌」，
 // 兩筆紀錄以 comparisonGroupId 成對保存，賽後結果只需輸入一次。
@@ -32,7 +32,7 @@ if (
   || typeof baseRender.renderDraft !== "function"
   || typeof baseRender.renderRecords !== "function"
 ) {
-  throw new Error("塔羅 X 賽事驗證的雙牌源比較層無法取得既有核心與呈現層。");
+  throw new Error("塔羅X賽事驗證的雙牌源比較層無法取得既有核心與呈現層。");
 }
 
 const state = {
@@ -534,11 +534,11 @@ function installFormControls() {
 
 /** 更新頁面標題與驗證原則：時間／空間 O(1)。 */
 function applyPageCopy() {
-  document.title = `Evan Tarot｜塔羅 X 賽事驗證｜介面 v${INTERFACE_VERSION}`;
+  document.title = `Evan Tarot｜塔羅X賽事驗證｜介面 v${INTERFACE_VERSION}`;
   const heroTitle = document.querySelector(".subpage-hero .hero-text h1");
-  if (heroTitle) heroTitle.textContent = "塔羅 X 賽事驗證。";
+  if (heroTitle) heroTitle.textContent = "塔羅X賽事驗證。";
   const breadcrumb = document.querySelector(".lab-breadcrumb");
-  if (breadcrumb) breadcrumb.textContent = "← 塔羅實驗室 / 塔羅 X 賽事驗證";
+  if (breadcrumb) breadcrumb.textContent = "← 塔羅實驗室 / 塔羅X賽事驗證";
   const heroCopy = document.querySelector(".subpage-hero .hero-text > p");
   if (heroCopy) {
     heroCopy.textContent = "目前先以足球驗證：同一場賽事分別保存自己抽牌與網站隨機抽牌，賽後比較兩者準確率。";
