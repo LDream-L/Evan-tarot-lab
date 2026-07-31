@@ -268,7 +268,9 @@ test("世足 36 個元件完整啟動且決勝編輯層依賴 review 快照", as
   await expect(page.locator("#football-sport-type")).toHaveValue("football");
   await expect(page.locator('#football-sport-type option[value="future"]')).toHaveAttribute("disabled", "");
   await expect(page.locator("#football-card-source")).toHaveValue("compare");
-  await expect(page.locator("#football-source-comparison")).toBeVisible();
+  await expect(page.locator("#football-stats-accordion")).toBeVisible();
+await expect(page.locator("#football-stats-accordion")).not.toHaveAttribute("open", "");
+await expect(page.locator("#football-source-comparison")).toHaveCount(1);
   expect(await page.evaluate(() => Boolean(window.FootballSourceComparisonRuntime))).toBe(true);
   await expect(page.locator('script[src*="JS/football-lab.js"]')).toHaveCount(1);
   await expect(page.locator('script[src*="football-record-knockout-edit.js"]')).toHaveCount(0);
