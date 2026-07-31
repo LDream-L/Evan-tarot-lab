@@ -1,0 +1,57 @@
+name: One-time sports validation E2E migration
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/patch-tarot-sports-e2e.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Update renamed sports validation expectations
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("tests/e2e/site.spec.js")
+          source = path.read_text(encoding="utf-8")
+          replacements = {
+              'Evan Tarot｜世足賽事驗證｜模型 v1.6.0・介面 v1.7.6':
+                  'Evan Tarot｜塔羅 X 賽事驗證｜介面 v1.8.0',
+              'await expect(page.locator(".subpage-hero .hero-text h1")).toHaveText("世足賽事驗證。");':
+                  'await expect(page.locator(".subpage-hero .hero-text h1")).toHaveText("塔羅 X 賽事驗證。");',
+              'await expect(page.locator("#football-match-form .football-version")).toHaveText("模型 v1.6.0｜介面 v1.7.6");':
+                  '''await expect(page.locator("#football-match-form .football-version")).toHaveText("模型 v1.6.0｜介面 v1.8.0");
+          await expect(page.locator("#football-sport-type")).toHaveValue("football");
+          await expect(page.locator('#football-sport-type option[value="future"]')).toBeDisabled();
+          await expect(page.locator("#football-card-source")).toHaveValue("compare");
+          await expect(page.locator("#football-source-comparison")).toBeVisible();
+          expect(await page.evaluate(() => Boolean(window.FootballSourceComparisonRuntime))).toBe(true);''',
+          }
+
+          missing = [old for old in replacements if old not in source]
+          if missing:
+              raise SystemExit(f"Expected E2E text not found: {missing}")
+
+          for old, new in replacements.items():
+              source = source.replace(old, new)
+          path.write_text(source, encoding="utf-8")
+
+      - name: Commit migrated test
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/e2e/site.spec.js
+          git commit -m "test: cover tarot sports source comparison"
+          git push origin HEAD:main
