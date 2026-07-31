@@ -1,0 +1,282 @@
+name: One-time source comparison metric correction
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/patch-source-comparison-metrics.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Correct current energy-model comparison metrics
+        shell: python
+        run: |
+          from pathlib import Path
+
+          runtime = Path("src/football/source-comparison-runtime.js")
+          source = runtime.read_text(encoding="utf-8")
+
+          old_bucket = '''    manual: {
+              directEligible: 0,
+              directHits: 0,
+              structureEligible: 0,
+              structureHits: 0,
+              exactHits: 0,
+              absoluteErrorTotal: 0,
+            },
+            random: {
+              directEligible: 0,
+              directHits: 0,
+              structureEligible: 0,
+              structureHits: 0,
+              exactHits: 0,
+              absoluteErrorTotal: 0,
+            },'''
+          new_bucket = '''    manual: {
+              directComponentEligible: 0,
+              directComponentHits: 0,
+              directGoalBandEligible: 0,
+              directGoalBandHits: 0,
+              directDrawEligible: 0,
+              directDrawHits: 0,
+              directLegacyEligible: 0,
+              directLegacyHits: 0,
+              structureEligible: 0,
+              structureHits: 0,
+              exactHits: 0,
+              absoluteErrorTotal: 0,
+            },
+            random: {
+              directComponentEligible: 0,
+              directComponentHits: 0,
+              directGoalBandEligible: 0,
+              directGoalBandHits: 0,
+              directDrawEligible: 0,
+              directDrawHits: 0,
+              directLegacyEligible: 0,
+              directLegacyHits: 0,
+              structureEligible: 0,
+              structureHits: 0,
+              exactHits: 0,
+              absoluteErrorTotal: 0,
+            },'''
+          if old_bucket not in source:
+              raise SystemExit("Source comparison bucket block not found")
+          source = source.replace(old_bucket, new_bucket, 1)
+
+          old_direct = '''      if (baseCore.modeIncludesDirect(evaluation.type)) {
+                bucket.directEligible += 1;
+                bucket.directHits += evaluation.directResultHit ? 1 : 0;
+              }'''
+          new_direct = '''      if (baseCore.modeIncludesDirect(evaluation.type)) {
+                const hasEnergyComponents = (
+                  typeof evaluation.directGoalBandHit === "boolean"
+                  && typeof evaluation.directDrawTendencyHit === "boolean"
+                );
+                if (hasEnergyComponents) {
+                  bucket.directGoalBandEligible += 1;
+                  bucket.directGoalBandHits += evaluation.directGoalBandHit ? 1 : 0;
+                  bucket.directDrawEligible += 1;
+                  bucket.directDrawHits += evaluation.directDrawTendencyHit ? 1 : 0;
+                  bucket.directComponentEligible += 2;
+                  bucket.directComponentHits += (
+                    (evaluation.directGoalBandHit ? 1 : 0)
+                    + (evaluation.directDrawTendencyHit ? 1 : 0)
+                  );
+                } else if (typeof evaluation.directResultHit === "boolean") {
+                  bucket.directLegacyEligible += 1;
+                  bucket.directLegacyHits += evaluation.directResultHit ? 1 : 0;
+                  bucket.directComponentEligible += 1;
+                  bucket.directComponentHits += evaluation.directResultHit ? 1 : 0;
+                }
+              }'''
+          if old_direct not in source:
+              raise SystemExit("Source comparison direct aggregation block not found")
+          source = source.replace(old_direct, new_direct, 1)
+
+          marker = '''function formatRate(hits, eligible) {
+            return eligible ? `${Math.round((hits / eligible) * 1000) / 10}%` : "—";
+          }
+          '''
+          helper = '''function formatRate(hits, eligible) {
+            return eligible ? `${Math.round((hits / eligible) * 1000) / 10}%` : "—";
+          }
+
+          /** 單張能量的兩個可獨立核對欄位：時間／空間 O(1)。 */
+          function formatDirectDetail(bucket) {
+            if (bucket.directGoalBandEligible || bucket.directDrawEligible) {
+              return `總進球 ${formatRate(bucket.directGoalBandHits, bucket.directGoalBandEligible)}（${bucket.directGoalBandHits}／${bucket.directGoalBandEligible}）・和局傾向 ${formatRate(bucket.directDrawHits, bucket.directDrawEligible)}（${bucket.directDrawHits}／${bucket.directDrawEligible}）`;
+            }
+            if (bucket.directLegacyEligible) {
+              return `舊版賽果 ${bucket.directLegacyHits}／${bucket.directLegacyEligible}`;
+            }
+            return "尚無可核對資料";
+          }
+          '''
+          if marker not in source:
+              raise SystemExit("formatRate marker not found")
+          source = source.replace(marker, helper, 1)
+
+          old_cards = '''    createMetricCard(
+              "自己抽牌｜單張賽果",
+              formatRate(summary.manual.directHits, summary.manual.directEligible),
+              `${summary.manual.directHits}／${summary.manual.directEligible}`
+            ),
+            createMetricCard(
+              "網站抽牌｜單張賽果",
+              formatRate(summary.random.directHits, summary.random.directEligible),
+              `${summary.random.directHits}／${summary.random.directEligible}`
+            ),'''
+          new_cards = '''    createMetricCard(
+              "自己抽牌｜單張能量",
+              formatRate(summary.manual.directComponentHits, summary.manual.directComponentEligible),
+              formatDirectDetail(summary.manual)
+            ),
+            createMetricCard(
+              "網站抽牌｜單張能量",
+              formatRate(summary.random.directComponentHits, summary.random.directComponentEligible),
+              formatDirectDetail(summary.random)
+            ),'''
+          if old_cards not in source:
+              raise SystemExit("Source comparison direct metric cards not found")
+          source = source.replace(old_cards, new_cards, 1)
+          runtime.write_text(source, encoding="utf-8")
+
+      - name: Add paired-source functional E2E coverage
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("tests/e2e/site.spec.js")
+          source = path.read_text(encoding="utf-8")
+          marker = 'test("世足已鎖定紀錄可修改賽事與比分並保留牌面解讀", async ({ page }) => {'
+          if marker not in source:
+              raise SystemExit("E2E insertion marker not found")
+
+          test_block = r'''test("塔羅X賽事驗證會成對統計自己抽牌與網站隨機抽牌", async ({ page }) => {
+            await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
+            await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
+
+            const result = await page.evaluate(() => {
+              const core = window.FootballLabCore;
+              const runtime = window.FootballSourceComparisonRuntime;
+              const groupId = "e2e-source-pair";
+              const commonMatch = {
+                competition: "雙牌源測試盃",
+                stage: "小組賽",
+                kickoff: new Date(Date.now() + 86_400_000).toISOString(),
+                infoState: "賽前且先發未公布",
+                homeTeam: "甲隊",
+                awayTeam: "乙隊",
+                mode: "dual",
+                sportType: "football",
+                sportLabel: "足球",
+                sourceExperiment: "manual-vs-random",
+                comparisonGroupId: groupId,
+                odds: { home: null, draw: null, away: null },
+                knownInfo: "同場雙牌源功能測試",
+              };
+
+              const lockRecord = ({ cardSource, goalBand, drawTendency, homeGoals, awayGoals, sequence }) => {
+                const draft = core.createDraft({
+                  ...commonMatch,
+                  cardSource,
+                  comparisonSequence: sequence,
+                });
+                document.getElementById("football-direct-goal-band").value = goalBand;
+                document.getElementById("football-direct-draw-tendency").value = drawTendency;
+                document.getElementById("football-direct-result").value = drawTendency === "draw" ? "D" : "ND";
+                const cards = cardSource === "manual"
+                  ? draft.cards.map((card, index) => ({
+                      ...card,
+                      name: core.data.deck[index],
+                      orientation: index % 2 === 0 ? "正位" : "逆位",
+                    }))
+                  : draft.cards;
+                return core.lockDraft({
+                  directModel: "energy-v1",
+                  directGoalBand: goalBand,
+                  directDrawTendency: drawTendency,
+                  directResult: drawTendency === "draw" ? "D" : "ND",
+                  directConfidence: 3,
+                  directNotes: `${cardSource} 單張能量測試`,
+                  structureHomeGoals: homeGoals,
+                  structureAwayGoals: awayGoals,
+                  structureConfidence: 3,
+                  structureNotes: `${cardSource} 四張攻防測試`,
+                  advance: "",
+                }, cards);
+              };
+
+              const manual = lockRecord({
+                cardSource: "manual",
+                goalBand: "medium",
+                drawTendency: "decisive",
+                homeGoals: 2,
+                awayGoals: 1,
+                sequence: 1,
+              });
+              const random = lockRecord({
+                cardSource: "random",
+                goalBand: "low",
+                drawTendency: "draw",
+                homeGoals: 0,
+                awayGoals: 0,
+                sequence: 2,
+              });
+
+              core.updateActual(manual.id, { homeGoals: 2, awayGoals: 1, advance: "" });
+              runtime.renderSourceComparison();
+              const summary = runtime.calculateSourceComparison();
+              return {
+                completedPairs: summary.completedPairs,
+                manualComponents: [
+                  summary.manual.directComponentHits,
+                  summary.manual.directComponentEligible,
+                ],
+                randomComponents: [
+                  summary.random.directComponentHits,
+                  summary.random.directComponentEligible,
+                ],
+                manualStructure: [summary.manual.structureHits, summary.manual.exactHits],
+                randomStructure: [summary.random.structureHits, summary.random.exactHits],
+                actualSynced: Boolean(core.getRecord(manual.id)?.actual && core.getRecord(random.id)?.actual),
+              };
+            });
+
+            expect(result).toEqual({
+              completedPairs: 1,
+              manualComponents: [2, 2],
+              randomComponents: [0, 2],
+              manualStructure: [1, 1],
+              randomStructure: [0, 0],
+              actualSynced: true,
+            });
+            await expect(page.locator("#football-source-comparison")).toContainText("自己抽牌｜單張能量");
+            await expect(page.locator("#football-source-comparison")).toContainText("網站抽牌｜單張能量");
+            await expect(page.locator("#football-source-comparison")).toContainText("總進球 100%");
+            await expect(page.locator("#football-source-comparison")).toContainText("和局傾向 0%");
+          });
+
+          '''
+          source = source.replace(marker, test_block + marker, 1)
+          path.write_text(source, encoding="utf-8")
+
+      - name: Commit metric correction and functional test
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/football/source-comparison-runtime.js tests/e2e/site.spec.js
+          git commit -m "fix: compare current energy metrics by card source"
+          git push origin HEAD:main
