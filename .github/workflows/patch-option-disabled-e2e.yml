@@ -1,0 +1,50 @@
+name: One-time option assertion fix
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - ".github/workflows/patch-option-disabled-e2e.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  patch-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fix option assertion and indentation
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("tests/e2e/site.spec.js")
+          source = path.read_text(encoding="utf-8")
+          old = '''await expect(page.locator('#football-sport-type option[value="future"]')).toBeDisabled();'''
+          new = '''await expect(page.locator('#football-sport-type option[value="future"]')).toHaveAttribute("disabled", "");'''
+          if old not in source:
+              raise SystemExit("Expected disabled option assertion not found")
+          source = source.replace(old, new, 1)
+          for line in (
+              'await expect(page.locator("#football-sport-type"))',
+              "await expect(page.locator('#football-sport-type",
+              'await expect(page.locator("#football-card-source"))',
+              'await expect(page.locator("#football-source-comparison"))',
+              'expect(await page.evaluate(() => Boolean(window.FootballSourceComparisonRuntime)))',
+          ):
+              source = source.replace("\n" + line, "\n  " + line, 1)
+          path.write_text(source, encoding="utf-8")
+
+      - name: Commit test fix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add tests/e2e/site.spec.js
+          git commit -m "test: assert disabled future sport option by attribute"
+          git push origin HEAD:main
