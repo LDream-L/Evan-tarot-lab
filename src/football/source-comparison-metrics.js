@@ -1,21 +1,26 @@
 // 塔羅X賽事驗證｜雙牌源統計轉接層
 //
 // 目前單張模型驗證的是「總進球區間」與「和局傾向」，不是指定勝方。
-// 本層把雙牌源摘要改為依現行能量模型欄位統計，舊版單張勝負紀錄則保留相容分支。
+// 本層把雙牌源摘要改為依現行能量模型欄位統計，並將統計區包成
+// 「預設收合、可展開」的驗證數據面板，降低驗證紀錄畫面噪音。
 //
 // 主要函式複雜度：
 // - calculateSourceComparison：時間 O(r)，空間 O(g)，r = 紀錄數、g = 對照組數。
 // - renderSourceComparison：時間 O(r)，DOM 額外空間 O(1)，固定建立 6 張摘要卡。
+// - ensureStatsAccordion：時間／空間 O(1)，固定建立單一收合容器。
 // - observeLegacyMetricRender：每次變動只檢查單一摘要面板，時間／空間 O(1)。
 //
 // 更快替代方案比較：
 // - 每張摘要卡各自掃描全部紀錄會成為多次 O(r)；本版先用 Map 單次分組，再一次完成全部統計。
+// - 自行管理展開狀態需額外事件與 ARIA；本版使用原生 details／summary，降低維護與無障礙成本。
 // - 直接重寫既有流程層會同時影響抽牌、雲端同步與事件綁定；本版只轉接統計與呈現，保留已驗證流程。
 
 const baseRuntime = window.FootballSourceComparisonRuntime;
 const baseCore = window.FootballLabCore;
 const baseRender = window.FootballLabRender;
 const MIN_DIRECTIONAL_SAMPLE = 20;
+const STATS_ACCORDION_ID = "football-stats-accordion";
+const STATS_ACCORDION_CONTENT_ID = "football-stats-accordion-content";
 
 if (
   !baseRuntime
@@ -69,6 +74,185 @@ function createSourceBucket() {
     exactHits: 0,
     absoluteErrorTotal: 0,
   };
+}
+
+/** 更新展開按鈕文案：時間／空間 O(1)。 */
+function updateStatsAccordionLabel(details) {
+  const toggle = details?.querySelector(".football-stats-toggle");
+  if (!toggle) return;
+  toggle.textContent = details.open ? "收合數據" : "展開數據";
+}
+
+/**
+ * 注入收合區樣式。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ *
+ * 更快替代方案比較：
+ * - 把樣式散落到多個既有 CSS 檔案，會增加同步與回滾成本。
+ * - 本模組只注入固定一次，避免每次 renderRecords 重複建立 style。
+ */
+function injectStatsAccordionStyles() {
+  if (byId("football-stats-accordion-style")) return;
+
+  const style = document.createElement("style");
+  style.id = "football-stats-accordion-style";
+  style.textContent = `
+    .football-stats-accordion {
+      margin: 1rem 0;
+      overflow: hidden;
+    }
+
+    .football-stats-accordion > summary {
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .football-stats-accordion > summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .football-stats-summary {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 1rem;
+      padding: .95rem 1rem;
+      border-radius: 16px;
+      background: rgba(20, 16, 54, .62);
+      border: 1px solid rgba(142, 125, 255, .26);
+    }
+
+    .football-stats-summary:hover,
+    .football-stats-summary:focus-visible {
+      border-color: rgba(190, 156, 255, .58);
+      background: rgba(32, 24, 76, .72);
+      outline: none;
+    }
+
+    .football-stats-summary-copy {
+      display: grid;
+      gap: .18rem;
+      min-width: 0;
+    }
+
+    .football-stats-summary-copy small {
+      color: var(--muted, #aaa3c8);
+      line-height: 1.4;
+    }
+
+    .football-stats-summary-copy strong {
+      font-size: 1rem;
+      line-height: 1.35;
+    }
+
+    .football-stats-summary-copy span {
+      color: var(--muted, #aaa3c8);
+      font-size: .82rem;
+      line-height: 1.5;
+    }
+
+    .football-stats-toggle {
+      flex: 0 0 auto;
+      padding: .45rem .8rem;
+      border-radius: 999px;
+      border: 1px solid rgba(142, 125, 255, .28);
+      background: rgba(142, 125, 255, .12);
+      font-size: .82rem;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .football-stats-accordion-content {
+      display: grid;
+      gap: 1rem;
+      margin-top: .85rem;
+    }
+
+    @media (max-width: 620px) {
+      .football-stats-summary {
+        display: grid;
+        align-items: stretch;
+      }
+
+      .football-stats-toggle {
+        justify-self: start;
+      }
+    }
+  `;
+  document.head.appendChild(style);
+}
+
+/**
+ * 建立並維持統計收合容器。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ *
+ * 更快替代方案比較：
+ * - 每次 renderRecords 重建整個收合區，會造成額外 DOM 配置與畫面跳動。
+ * - 本版容器只建立一次，後續只把既有 KPI 與比較面板移入固定內容區。
+ */
+function ensureStatsAccordion() {
+  const kpis = byId("football-kpis");
+  if (!kpis || !kpis.parentElement) return null;
+
+  injectStatsAccordionStyles();
+
+  let details = byId(STATS_ACCORDION_ID);
+  if (!details) {
+    details = document.createElement("details");
+    details.id = STATS_ACCORDION_ID;
+    details.className = "football-panel football-stats-accordion";
+
+    const summary = document.createElement("summary");
+    summary.className = "football-stats-summary";
+
+    const copy = document.createElement("div");
+    copy.className = "football-stats-summary-copy";
+
+    const eyebrow = document.createElement("small");
+    eyebrow.textContent = "驗證統計";
+
+    const title = document.createElement("strong");
+    title.textContent = "統計數據與雙牌源比較";
+
+    const hint = document.createElement("span");
+    hint.textContent = "預設收合；想看命中率、MAE 與雙牌源表現時再展開。";
+
+    const toggle = document.createElement("span");
+    toggle.className = "football-stats-toggle";
+
+    copy.append(eyebrow, title, hint);
+    summary.append(copy, toggle);
+
+    const content = document.createElement("div");
+    content.id = STATS_ACCORDION_CONTENT_ID;
+    content.className = "football-stats-accordion-content";
+
+    details.append(summary, content);
+    kpis.parentElement.insertBefore(details, kpis);
+
+    details.addEventListener("toggle", () => {
+      updateStatsAccordionLabel(details);
+    });
+  }
+
+  updateStatsAccordionLabel(details);
+
+  const content = byId(STATS_ACCORDION_CONTENT_ID);
+  if (!content) return details;
+
+  if (kpis.parentElement !== content) {
+    content.appendChild(kpis);
+  }
+
+  const comparison = byId("football-source-comparison");
+  if (comparison && comparison.parentElement !== content) {
+    content.insertBefore(comparison, kpis);
+  }
+
+  return details;
 }
 
 /**
@@ -161,6 +345,8 @@ function createMetricCard(label, value, detail) {
  */
 function renderSourceComparison() {
   if (rendering) return;
+
+  ensureStatsAccordion();
   const kpis = byId("football-kpis");
   if (!kpis?.parentElement) return;
 
@@ -238,6 +424,7 @@ function renderSourceComparison() {
 
     panel.dataset.metricModel = "energy-v1";
     panel.replaceChildren(heading, grid);
+    ensureStatsAccordion();
   } finally {
     rendering = false;
   }
@@ -264,6 +451,7 @@ const metricsRender = Object.freeze({
   ...baseRender,
   renderRecords() {
     const result = baseRender.renderRecords();
+    ensureStatsAccordion();
     renderSourceComparison();
     return result;
   },
@@ -278,5 +466,6 @@ window.FootballSourceComparisonRuntime = Object.freeze({
   metricModel: "energy-v1",
 });
 
+ensureStatsAccordion();
 renderSourceComparison();
 observeLegacyMetricRender();
