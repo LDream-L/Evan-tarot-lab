@@ -1,10 +1,10 @@
 // 世足賽事驗證｜紀錄 UX 與編輯執行層
 //
-// 載入順序：application runtime → 紀錄／命中／顯示 UX → 淘汰賽雲端摘要
+// 載入順序：application runtime → 紀錄／雙牌源回顧／命中／顯示 UX → 淘汰賽雲端摘要
 // → 單張能量 UX → 具名紀錄編輯控制器。
 //
 // 主要流程複雜度：
-// - 固定 8 個相容 UX 模組＋1 個具名編輯器：時間／空間 O(U)，U 為固定元件數。
+// - 固定 9 個相容 UX 模組＋1 個具名編輯器：時間／空間 O(U)，U 為固定元件數。
 // - 啟動契約：時間／空間 O(1)。
 //
 // 更快替代方案比較：
@@ -13,6 +13,7 @@
 
 import { footballApplicationRuntime } from "./application-runtime.js";
 import "../../JS/football-records-ux.js";
+import "../../JS/football-source-review-ux.js?v=20260803-source-review-v1";
 import "../../JS/football-hit-ux.js";
 import "../../JS/football-strict-hit-ux.js";
 import "../../JS/football-record-display-ux.js";
