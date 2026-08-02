@@ -12,6 +12,8 @@
 // 更快替代方案比較：
 // - 暴力法：為雙牌源建立第二套完整賽後表單，會重複比分、延長賽與事件欄位，也容易造成兩份客觀結果不一致。
 // - 優化法：只增加第二個「回顧與分析」欄位；共用結果照舊同步，主觀牌面分析才分流。
+// - 僅在 tbody 冒泡階段監聽按鈕，可能被既有流程 stopPropagation 截斷；本版改用 document capture 單次委派，
+//   再延後到既有 openEvaluation 完成後更新欄位，無須重綁每列按鈕。
 
 (function initFootballSourceReviewUx() {
   "use strict";
@@ -173,15 +175,29 @@
     note.classList.remove("football-hidden");
   }
 
+  /**
+   * 捕獲階段委派核對按鈕，避免既有 click handler 阻止冒泡後漏掉欄位切換。
+   * 時間複雜度：O(1)
+   * 空間複雜度：O(1)
+   *
+   * 更快替代方案比較：
+   * - 逐列綁定事件需隨每次 renderRecords 重綁 O(r)。
+   * - document capture 只綁一次，固定 O(1)，並以 records 容器限制作用範圍。
+   */
+  function handleEvaluationClick(event) {
+    const target = event.target instanceof Element ? event.target : null;
+    const button = target?.closest('button[data-action="evaluate"]');
+    const body = byId("football-records-body");
+    if (!button || !body?.contains(button)) return;
+
+    window.setTimeout(configureReviewFields, 0);
+  }
+
   /** 固定事件委派：時間／空間 O(1)。 */
   function bind() {
-    const body = byId("football-records-body");
     const form = byId("football-evaluation-form");
 
-    body?.addEventListener("click", (event) => {
-      if (!event.target.closest('button[data-action="evaluate"]')) return;
-      window.setTimeout(configureReviewFields, 0);
-    });
+    document.addEventListener("click", handleEvaluationClick, true);
 
     form?.addEventListener("submit", () => {
       window.setTimeout(configureReviewFields, 0);
