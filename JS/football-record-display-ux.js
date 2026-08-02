@@ -5,11 +5,13 @@
 // 主要函式複雜度：
 // - refreshRows：O(r)
 // - renderRecordRow：O(c)，c <= 5
+// - renderMatchCell：O(c log c)，c <= 5
 // 空間複雜度：O(r + c) DOM
 //
 // 更快替代方案比較：
 // - 原版：重複輸出完整模型名稱，並將預測與實際結果當一般文字顯示。
 // - 本版：以固定牌位查表縮寫，並建立獨立預測卡／實際卡，避免逐字解析。
+// - 牌面來源直接由 record.match.cardSource 查表顯示，不再從既有文字節點反向解析，維持 O(1)。
 // ==============================
 
 (function initFootballRecordDisplayUx() {
@@ -41,6 +43,11 @@
     legacy5: "舊版五牌位",
   });
 
+  const CARD_SOURCE_SHORT_LABELS = Object.freeze({
+    manual: "牌源｜手動實體抽牌",
+    random: "牌源｜網站隨機抽牌",
+  });
+
   let observer = null;
   let applying = false;
 
@@ -64,16 +71,45 @@
         font-weight: 850;
         line-height: 1.45;
       }
-      .football-record-mode {
+      .football-record-tags {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.42rem;
+      }
+      .football-record-mode,
+      .football-record-source {
         display: inline-flex;
         width: fit-content;
         padding: 0.18rem 0.52rem;
-        border: 1px solid rgba(171, 151, 255, 0.35);
         border-radius: 999px;
-        background: rgba(131, 105, 221, 0.1);
         font-size: 0.75rem;
         font-weight: 800;
         line-height: 1.35;
+      }
+      .football-record-mode {
+        border: 1px solid rgba(171, 151, 255, 0.35);
+        background: rgba(131, 105, 221, 0.1);
+      }
+      .football-record-source {
+        border: 1px solid rgba(126, 195, 255, 0.34);
+        background: rgba(67, 142, 214, 0.1);
+        color: rgba(220, 239, 255, 0.92);
+      }
+      .football-record-source.is-manual {
+        border-color: rgba(205, 166, 255, 0.4);
+        background: rgba(150, 112, 255, 0.11);
+        color: rgba(239, 230, 255, 0.94);
+      }
+      .football-record-source.is-random {
+        border-color: rgba(91, 205, 239, 0.38);
+        background: rgba(53, 159, 194, 0.1);
+        color: rgba(213, 248, 255, 0.94);
+      }
+      .football-record-source.is-unknown {
+        border-color: rgba(190, 190, 205, 0.28);
+        background: rgba(180, 180, 195, 0.07);
+        color: rgba(226, 226, 236, 0.75);
       }
       .football-compact-cards {
         display: grid;
@@ -197,6 +233,14 @@
     return POSITION_ORDER[card?.position] ?? 99;
   }
 
+  /** 牌面來源標籤直接查表：時間／空間 O(1)。 */
+  function getCardSourceLabel(record) {
+    const source = String(record?.match?.cardSource || "").trim();
+    if (CARD_SOURCE_SHORT_LABELS[source]) return CARD_SOURCE_SHORT_LABELS[source];
+    const legacyLabel = core.data.cardSourceLabels?.[source];
+    return legacyLabel ? `牌源｜${legacyLabel}` : "牌源｜舊版未標記";
+  }
+
   /** 建立牌面縮寫區：O(c log c)，c <= 5；實際上限固定。 */
   function buildCompactCards(record) {
     const list = document.createElement("div");
@@ -225,6 +269,7 @@
     return list;
   }
 
+  /** 賽事卡固定輸出模式＋牌面來源：O(c log c)，c <= 5。 */
   function renderMatchCell(cell, record) {
     const wrapper = document.createElement("div");
     wrapper.className = "football-record-match";
@@ -233,11 +278,20 @@
     title.className = "football-record-match-title";
     title.textContent = `${record.match.homeTeam} vs ${record.match.awayTeam}`;
 
+    const tags = document.createElement("div");
+    tags.className = "football-record-tags";
+
     const mode = document.createElement("span");
     mode.className = "football-record-mode";
     mode.textContent = MODE_SHORT_LABELS[core.getMode(record)] || "實驗模式";
 
-    wrapper.append(title, mode, buildCompactCards(record));
+    const sourceKey = String(record?.match?.cardSource || "").trim();
+    const source = document.createElement("span");
+    source.className = `football-record-source ${sourceKey === "manual" ? "is-manual" : sourceKey === "random" ? "is-random" : "is-unknown"}`;
+    source.textContent = getCardSourceLabel(record);
+
+    tags.append(mode, source);
+    wrapper.append(title, tags, buildCompactCards(record));
     cell.replaceChildren(wrapper);
   }
 
