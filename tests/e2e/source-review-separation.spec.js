@@ -14,12 +14,16 @@ test.beforeEach(async ({ page }) => {
 /**
  * 固定建立兩筆同場紀錄；牌數上限 4，時間／空間 O(1)。
  * 驗證客觀賽果同步，但兩個 reviewAnalysis 必須保持不同。
+ *
+ * 更快替代方案比較：
+ * - 依畫面文案尋找「手動／網站」資料列會受到 UX 文案調整影響，測試脆弱。
+ * - 直接使用資料層 record.id 對應 action button，固定查找目標紀錄，不需要掃描或解析顯示文字。
  */
 test("同場雙牌源共用賽果但分開保存賽後回顧", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
 
-  await page.evaluate(() => {
+  const recordIds = await page.evaluate(() => {
     const core = window.FootballLabCore;
     const groupId = "e2e-source-review-separation";
     const common = {
@@ -59,11 +63,19 @@ test("同場雙牌源共用賽果但分開保存賽後回顧", async ({ page }) 
     draft = core.createDraft({ ...common, cardSource: "random", comparisonSequence: 2 });
     core.lockDraft(prediction, draft.cards);
     window.FootballLabRender.renderRecords();
+
+    const pair = core.getRecords().filter((record) => record.match?.comparisonGroupId === groupId);
+    return Object.fromEntries(pair.map((record) => [record.match.cardSource, record.id]));
   });
 
-  const manualRow = page.locator("#football-records-body tr").filter({ hasText: "手動實體抽牌" }).first();
-  await expect(manualRow).toHaveCount(1);
-  await manualRow.locator('button[data-action="evaluate"]').click();
+  expect(recordIds.manual).toBeTruthy();
+  expect(recordIds.random).toBeTruthy();
+
+  const manualButton = page.locator(
+    `#football-records-body button[data-action="evaluate"][data-id="${recordIds.manual}"]`
+  );
+  await expect(manualButton).toHaveCount(1);
+  await manualButton.click({ force: true });
 
   await expect(page.locator("#football-review-analysis-primary-field")).toContainText("自己抽牌");
   await expect(page.locator("#football-review-analysis-sibling-field")).toBeVisible();
