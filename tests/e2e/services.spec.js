@@ -69,7 +69,8 @@ async function installCloudRoutes(page, options = {}) {
 }
 
 test("公開服務可由雲端更新並帶入方案預約選項", async ({ page }) => {
-  const cloud = await installCloudRoutes(page, { serviceDelayMs: 350 });
+  // 保留足夠的 loading 視窗，避免快速 CI 主機在兩個 assertion 間剛好完成 mock 回應。
+  const cloud = await installCloudRoutes(page, { serviceDelayMs: 1200 });
   await page.goto("/services.html", { waitUntil: "domcontentloaded" });
 
   const list = page.locator("#service-list");
