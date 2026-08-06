@@ -71,11 +71,14 @@ test("同場雙牌源共用賽果但分開保存賽後回顧", async ({ page }) 
   expect(recordIds.manual).toBeTruthy();
   expect(recordIds.random).toBeTruthy();
 
+  // 新增紀錄預設會落在「待驗證」，先切到正確篩選再操作，避免對隱藏列 force click。
+  await page.getByRole("button", { name: /待驗證/ }).click();
+
   const manualButton = page.locator(
     `#football-records-body button[data-action="evaluate"][data-id="${recordIds.manual}"]`
   );
-  await expect(manualButton).toHaveCount(1);
-  await manualButton.click({ force: true });
+  await expect(manualButton).toBeVisible();
+  await manualButton.click();
 
   await expect(page.locator("#football-review-analysis-primary-field")).toContainText("自己抽牌");
   await expect(page.locator("#football-review-analysis-sibling-field")).toBeVisible();
