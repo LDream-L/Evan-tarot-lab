@@ -1,9 +1,9 @@
-// Evan Tarot｜世足賽事驗證 Google Sheets 後端 v1.2.0
+// Evan Tarot｜世足賽事驗證 Google Sheets 後端 v1.3.0
 // 正式部署位置：綁定全新的「Evan Tarot｜世足賽事驗證資料庫」Google 試算表。
 //
 // 主要複雜度：
 // - setupFootballWorkbook：O(s * h) 時間／O(h) 空間，s=工作表數、h=欄位數。
-// - createFootballRecord：O(r + c) 時間／O(c) 空間，r=既有賽事列、c=本場牌數（最多 5）。
+// - createFootballRecord：O(r + c) 時間／O(c + b) 空間，r=既有賽事列、c=本場牌數（最多 5）、b=投注筆數。
 // - updateFootballMatch：O(r + h) 時間／O(h) 空間。
 // - updateFootballActual：O(r) 時間／O(1) 額外空間。
 // - recalculateAllFootballEvaluations：O(r * h) 時間／O(r * h) 空間。
@@ -11,9 +11,11 @@
 //
 // 暴力替代：每次查詢逐格呼叫 Spreadsheet API，會造成大量遠端往返。
 // 本版優化：每張工作表一次批次讀取、一次批次寫入，並以 Map 組合牌面與事件。
+// 運彩資料直接以鎖定 prediction.bets JSON 存在賽事列，不另外建立以隊名／日期反查的下注表，
+// 可保留「自己抽牌／網站隨機抽牌」與各自投注的天然父子關係，並避免 O(r*b) 關聯搜尋。
 // 嚴格比分規則：單邊進球數相同不獨立計為命中，只有完整比分一致才算比分命中。
 
-const FOOTBALL_DB_VERSION = '1.2.0';
+const FOOTBALL_DB_VERSION = '1.3.0';
 const FOOTBALL_SCHEMA_VERSION = 'evan-football-tarot-v2';
 
 const FOOTBALL_SHEETS = Object.freeze({
@@ -32,7 +34,7 @@ const FOOTBALL_HEADERS = Object.freeze({
     'actualHomeGoals', 'actualAwayGoals', 'actualResult', 'extraHomeGoals', 'extraAwayGoals',
     'actualAdvance', 'actualNotes', 'recordedAt',
     'directResultHit', 'structureResultHit', 'structureHomeGoalHit', 'structureAwayGoalHit',
-    'structureExactHit', 'structureAbsoluteError', 'modelsAgree', 'updatedAt'
+    'structureExactHit', 'structureAbsoluteError', 'modelsAgree', 'updatedAt', 'betsJson'
   ]),
   FootballCards: Object.freeze([
     'recordId', 'group', 'position', 'positionTitle', 'positionNote', 'cardName', 'orientation',
@@ -118,7 +120,10 @@ function doPost(e) {
 /**
  * 建立一筆已鎖定的賽前紀錄；相同 recordId 重送時不重複新增。
  * 時間複雜度：O(r + c)
- * 空間複雜度：O(c)
+ * 空間複雜度：O(c + b)
+ *
+ * 更快替代方案比較：下注若拆成獨立表再按 recordId 逐筆 append，會增加 b 次遠端寫入；
+ * 本版將已鎖定下注序列化成單一 JSON 欄位，賽事列仍只需一次 setValues。
  */
 function createFootballRecord_(record) {
   validateRecord_(record);
@@ -158,7 +163,7 @@ function createFootballRecord_(record) {
 }
 
 /**
- * 只修正賽事基本資料，不改動牌面、鎖定預測或賽後結果。
+ * 只修正賽事基本資料，不改動牌面、鎖定預測、投注或賽後結果。
  * 時間複雜度：O(r + h)
  * 空間複雜度：O(h)
  * 更快替代方案：逐欄 setValue 會產生多次遠端寫入；本函式整列讀取、整列寫回一次。
@@ -351,6 +356,11 @@ function listFootballRecords_() {
   }));
 }
 
+/**
+ * 將已鎖定 prediction 與投注序列化成單一賽事列。
+ * 時間複雜度：O(b)，b = 投注筆數（JSON.stringify）。
+ * 空間複雜度：O(b)。
+ */
 function buildMatchRow_(record) {
   const match = record.match || {};
   const prediction = record.prediction || {};
@@ -386,6 +396,7 @@ function buildMatchRow_(record) {
     lockedAt: record.lockedAt || '',
     status: 'locked',
     updatedAt: new Date().toISOString(),
+    betsJson: JSON.stringify(Array.isArray(prediction.bets) ? prediction.bets : []),
   };
   return FOOTBALL_HEADERS.FootballMatches.map((header) => Object.prototype.hasOwnProperty.call(values, header) ? values[header] : '');
 }
