@@ -15,12 +15,15 @@ test.beforeEach(async ({ page }) => {
   });
 });
 
-test("已鎖定紀錄編輯器移除舊賠率欄位並提供可修改運彩區", async ({ page }) => {
+test("新建與已鎖定紀錄都移除舊賠率欄位，編輯器提供可修改運彩區", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(
     () => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))
   ).toBe(true);
 
+  await expect(page.locator("#football-home-odds")).toHaveCount(0);
+  await expect(page.locator("#football-draw-odds")).toHaveCount(0);
+  await expect(page.locator("#football-away-odds")).toHaveCount(0);
   await expect(page.locator("#football-edit-home-odds")).toHaveCount(0);
   await expect(page.locator("#football-edit-draw-odds")).toHaveCount(0);
   await expect(page.locator("#football-edit-away-odds")).toHaveCount(0);
