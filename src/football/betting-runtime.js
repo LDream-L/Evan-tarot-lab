@@ -400,6 +400,18 @@ function readValue(id) {
 }
 
 /**
+ * 讀取數字欄位；空白保持 NaN，不把空白誤轉為 0。
+ * 時間複雜度：O(1)
+ * 空間複雜度：O(1)
+ *
+ * 更快替代方案比較：每個欄位各自先判空會重複相同分支；集中在單一 helper 可避免漏判。
+ */
+function readNumber(id) {
+  const raw = readValue(id);
+  return raw === "" ? Number.NaN : Number(raw);
+}
+
+/**
  * 由目前可見欄位建立單筆投注物件。
  * 時間複雜度：O(1)
  * 空間複雜度：O(1)
@@ -409,8 +421,8 @@ function buildBetFromForm() {
   const bet = {
     id: createBetId(),
     marketType,
-    odds: Number(readValue("football-betting-odds")),
-    stake: Number(readValue("football-betting-stake")),
+    odds: readNumber("football-betting-odds"),
+    stake: readNumber("football-betting-stake"),
   };
 
   if (["match_result", "double_chance", "odd_even", "total_goal_range", "both_teams_score"].includes(marketType)) {
@@ -418,32 +430,32 @@ function buildBetFromForm() {
   }
   if (marketType === "handicap_result") {
     bet.selection = readValue("football-betting-selection");
-    bet.awayBonus = Number(readValue("football-betting-away-bonus"));
-    bet.homeBonus = Number(readValue("football-betting-home-bonus"));
+    bet.awayBonus = readNumber("football-betting-away-bonus");
+    bet.homeBonus = readNumber("football-betting-home-bonus");
   }
   if (marketType === "total_over_under") {
     bet.selection = readValue("football-betting-selection");
-    bet.line = Number(readValue("football-betting-line"));
+    bet.line = readNumber("football-betting-line");
   }
   if (marketType === "team_total_over_under") {
     bet.team = readValue("football-betting-team");
     bet.selection = readValue("football-betting-selection");
-    bet.line = Number(readValue("football-betting-line"));
+    bet.line = readNumber("football-betting-line");
   }
   if (marketType === "team_odd_even") {
     bet.team = readValue("football-betting-team");
     bet.selection = readValue("football-betting-selection");
   }
   if (marketType === "exact_total_goals") {
-    bet.goalCount = Number(readValue("football-betting-goal-count"));
+    bet.goalCount = readNumber("football-betting-goal-count");
   }
   if (marketType === "exact_team_goals") {
     bet.team = readValue("football-betting-team");
-    bet.goalCount = Number(readValue("football-betting-goal-count"));
+    bet.goalCount = readNumber("football-betting-goal-count");
   }
   if (marketType === "exact_score") {
-    bet.homeGoals = Number(readValue("football-betting-home-goals"));
-    bet.awayGoals = Number(readValue("football-betting-away-goals"));
+    bet.homeGoals = readNumber("football-betting-home-goals");
+    bet.awayGoals = readNumber("football-betting-away-goals");
   }
   if (marketType === "result_btts") {
     bet.selection = readValue("football-betting-selection");
@@ -457,8 +469,8 @@ function updatePotentialPreview() {
   const output = byId("football-betting-potential");
   if (!output) return;
   const potential = footballBettingModel.calculatePotentialProfit(
-    Number(readValue("football-betting-stake")),
-    Number(readValue("football-betting-odds"))
+    readNumber("football-betting-stake"),
+    readNumber("football-betting-odds")
   );
   output.textContent = potential == null ? "潛在收益：—" : `潛在收益：${formatMoney(potential, true)}（不含本金）`;
 }
@@ -657,8 +669,8 @@ function renderBetEditor(draft) {
 
 /** 取得有效輸入比分；時間／空間 O(1)。 */
 function readEvaluationActual() {
-  const home = Number(byId("football-actual-home")?.value);
-  const away = Number(byId("football-actual-away")?.value);
+  const home = readNumber("football-actual-home");
+  const away = readNumber("football-actual-away");
   if (!Number.isInteger(home) || !Number.isInteger(away) || home < 0 || away < 0) return null;
   return { homeGoals: home, awayGoals: away };
 }
