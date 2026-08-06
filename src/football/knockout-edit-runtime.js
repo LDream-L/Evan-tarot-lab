@@ -5,7 +5,7 @@
 //
 // 主要流程複雜度：
 // - 固定 2 個相容 UX 模組＋3 個具名控制器：時間／空間 O(1)。
-// - 啟動契約：時間／空間 O(1)。
+// - 啟動契約與舊賠率欄位移除：時間／空間 O(1)。
 //
 // 更快替代方案比較：
 // - 由舊 IIFE 自行抓取任意全域核心並重複推導顯示，載入順序不可見。
@@ -34,6 +34,17 @@ if (
 ) {
   throw new Error("世足基礎紀錄編輯器尚未完成，無法建立決勝編輯層。");
 }
+
+/**
+ * 舊三項賽事層級賠率已由「每個牌源的運彩投注」取代。
+ * 固定 3 欄，時間／空間 O(1)。
+ */
+function removeLegacyMatchOddsInputs() {
+  ["football-home-odds", "football-draw-odds", "football-away-odds"]
+    .forEach((id) => document.getElementById(id)?.closest("label")?.remove());
+}
+
+removeLegacyMatchOddsInputs();
 
 export const footballRecordKnockoutEdit = createFootballRecordKnockoutEdit({
   core: knockoutCore,
