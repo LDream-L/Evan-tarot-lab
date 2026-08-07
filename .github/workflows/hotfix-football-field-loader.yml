@@ -1,0 +1,70 @@
+name: One-time football field loader hotfix
+
+on:
+  push:
+    paths:
+      - .github/workflows/hotfix-football-field-loader.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Patch module count and cache keys
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+
+          replacements = {
+              Path('src/football/entry.js'): [
+                  ('M = 36 個相依元件', 'M = 37 個相依元件'),
+                  ('const MODULE_COUNT = 36;', 'const MODULE_COUNT = 37;'),
+              ],
+              Path('tests/e2e/site.spec.js'): [
+                  ('window.FootballLabBundle.moduleCount)).toBe(36)', 'window.FootballLabBundle.moduleCount)).toBe(37)'),
+              ],
+              Path('JS/football-lab.js'): [
+                  ('20260801-source-comparison-v1', '20260807-field-context-v2'),
+              ],
+          }
+
+          for path, pairs in replacements.items():
+              text = path.read_text(encoding='utf-8')
+              for old, new in pairs:
+                  if old not in text:
+                      raise SystemExit(f'Missing expected text in {path}: {old}')
+                  text = text.replace(old, new)
+              path.write_text(text, encoding='utf-8')
+
+          html = Path('football-lab.html')
+          text = html.read_text(encoding='utf-8')
+          updated, count = re.subn(
+              r'JS/football-lab\.js(?:\?v=[^"\']+)?',
+              'JS/football-lab.js?v=20260807-field-context-v2',
+              text,
+          )
+          if count != 1:
+              raise SystemExit(f'Expected one football loader reference, found {count}')
+          html.write_text(updated, encoding='utf-8')
+
+          for path in Path('tests').rglob('*'):
+              if not path.is_file() or path.suffix not in {'.js', '.cjs', '.mjs'}:
+                  continue
+              text = path.read_text(encoding='utf-8')
+              if '20260801-source-comparison-v1' in text:
+                  path.write_text(text.replace('20260801-source-comparison-v1', '20260807-field-context-v2'), encoding='utf-8')
+          PY
+      - name: Commit hotfix
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/football/entry.js tests/e2e/site.spec.js JS/football-lab.js football-lab.html tests
+          git commit -m "fix: refresh football field runtime loader"
+          git push origin main
