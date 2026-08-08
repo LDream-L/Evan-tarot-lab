@@ -1,29 +1,39 @@
 /*
- * 塔羅X賽事驗證｜iPad / tablet 響應式修正
+ * 塔羅X賽事驗證｜iPad / tablet 響應式修正 v2
  *
- * 目的：補上既有 901–1179px 的 responsive 斷層。
- * 現有桌機規則在 >=980px 進入六欄表單，紀錄表格又固定 min-width:1160px；
- * iPad 橫向 1024px 因此會產生水平溢位。
+ * 目的：iPad 直向與橫向都使用真正的 tablet 版面，不把大型 iPad Pro 誤判成桌機。
+ * iPad Pro 橫向 CSS viewport 可到 1366px；舊版只涵蓋到 1180px，因此會重新吃到桌機六欄規則。
  *
  * CSS 規則本身不進行資料運算：時間／空間複雜度皆為瀏覽器固定樣式匹配成本。
  * 更快替代方案比較：只加 overflow-x:auto 雖然改動最少，但只是把錯位變成橫向捲動；
- * 本版直接在 tablet 寬度改成適合的兩欄表單與卡片式紀錄，避免使用者額外操作。
+ * 本版把 681–1366px 統一整理成兩欄語意表單與卡片式紀錄，避免欄位被桌機 Grid 拆散。
  */
 
-@media (min-width: 681px) and (max-width: 1180px) {
+@media (min-width: 681px) and (max-width: 1366px) {
   body:has(#football-tool) {
     overflow-x: clip;
   }
 
+  /* 保留閱讀寬度，不把大型 iPad 的表單拉滿到 1300px。 */
   body:has(#football-tool) .container {
     width: 100%;
-    max-width: 100%;
+    max-width: 1120px;
+    margin-left: auto;
+    margin-right: auto;
     padding-left: clamp(16px, 2.4vw, 24px);
     padding-right: clamp(16px, 2.4vw, 24px);
   }
 
   body:has(#football-tool) .hero-inner {
     grid-template-columns: 1fr !important;
+  }
+
+  body:has(#football-tool) .hero-card {
+    justify-content: stretch;
+  }
+
+  body:has(#football-tool) .hero-card-inner {
+    width: 100%;
   }
 
   body:has(#football-tool) .hero-card,
@@ -53,6 +63,7 @@
   .football-form-grid[data-layout-form="evaluation"],
   .football-form-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    grid-auto-flow: row;
   }
 
   .football-form-grid[data-layout-form="match"] > *,
@@ -61,7 +72,78 @@
     min-width: 0;
   }
 
-  .football-form-grid[data-layout-form="match"] > label:has(#football-known-info),
+  /*
+   * STEP 1 依資訊關係固定兩欄：
+   * 運動＋階段／賽事名稱全寬／時間＋資訊狀態／主客隊／模式＋預測範圍／牌源全寬。
+   * 固定數量欄位，瀏覽器 Grid 配置成本 O(1)，不需要 JS 反覆搬 DOM。
+   */
+  .football-form-grid[data-layout-form="match"] > label:has(#football-sport-type) {
+    order: 10;
+    grid-column: 1 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-stage) {
+    order: 11;
+    grid-column: 2 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-competition) {
+    order: 20;
+    grid-column: 1 / -1 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-kickoff) {
+    order: 30;
+    grid-column: 1 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-info-state) {
+    order: 31;
+    grid-column: 2 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-home-team) {
+    order: 40;
+    grid-column: 1 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-away-team) {
+    order: 41;
+    grid-column: 2 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-mode) {
+    order: 50;
+    grid-column: 1 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-prediction-scope) {
+    order: 51;
+    grid-column: 2 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-knockout-rule) {
+    order: 52;
+    grid-column: 1 / -1 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-card-source) {
+    order: 60;
+    grid-column: 1 / -1 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-home-odds),
+  .football-form-grid[data-layout-form="match"] > label:has(#football-draw-odds),
+  .football-form-grid[data-layout-form="match"] > label:has(#football-away-odds) {
+    order: 65;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-known-info) {
+    order: 70;
+    grid-column: 1 / -1 !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > .football-knockout-note,
   .football-form-grid[data-layout-form="evaluation"] > label:has(#football-actual-notes),
   .football-form-grid > .football-span-2 {
     grid-column: 1 / -1 !important;
@@ -77,7 +159,7 @@
     grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
   }
 
-  /* Tablet 直接採資料卡模式，避免 1160px 桌機表格撐破 768/1024px viewport。 */
+  /* Tablet 直接採資料卡模式，避免 1160px 桌機表格撐破 viewport。 */
   #football-records .football-table {
     min-width: 0 !important;
     width: 100% !important;
