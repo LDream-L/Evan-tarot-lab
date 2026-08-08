@@ -1,0 +1,173 @@
+/*
+ * 塔羅X賽事驗證｜iPad / tablet 響應式修正
+ *
+ * 目的：補上既有 901–1179px 的 responsive 斷層。
+ * 現有桌機規則在 >=980px 進入六欄表單，紀錄表格又固定 min-width:1160px；
+ * iPad 橫向 1024px 因此會產生水平溢位。
+ *
+ * CSS 規則本身不進行資料運算：時間／空間複雜度皆為瀏覽器固定樣式匹配成本。
+ * 更快替代方案比較：只加 overflow-x:auto 雖然改動最少，但只是把錯位變成橫向捲動；
+ * 本版直接在 tablet 寬度改成適合的兩欄表單與卡片式紀錄，避免使用者額外操作。
+ */
+
+@media (min-width: 681px) and (max-width: 1180px) {
+  body:has(#football-tool) {
+    overflow-x: clip;
+  }
+
+  body:has(#football-tool) .container {
+    width: 100%;
+    max-width: 100%;
+    padding-left: clamp(16px, 2.4vw, 24px);
+    padding-right: clamp(16px, 2.4vw, 24px);
+  }
+
+  body:has(#football-tool) .hero-inner {
+    grid-template-columns: 1fr !important;
+  }
+
+  body:has(#football-tool) .hero-card,
+  body:has(#football-tool) .hero-card-inner,
+  .football-shell,
+  .football-panel,
+  .football-form,
+  .football-form-grid,
+  .football-model-fieldset,
+  .football-table-wrap,
+  .football-source-comparison {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .football-form input,
+  .football-form select,
+  .football-form textarea,
+  .football-form button {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+  }
+
+  /* Tablet 不沿用 >=980px 的六欄桌機配置。 */
+  .football-form-grid[data-layout-form="match"],
+  .football-form-grid[data-layout-form="evaluation"],
+  .football-form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  .football-form-grid[data-layout-form="match"] > *,
+  .football-form-grid[data-layout-form="evaluation"] > * {
+    grid-column: auto !important;
+    min-width: 0;
+  }
+
+  .football-form-grid[data-layout-form="match"] > label:has(#football-known-info),
+  .football-form-grid[data-layout-form="evaluation"] > label:has(#football-actual-notes),
+  .football-form-grid > .football-span-2 {
+    grid-column: 1 / -1 !important;
+  }
+
+  .football-source-heading {
+    display: grid !important;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: start;
+  }
+
+  .football-source-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+
+  /* Tablet 直接採資料卡模式，避免 1160px 桌機表格撐破 768/1024px viewport。 */
+  #football-records .football-table {
+    min-width: 0 !important;
+    width: 100% !important;
+  }
+
+  #football-records .football-table-wrap {
+    overflow: visible !important;
+    border: 0;
+  }
+
+  #football-records .football-table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  #football-records .football-table,
+  #football-records .football-table tbody,
+  #football-records .football-table tr,
+  #football-records .football-table td {
+    display: block;
+    width: 100% !important;
+    min-width: 0 !important;
+    max-width: 100% !important;
+  }
+
+  #football-records .football-table tr {
+    margin-bottom: .72rem;
+    padding: .68rem;
+    border: 1px solid rgba(171, 151, 255, .26);
+    border-radius: 13px;
+    background: rgba(13, 12, 39, .78);
+  }
+
+  #football-records .football-table td {
+    display: grid;
+    grid-template-columns: minmax(6.8rem, .30fr) minmax(0, 1fr);
+    gap: .55rem;
+    padding: .36rem 0 !important;
+    border: 0;
+    overflow-wrap: anywhere;
+  }
+
+  #football-records .football-table td::before {
+    content: attr(data-label);
+    color: var(--text-soft, #bcb7d9);
+    font-size: .76rem;
+    font-weight: 750;
+  }
+
+  #football-records .football-table td:nth-child(2) {
+    display: block;
+  }
+
+  #football-records .football-table td:nth-child(2)::before {
+    display: block;
+    margin-bottom: .42rem;
+  }
+
+  .football-record-card-board,
+  .football-record-card-grid,
+  .football-knockout-card-grid,
+  #football-card-grid {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
+
+@media (min-width: 681px) and (max-width: 820px) {
+  body:has(#football-tool) .header-inner {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+    gap: 8px;
+  }
+
+  body:has(#football-tool) .nav {
+    justify-content: flex-start;
+    gap: 6px;
+  }
+
+  body:has(#football-tool) .nav a {
+    padding: 5px 8px;
+  }
+
+  .football-source-heading {
+    grid-template-columns: 1fr !important;
+  }
+}
