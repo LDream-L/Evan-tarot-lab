@@ -1,0 +1,126 @@
+name: One-time field observer loop hotfix
+
+on:
+  push:
+    paths:
+      - .github/workflows/hotfix-field-observer-loop.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Stop self-triggering field observer loop
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          runtime = Path('src/football/field-context-runtime.js')
+          text = runtime.read_text(encoding='utf-8')
+          old = '''/** 固定表面整理；紀錄列為唯一隨 r 成長的部分。 */
+          function decorateSurface() {
+            if (decorating) return;
+            decorating = true;
+            try {
+              configureFieldForm();
+              updateFieldCopy();
+              decorateRecordRows();
+              decorateKpis();
+              decorateSourceComparison();
+              decorateEditorCopy();
+            } finally {
+              decorating = false;
+            }
+          }
+
+          /** MutationObserver 去抖：同一批 DOM 變更只執行一次。 */
+          function scheduleDecorate() {
+          '''.replace('          ', '')
+          new = '''/**
+           * 固定表面整理；紀錄列為唯一隨 r 成長的部分。
+           * 時間複雜度：O(r)，r 為目前紀錄數。
+           * 空間複雜度：O(r)，來自紀錄排序快照。
+           *
+           * 更快替代方案比較：只用 decorating flag 仍擋不住 MutationObserver 在本輪 DOM
+           * 修改結束後再次排入 microtask，會形成無限自我觸發；整理期間暫停 observer，
+           * 完成後再恢復監看，只保留外部 render 的一次後處理。
+           */
+          function decorateSurface() {
+            if (decorating) return;
+            decorating = true;
+            const shouldResumeObserver = Boolean(observer && document.body);
+            if (shouldResumeObserver) observer.disconnect();
+            try {
+              configureFieldForm();
+              updateFieldCopy();
+              decorateRecordRows();
+              decorateKpis();
+              decorateSourceComparison();
+              decorateEditorCopy();
+            } finally {
+              if (shouldResumeObserver) {
+                observer.observe(document.body, { childList: true, subtree: true });
+              }
+              decorating = false;
+            }
+          }
+
+          /**
+           * MutationObserver 去抖：入列時間／空間 O(1)；實際整理時間 O(r)、空間 O(r)。
+           */
+          function scheduleDecorate() {
+          '''.replace('          ', '')
+          if old not in text:
+              raise SystemExit('field-context decorateSurface block not found')
+          runtime.write_text(text.replace(old, new), encoding='utf-8')
+
+          bundle_test = Path('tests/football-bundle.test.cjs')
+          text = bundle_test.read_text(encoding='utf-8')
+          old_version = 'const FOOTBALL_SCRIPT_VERSION = "20260711-football-root-esm-v1";'
+          new_version = 'const FOOTBALL_SCRIPT_VERSION = "20260807-field-context-v2";'
+          if old_version not in text:
+              raise SystemExit('football bundle cache version assertion not found')
+          bundle_test.write_text(text.replace(old_version, new_version), encoding='utf-8')
+
+          site_test = Path('tests/e2e/site.spec.js')
+          text = site_test.read_text(encoding='utf-8')
+          text = text.replace(
+              'test("世足 36 個元件完整啟動且決勝編輯層依賴 review 快照"',
+              'test("世足 37 個元件完整啟動且決勝編輯層依賴 review 快照"',
+          )
+          site_test.write_text(text, encoding='utf-8')
+
+          workflow = Path('.github/workflows/pages.yml')
+          text = workflow.read_text(encoding='utf-8')
+          required_anchor = '            src/football/render.js src/football/energy-model.js src/football/energy-adapter.js\n'
+          required_replacement = required_anchor + '            src/football/field-context-runtime.js\n'
+          if 'src/football/field-context-runtime.js' not in text:
+              if required_anchor not in text:
+                  raise SystemExit('pages required-files anchor not found')
+              text = text.replace(required_anchor, required_replacement, 1)
+          syntax_anchor = '          node --check src/football/energy-adapter.js\n'
+          syntax_replacement = syntax_anchor + '          node --check src/football/field-context-runtime.js\n'
+          if 'node --check src/football/field-context-runtime.js' not in text:
+              if syntax_anchor not in text:
+                  raise SystemExit('pages syntax anchor not found')
+              text = text.replace(syntax_anchor, syntax_replacement, 1)
+          workflow.write_text(text, encoding='utf-8')
+          PY
+      - name: Commit hotfix and remove one-time workflow
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/hotfix-field-observer-loop.yml
+          git add src/football/field-context-runtime.js tests/football-bundle.test.cjs tests/e2e/site.spec.js .github/workflows/pages.yml
+          git commit -m "fix: stop field context observer render loop"
+          git push origin main
