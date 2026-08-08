@@ -542,10 +542,20 @@ function decorateEditorCopy() {
   }
 }
 
-/** 固定表面整理；紀錄列為唯一隨 r 成長的部分。 */
+/**
+ * 固定表面整理；紀錄列為唯一隨 r 成長的部分。
+ * 時間複雜度：O(r)，r 為目前紀錄數。
+ * 空間複雜度：O(r)，來自紀錄排序快照。
+ *
+ * 更快替代方案比較：只用 decorating flag 仍擋不住 MutationObserver 在本輪 DOM
+ * 修改結束後再次排入 microtask，會形成無限自我觸發；整理期間暫停 observer，
+ * 完成後再恢復監看，只保留外部 render 的一次後處理。
+ */
 function decorateSurface() {
   if (decorating) return;
   decorating = true;
+  const shouldResumeObserver = Boolean(observer && document.body);
+  if (shouldResumeObserver) observer.disconnect();
   try {
     configureFieldForm();
     updateFieldCopy();
@@ -554,11 +564,16 @@ function decorateSurface() {
     decorateSourceComparison();
     decorateEditorCopy();
   } finally {
+    if (shouldResumeObserver) {
+      observer.observe(document.body, { childList: true, subtree: true });
+    }
     decorating = false;
   }
 }
 
-/** MutationObserver 去抖：同一批 DOM 變更只執行一次。 */
+/**
+ * MutationObserver 去抖：入列時間／空間 O(1)；實際整理時間 O(r)、空間 O(r)。
+ */
 function scheduleDecorate() {
   if (decorateScheduled) return;
   decorateScheduled = true;

@@ -133,7 +133,7 @@ test("驗證方法與隱私頁互相連結且保留核心界線", async ({ page 
   await expect(page.locator('a[href="methodology.html"]').last()).toBeVisible();
 });
 
-test("世足 36 個元件完整啟動且決勝編輯層依賴 review 快照", async ({ page }) => {
+test("世足 37 個元件完整啟動且決勝編輯層依賴 review 快照", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
   expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(37);
