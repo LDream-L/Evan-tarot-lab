@@ -1,7 +1,9 @@
 import { test, expect } from "@playwright/test";
 
 const IPAD_VIEWPORTS = Object.freeze([
-  Object.freeze({ name: "landscape", width: 1024, height: 768 }),
+  Object.freeze({ name: "pro-landscape", width: 1366, height: 1024 }),
+  Object.freeze({ name: "11-landscape", width: 1194, height: 834 }),
+  Object.freeze({ name: "classic-landscape", width: 1024, height: 768 }),
   Object.freeze({ name: "portrait", width: 768, height: 1024 }),
 ]);
 
@@ -22,6 +24,35 @@ async function expectNoHorizontalOverflow(page, viewportWidth) {
   expect(metrics.bodyScrollWidth).toBeLessThanOrEqual(viewportWidth + 1);
 }
 
+/**
+ * STEP 1 必須維持兩欄語意版面。時間／空間 O(1)。
+ * 更快替代方案比較：只驗證沒有 overflow 可能漏掉「仍是桌機六欄但剛好沒超寬」；
+ * 同時檢查 Grid 欄數與關鍵全寬欄位，才能攔住 iPad Pro 被誤判成桌機的回歸。
+ */
+async function expectTabletStepOneLayout(page) {
+  const layout = await page.evaluate(() => {
+    const grid = document.querySelector('.football-form-grid[data-layout-form="match"]');
+    const competition = document.getElementById("football-competition")?.closest("label");
+    const source = document.getElementById("football-card-source")?.closest("label");
+    const columns = grid ? getComputedStyle(grid).gridTemplateColumns.split(/\s+/).filter(Boolean) : [];
+    const competitionStyle = competition ? getComputedStyle(competition) : null;
+    const sourceStyle = source ? getComputedStyle(source) : null;
+    return {
+      columnCount: columns.length,
+      competitionStart: competitionStyle?.gridColumnStart || "",
+      competitionEnd: competitionStyle?.gridColumnEnd || "",
+      sourceStart: sourceStyle?.gridColumnStart || "",
+      sourceEnd: sourceStyle?.gridColumnEnd || "",
+    };
+  });
+
+  expect(layout.columnCount).toBe(2);
+  expect(layout.competitionStart).toBe("1");
+  expect(layout.competitionEnd).toBe("-1");
+  expect(layout.sourceStart).toBe("1");
+  expect(layout.sourceEnd).toBe("-1");
+}
+
 for (const viewport of IPAD_VIEWPORTS) {
   test(`football lab stays inside iPad ${viewport.name} viewport`, async ({ page }) => {
     await page.setViewportSize({ width: viewport.width, height: viewport.height });
@@ -35,5 +66,6 @@ for (const viewport of IPAD_VIEWPORTS) {
     await expect(page.locator("#football-records")).toBeVisible();
     await expect(page.locator("link[href*='football-ipad-layout.css']")).toHaveCount(1);
     await expectNoHorizontalOverflow(page, viewport.width);
+    await expectTabletStepOneLayout(page);
   });
 }
