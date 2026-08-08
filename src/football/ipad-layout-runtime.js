@@ -6,7 +6,7 @@
 
 const STYLE_ID = "football-ipad-layout-style";
 const STYLE_MARKER = "football-ipad-layout.css";
-const STYLE_VERSION = "20260808-ipad-layout-v1";
+const STYLE_VERSION = "20260808-ipad-layout-v2";
 
 /** 只掛載一次 tablet override。時間／空間 O(1)。 */
 function ensureIpadLayoutStylesheet() {
