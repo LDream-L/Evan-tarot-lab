@@ -13,22 +13,24 @@
 (function bootstrapFootballLabRootEntry() {
   "use strict";
 
-  const ROOT_LOADER_VERSION = "20260807-field-context-v2";
+  const ROOT_LOADER_VERSION = "20260808-ipad-layout-v1";
   const LOAD_TIMEOUT_MS = 15_000;
   const currentScriptUrl = document.currentScript?.src || document.baseURI;
   const entryBaseUrl = new URL("../src/football/entry.js", currentScriptUrl);
   const finalStyleUrl = new URL("../football-layout-final.css", currentScriptUrl);
   const kpiDensityStyleUrl = new URL("../football-kpi-density.css", currentScriptUrl);
+  const ipadLayoutStyleUrl = new URL("../football-ipad-layout.css", currentScriptUrl);
 
   let loadPromise = null;
   let attempt = 0;
   let status = "idle";
 
-  /** 固定兩張樣式表，只加入一次。時間／空間 O(1)。 */
+  /** 固定三張樣式表，只加入一次。時間／空間 O(1)。 */
   function ensureLayoutStylesheets() {
     const stylesheets = [
       ["football-layout-final-style", "football-layout-final.css", finalStyleUrl],
       ["football-kpi-density-style", "football-kpi-density.css", kpiDensityStyleUrl],
+      ["football-ipad-layout-style", "football-ipad-layout.css", ipadLayoutStyleUrl],
     ];
 
     stylesheets.forEach(([id, marker, url]) => {
