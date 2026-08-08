@@ -13,7 +13,7 @@
 (function bootstrapFootballLabRootEntry() {
   "use strict";
 
-  const ROOT_LOADER_VERSION = "20260808-ipad-layout-v1";
+  const ROOT_LOADER_VERSION = "20260808-ipad-layout-v2";
   const LOAD_TIMEOUT_MS = 15_000;
   const currentScriptUrl = document.currentScript?.src || document.baseURI;
   const entryBaseUrl = new URL("../src/football/entry.js", currentScriptUrl);
