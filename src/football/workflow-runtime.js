@@ -18,7 +18,7 @@ import "../../JS/football-datetime-fix.js";
 import "../../JS/football-knockout-flow.js";
 import "../../JS/football-direct-energy-form.js";
 import { footballFieldContextRuntime } from "./field-context-runtime.js?v=20260807-field-context-v2";
-import "./ipad-layout-runtime.js?v=20260808-ipad-layout-v1";
+import "./ipad-layout-runtime.js?v=20260808-ipad-layout-v2";
 import "./source-review-adapter.js?v=20260803-source-review-v1";
 import "./source-comparison-runtime.js?v=20260801-source-comparison-v1";
 import "./source-comparison-metrics.js?v=20260801-source-energy-metrics-v1";
