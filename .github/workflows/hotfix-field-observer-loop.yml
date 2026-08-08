@@ -97,30 +97,13 @@ jobs:
               'test("世足 37 個元件完整啟動且決勝編輯層依賴 review 快照"',
           )
           site_test.write_text(text, encoding='utf-8')
-
-          workflow = Path('.github/workflows/pages.yml')
-          text = workflow.read_text(encoding='utf-8')
-          required_anchor = '            src/football/render.js src/football/energy-model.js src/football/energy-adapter.js\n'
-          required_replacement = required_anchor + '            src/football/field-context-runtime.js\n'
-          if 'src/football/field-context-runtime.js' not in text:
-              if required_anchor not in text:
-                  raise SystemExit('pages required-files anchor not found')
-              text = text.replace(required_anchor, required_replacement, 1)
-          syntax_anchor = '          node --check src/football/energy-adapter.js\n'
-          syntax_replacement = syntax_anchor + '          node --check src/football/field-context-runtime.js\n'
-          if 'node --check src/football/field-context-runtime.js' not in text:
-              if syntax_anchor not in text:
-                  raise SystemExit('pages syntax anchor not found')
-              text = text.replace(syntax_anchor, syntax_replacement, 1)
-          workflow.write_text(text, encoding='utf-8')
           PY
-      - name: Commit hotfix and remove one-time workflow
+      - name: Commit hotfix
         shell: bash
         run: |
           set -euo pipefail
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git rm .github/workflows/hotfix-field-observer-loop.yml
-          git add src/football/field-context-runtime.js tests/football-bundle.test.cjs tests/e2e/site.spec.js .github/workflows/pages.yml
+          git add src/football/field-context-runtime.js tests/football-bundle.test.cjs tests/e2e/site.spec.js
           git commit -m "fix: stop field context observer render loop"
           git push origin main
