@@ -1,0 +1,56 @@
+name: One-time draft restore observer cleanup
+
+on:
+  push:
+    paths:
+      - .github/workflows/hotfix-draft-restore-observer.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Stop restore observer after initial recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+          path = Path('src/football/draft-persistence-runtime.js')
+          text = path.read_text(encoding='utf-8')
+
+          old = '''function scheduleSave() {\n  if (restoring) return;\n  dirty = true;\n'''
+          new = '''function scheduleSave() {\n  if (restoring) return;\n  if (observer) {\n    observer.disconnect();\n    observer = null;\n  }\n  pendingSnapshot = null;\n  dirty = true;\n'''
+          if old not in text:
+              raise SystemExit('scheduleSave marker not found')
+          text = text.replace(old, new, 1)
+
+          old = '''    window.setTimeout(() => {\n      restoring = true;\n      try { restoreFields(snapshot.fields); } finally { restoring = false; }\n    }, 0);\n    dirty = Boolean(snapshot.dirty || snapshot.draft || Object.keys(snapshot.fields || {}).length);\n'''
+          new = '''    window.setTimeout(() => {\n      restoring = true;\n      try {\n        restoreFields(snapshot.fields);\n      } finally {\n        restoring = false;\n        observer?.disconnect();\n        observer = null;\n        pendingSnapshot = null;\n      }\n    }, 0);\n    dirty = Boolean(snapshot.dirty || snapshot.draft || Object.keys(snapshot.fields || {}).length);\n'''
+          if old not in text:
+              raise SystemExit('restore timeout marker not found')
+          text = text.replace(old, new, 1)
+
+          old = '''function observeDynamicFields() {\n  if (observer || !document.body) return;\n'''
+          new = '''function observeDynamicFields() {\n  if (!pendingSnapshot || observer || !document.body) return;\n'''
+          if old not in text:
+              raise SystemExit('observer guard marker not found')
+          text = text.replace(old, new, 1)
+          path.write_text(text, encoding='utf-8')
+          PY
+          node --check src/football/draft-persistence-runtime.js
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/football/draft-persistence-runtime.js
+          git commit -m "fix: stop football draft restore observer after recovery"
+          git push origin main
