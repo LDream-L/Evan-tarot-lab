@@ -14,6 +14,16 @@
 // - 本版採循序補傳，優先確保 createRecord 完成後才更新同筆 actual，並逐筆回報進度。
 
 const CONFIRMED_ACTIONS = Object.freeze(["health", "createRecord", "updateActual"]);
+const AUTH_FAILURE_PATTERN = /Google\s*登入.*(?:憑證|資料).*(?:驗證失敗|無效|過期)|(?:憑證|登入資料).*(?:驗證失敗|無效|過期)/i;
+
+/**
+ * 只辨識後端已明確回報的登入失效訊息：時間 O(m)、空間 O(1)，m 為錯誤文字長度。
+ * 更快替代方案比較：所有 4xx 都強制登出雖是 O(1) 判斷，但會把資料格式或權限錯誤誤判成登入過期；
+ * 本版只比對 auth 關鍵語意，避免不必要的重新整理。
+ */
+export function isCloudAuthFailure(error) {
+  return AUTH_FAILURE_PATTERN.test(String(error?.message || error || ""));
+}
 
 /** 解析 Apps Script JSON 回應：時間／空間 O(n)，n = 回應文字長度。 */
 export async function parseCloudResponse(response) {
@@ -241,7 +251,19 @@ export function createFootballCloud({
       body: JSON.stringify({ action, idToken, ...payload }),
       redirect: "follow",
     });
-    return parseCloudResponse(response);
+    try {
+      return await parseCloudResponse(response);
+    } catch (error) {
+      if (isCloudAuthFailure(error)) {
+        const auth = getAuth();
+        if (typeof auth?.expireSession === "function") {
+          auth.expireSession("Google 登入已失效，頁面將重新整理。");
+        } else {
+          auth?.signOut?.();
+        }
+      }
+      throw error;
+    }
   }
 
   /** 健康檢查：前端時間／空間 O(1)。 */

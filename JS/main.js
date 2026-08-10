@@ -106,7 +106,7 @@ function loadScriptOnce({ src, marker, isReady, timeoutMs = MAIN_ASSET_TIMEOUT_M
 
 function loadSiteAccountScript() {
   return loadScriptOnce({
-    src: "JS/site-account.js?v=20260714-account-layout-v1",
+    src: "JS/site-account.js?v=20260810-auth-expiry-reload-v1",
     marker: "site-account",
     isReady: () => Boolean(window.EvanSiteAccount),
   }).then(async (loaded) => {

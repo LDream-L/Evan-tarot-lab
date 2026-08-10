@@ -19,6 +19,8 @@
   const listeners = new Set();
   const REQUEST_TIMEOUT_MS = 12000;
   const CREDENTIAL_STORAGE_KEY = "evanGoogleIdToken";
+  const EXPIRY_SAFETY_MS = 5000;
+  const MAX_TIMER_MS = 2147483647;
 
   let initialized = false;
   let credential = "";
@@ -27,6 +29,10 @@
   let profileLoading = false;
   let authVerifying = false;
   let authError = "";
+  let credentialExpiresAt = 0;
+  let expiryTimer = 0;
+  let reloadScheduled = false;
+  let lifecycleBound = false;
 
   function getClientId() {
     return String(window.EVAN_CLOUD_CONFIG?.googleClientId || "").trim();
@@ -65,6 +71,88 @@
     if (!payload?.sub) return false;
     const expiresAt = Number(payload.exp || 0) * 1000;
     return !expiresAt || expiresAt > Date.now() + 30000;
+  }
+
+  /** 清除單一到期計時器：時間／空間 O(1)。 */
+  function clearCredentialExpiryTimer() {
+    if (expiryTimer) window.clearTimeout(expiryTimer);
+    expiryTimer = 0;
+  }
+
+  /**
+   * 登出後只排一次重新整理：時間／空間 O(1)。
+   * 更快替代方案比較：每個 auth listener 各自 reload 會造成重複導頁；集中在登入核心只需一次狀態切換。
+   */
+  function schedulePageReload() {
+    if (reloadScheduled) return;
+    reloadScheduled = true;
+    window.setTimeout(() => window.location.reload(), 0);
+  }
+
+  /**
+   * 清除工作階段；時間／空間 O(1)。
+   * reload=true 時先清除 storage 再重整，避免重新載入時再次拿到同一枚過期 Token。
+   */
+  function clearSession({ message = "", reload = false } = {}) {
+    clearCredentialExpiryTimer();
+    credentialExpiresAt = 0;
+    credential = "";
+    user = null;
+    nickname = "";
+    profileLoading = false;
+    authVerifying = false;
+    authError = message;
+    sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
+    sessionStorage.removeItem("evanFootballGoogleIdToken");
+    window.google?.accounts?.id?.disableAutoSelect?.();
+    setText("google-nickname-status", "");
+    updateUI();
+    notify();
+    renderButton();
+    if (reload) schedulePageReload();
+  }
+
+  /**
+   * 主動檢查目前 Token 是否到期：時間／空間 O(1)。
+   * 更快替代方案比較：固定每秒輪詢會持續喚醒頁面；只在到期 timer 與頁面重新可見／聚焦時檢查即可。
+   */
+  function checkCredentialExpiry() {
+    if (!credential || !user || !credentialExpiresAt) return false;
+    if (credentialExpiresAt > Date.now() + EXPIRY_SAFETY_MS) return false;
+    expireSession("Google 登入已過期，頁面將重新整理。");
+    return true;
+  }
+
+  /**
+   * 依 JWT exp 排程一次到期處理：時間／空間 O(1)。
+   * Safari 背景頁可能暫停 timer，因此另由 lifecycle 事件補檢查。
+   */
+  function scheduleCredentialExpiry(payload) {
+    clearCredentialExpiryTimer();
+    credentialExpiresAt = Number(payload?.exp || 0) * 1000;
+    if (!credentialExpiresAt) return;
+    const delay = credentialExpiresAt - Date.now() - EXPIRY_SAFETY_MS;
+    if (delay <= 0) {
+      window.queueMicrotask(checkCredentialExpiry);
+      return;
+    }
+    expiryTimer = window.setTimeout(checkCredentialExpiry, Math.min(delay, MAX_TIMER_MS));
+  }
+
+  /** lifecycle 事件固定三個：時間／空間 O(1)。 */
+  function bindCredentialLifecycle() {
+    if (lifecycleBound) return;
+    lifecycleBound = true;
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") checkCredentialExpiry();
+    });
+    window.addEventListener("focus", checkCredentialExpiry, { passive: true });
+    window.addEventListener("pageshow", checkCredentialExpiry, { passive: true });
+  }
+
+  /** 後端或到期計時器可共用的失效入口：時間／空間 O(1)。 */
+  function expireSession(message = "Google 登入已過期，頁面將重新整理。") {
+    clearSession({ message, reload: true });
   }
 
   async function createUser(payload) {
@@ -309,6 +397,7 @@
       const nextUser = await createUser(payload);
       credential = nextCredential;
       user = nextUser;
+      scheduleCredentialExpiry(payload);
       if (persist) sessionStorage.setItem(CREDENTIAL_STORAGE_KEY, nextCredential);
       authVerifying = false;
       updateUI();
@@ -317,6 +406,8 @@
       return true;
     } catch (error) {
       console.error("[google-auth] 後端驗證失敗：", error);
+      clearCredentialExpiryTimer();
+      credentialExpiresAt = 0;
       sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
       credential = "";
       user = null;
@@ -386,6 +477,7 @@
     if (initialized) return getState();
     initialized = true;
     updateUI();
+    bindCredentialLifecycle();
     document.getElementById("google-signout-button")?.addEventListener("click", signOut);
     document.getElementById("google-nickname-save")?.addEventListener("click", saveNickname);
 
@@ -413,20 +505,13 @@
     return getState();
   }
 
-  function signOut() {
-    credential = "";
-    user = null;
-    nickname = "";
-    profileLoading = false;
-    authVerifying = false;
-    authError = "";
-    sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
-    sessionStorage.removeItem("evanFootballGoogleIdToken");
-    window.google?.accounts?.id?.disableAutoSelect?.();
-    setText("google-nickname-status", "");
-    updateUI();
-    notify();
-    renderButton();
+  /**
+   * 登出後重新整理頁面；時間／空間 O(1)。
+   * click event 直接傳入時沒有 reload=false，因此手動登出同樣會重整。
+   */
+  function signOut(options = {}) {
+    const shouldReload = options?.reload !== false;
+    clearSession({ message: "", reload: shouldReload });
   }
 
   function onChange(listener) {
@@ -440,6 +525,8 @@
     init,
     onChange,
     signOut,
+    expireSession,
+    checkCredentialExpiry,
     saveNickname,
     getCredential: () => credential,
     getState,

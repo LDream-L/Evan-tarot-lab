@@ -10,7 +10,7 @@ const GUARD = path.join(ROOT, "src", "football", "record-knockout-input-guard.js
 const LEGACY_GUARD = path.join(ROOT, "JS", "football-record-knockout-input-guard.js");
 const RUNTIME = path.join(DIST, "JS", "football-lab.js");
 const SOURCE_MAP = `${RUNTIME}.map`;
-const FOOTBALL_SCRIPT_VERSION = "20260808-ipad-layout-v2";
+const FOOTBALL_SCRIPT_VERSION = "20260810-auth-expiry-reload-v1";
 
 /** 時間／空間複雜度 O(B)，B 為受檢 source、HTML 與 sourcemap 大小。 */
 function run() {

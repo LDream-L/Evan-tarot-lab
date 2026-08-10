@@ -79,6 +79,8 @@ async function run() {
     let auth = null;
     let opened = 0;
     let signedOut = 0;
+    let expired = 0;
+    let rejectAuth = false;
     let authListener = null;
     const calls = [];
     const fetchImpl = async (url, options = {}) => {
@@ -87,6 +89,12 @@ async function run() {
         return makeResponse({ ok: true, service: "football-tarot" });
       }
       const body = JSON.parse(options.body);
+      if (rejectAuth) {
+        return makeResponse(
+          { ok: false, error: "Google 登入憑證驗證失敗。" },
+          { ok: false, status: 401 }
+        );
+      }
       return makeResponse({
         ok: true,
         result: { action: body.action, id: body.recordId || body.record?.id },
@@ -131,6 +139,7 @@ async function run() {
     auth = {
       getCredential: () => "jwt-token",
       signOut: () => { signedOut += 1; },
+      expireSession: () => { expired += 1; },
       onChange(listener) {
         authListener = listener;
         return () => { authListener = null; };
@@ -169,6 +178,12 @@ async function run() {
 
     assert.equal(await cloud.healthCheck(), true);
     assert.match(calls.at(-1).url, /action=health/);
+
+    rejectAuth = true;
+    await assert.rejects(() => cloud.saveRecord(records[0]), /Google 登入憑證驗證失敗/);
+    assert.equal(expired, 1);
+    assert.equal(signedOut, 0);
+    rejectAuth = false;
 
     await cloud.init();
     assert.equal(windowListeners.has("evan-site-account-ready"), true);
