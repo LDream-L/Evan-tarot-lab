@@ -907,6 +907,21 @@ function bind() {
   decorateRecordRows();
 }
 
+/**
+ * 恢復尚未鎖定的投注：時間／空間 O(b)，b 為草稿投注數。
+ * 更快替代方案比較：逐筆模擬 UI 點擊會反覆重建市場欄位；直接還原 module state 後只重畫一次 O(b)。
+ */
+function restoreDraftBets(bets, draft = bettingCore.getDraft()) {
+  draftBets = Array.isArray(bets) ? bets.map((bet) => ({ ...bet })) : [];
+  activeDraftKey = getDraftKey(draft);
+  if (draft) renderBetEditor(draft);
+  else {
+    ensureBetEditor();
+    renderDraftBetList();
+  }
+  return draftBets.map((bet) => ({ ...bet }));
+}
+
 window.FootballLabCore = bettingCore;
 window.FootballLabRender = bettingRender;
 
@@ -916,6 +931,7 @@ export const footballBettingRuntime = Object.freeze({
   core: bettingCore,
   render: bettingRender,
   getDraftBets: () => draftBets.map((bet) => ({ ...bet })),
+  restoreDraftBets,
   renderBetEditor,
   renderEvaluationBets,
 });

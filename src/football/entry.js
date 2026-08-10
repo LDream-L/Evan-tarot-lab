@@ -1,7 +1,7 @@
 // 世足賽事驗證｜ES Module 正式入口
 //
 // 主要流程複雜度：
-// - 模組解析與執行：時間 O(M)、空間 O(M)，M = 37 個相依元件。
+// - 模組解析與執行：時間 O(M)、空間 O(M)，M = 38 個相依元件。
 // - 啟動完整性檢查：時間／空間 O(G)，G = 必要契約數。
 // - 版本文案同步：時間／空間 O(1)。
 //
@@ -40,7 +40,7 @@ import "../../JS/football-record-status-visibility-fix.js";
 import "../../JS/football-performance-trends.js";
 import "../../JS/football-layout-optimizer.js";
 
-const MODULE_COUNT = 37;
+const MODULE_COUNT = 38;
 // guard 是決勝編輯 runtime 的子控制器，不另計為頂層模型／執行層。
 const NAMED_MODULE_COUNT = 16;
 const INTERFACE_VERSION = "1.7.6";

@@ -133,10 +133,10 @@ test("驗證方法與隱私頁互相連結且保留核心界線", async ({ page 
   await expect(page.locator('a[href="methodology.html"]').last()).toBeVisible();
 });
 
-test("世足 37 個元件完整啟動且決勝編輯層依賴 review 快照", async ({ page }) => {
+test("世足 38 個元件完整啟動且決勝編輯層依賴 review 快照", async ({ page }) => {
   await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
   await expect.poll(() => page.evaluate(() => Boolean(window.FootballLabBundle?.ready))).toBe(true);
-  expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(37);
+  expect(await page.evaluate(() => window.FootballLabBundle.moduleCount)).toBe(38);
   expect(await page.evaluate(() => window.FootballLabBundle.namedModuleCount)).toBe(16);
   expect(await page.evaluate(() => window.FootballLabBundle.modelVersion)).toBe("1.6.0");
   expect(await page.evaluate(() => window.FootballLabBundle.interfaceVersion)).toBe("1.7.6");
@@ -164,6 +164,7 @@ test("世足 37 個元件完整啟動且決勝編輯層依賴 review 快照", as
     && window.FootballEnergyModel
     && window.FootballDirectEnergy
     && window.FootballWorkflowRuntime
+    && window.FootballDraftPersistenceRuntime
     && window.FootballApplicationRuntime
     && window.FootballReviewRuntime
     && window.FootballRecordEditModel
