@@ -368,11 +368,6 @@ function renderMarketFields() {
     );
   } else if (marketType === "both_teams_score") {
     fields.push(createSelectField("兩隊是否都進球", "football-betting-selection", [["YES", "是"], ["NO", "否"]]));
-  } else if (marketType === "result_btts") {
-    fields.push(
-      createSelectField("不讓分結果", "football-betting-selection", resultOptions(match)),
-      createSelectField("兩隊是否都進球", "football-betting-btts", [["YES", "是"], ["NO", "否"]])
-    );
   }
 
   container.replaceChildren(...fields);
@@ -456,10 +451,6 @@ function buildBetFromForm() {
   if (marketType === "exact_score") {
     bet.homeGoals = readNumber("football-betting-home-goals");
     bet.awayGoals = readNumber("football-betting-away-goals");
-  }
-  if (marketType === "result_btts") {
-    bet.selection = readValue("football-betting-selection");
-    bet.btts = readValue("football-betting-btts");
   }
   return bet;
 }
@@ -556,7 +547,7 @@ function ensureBetEditor() {
   const title = document.createElement("h4");
   title.textContent = "運彩投注（選填）";
   const note = document.createElement("p");
-  note.textContent = "投注會跟目前牌源一起鎖定。第一版只開放可由 90 分鐘正式比分自動結算的台灣運彩足球玩法；半場、首球、角球等需要額外賽況的玩法後續再加。";
+  note.textContent = "投注會跟目前牌源一起鎖定。每一筆只記錄一個獨立投注項目，不串關、不合併市場；第一版只開放可由 90 分鐘正式比分自動結算的玩法。半場、首球、角球等需要額外賽況的玩法後續再加。";
   headingCopy.append(title, note);
   const badge = document.createElement("span");
   badge.id = "football-betting-source-badge";

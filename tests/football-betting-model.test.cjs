@@ -49,8 +49,15 @@ async function run() {
   const range = { marketType: "total_goal_range", selection: "R23", odds: 1.94, stake: 300 };
   assert.equal(model.settleBet(range, { homeGoals: 1, awayGoals: 1 }).status, "won");
 
-  const combo = { marketType: "result_btts", selection: "H", btts: "YES", odds: 2.25, stake: 400 };
-  assert.equal(model.settleBet(combo, { homeGoals: 2, awayGoals: 1 }).status, "won");
+  const btts = { marketType: "both_teams_score", selection: "YES", odds: 1.94, stake: 60 };
+  assert.equal(model.settleBet(btts, { homeGoals: 2, awayGoals: 1 }).status, "won");
+
+  const selectableMarkets = model.FOOTBALL_BET_CATEGORIES.flatMap((category) => category.markets);
+  assert.equal(selectableMarkets.includes("result_btts"), false);
+  assert.equal(model.FOOTBALL_BET_CATEGORIES.some((category) => category.id === "combo"), false);
+  // 舊版錯誤組合若已鎖定仍可讀取與結算，避免破壞歷史資料。
+  const legacyCombo = { marketType: "result_btts", selection: "H", btts: "YES", odds: 2.25, stake: 400 };
+  assert.equal(model.settleBet(legacyCombo, { homeGoals: 2, awayGoals: 1 }).status, "won");
 
   const summary = model.summarizeBets([awayWin, exact], { homeGoals: 0, awayGoals: 1 });
   assert.equal(summary.totalStake, 700);

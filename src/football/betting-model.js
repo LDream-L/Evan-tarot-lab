@@ -1,6 +1,6 @@
 // 塔羅X賽事驗證｜足球運彩單注模型
 //
-// 僅處理「不串關」且能由 90 分鐘正式比分自動結算的台灣運彩足球玩法。
+// 僅處理「不串關、單一投注項目」且能由 90 分鐘正式比分自動結算的台灣運彩足球玩法。
 // 半場、第一球／下一球、最後進球、得分較高半場、角球、冠軍與特別項目
 // 需要額外賽況，保留在後續擴充，不以最終比分猜測結果。
 //
@@ -26,7 +26,8 @@ export const FOOTBALL_BET_MARKETS = Object.freeze({
   exact_team_goals: Object.freeze({ category: "goals", label: "主(客)隊正確進球數" }),
   exact_score: Object.freeze({ category: "score", label: "正確比數" }),
   both_teams_score: Object.freeze({ category: "score", label: "兩隊是否都進球" }),
-  result_btts: Object.freeze({ category: "combo", label: "不讓分／兩隊是否都進球" }),
+  // 舊版相容：曾錯誤開放的跨項目組合，只保留既有紀錄讀取／結算，不再出現在新增 UI。
+  result_btts: Object.freeze({ category: "legacy", label: "舊版組合：不讓分／兩隊是否都進球", legacyOnly: true }),
 });
 
 export const FOOTBALL_BET_CATEGORIES = Object.freeze([
@@ -41,7 +42,6 @@ export const FOOTBALL_BET_CATEGORIES = Object.freeze([
     "exact_team_goals",
   ]) }),
   Object.freeze({ id: "score", label: "比分", markets: Object.freeze(["exact_score", "both_teams_score"]) }),
-  Object.freeze({ id: "combo", label: "組合", markets: Object.freeze(["result_btts"]) }),
 ]);
 
 export const DEFERRED_FOOTBALL_MARKETS = Object.freeze([
