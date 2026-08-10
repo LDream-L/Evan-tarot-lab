@@ -1,0 +1,108 @@
+name: One-time single-bet market cleanup
+
+on:
+  push:
+    paths:
+      - .github/workflows/hotfix-remove-combined-bet-ui.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Remove combined market from new betting UI
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          model = Path('src/football/betting-model.js')
+          text = model.read_text(encoding='utf-8')
+          text = text.replace(
+              '// 僅處理「不串關」且能由 90 分鐘正式比分自動結算的台灣運彩足球玩法。\n',
+              '// 僅處理「不串關、單一投注項目」且能由 90 分鐘正式比分自動結算的台灣運彩足球玩法。\n'
+          )
+          old_market = '  result_btts: Object.freeze({ category: "combo", label: "不讓分／兩隊是否都進球" }),\n'
+          new_market = '  // 舊版相容：曾錯誤開放的跨項目組合，只保留既有紀錄讀取／結算，不再出現在新增 UI。\n  result_btts: Object.freeze({ category: "legacy", label: "舊版組合：不讓分／兩隊是否都進球", legacyOnly: true }),\n'
+          if old_market not in text:
+              raise SystemExit('combined market definition not found')
+          text = text.replace(old_market, new_market, 1)
+          old_category = '  Object.freeze({ id: "combo", label: "組合", markets: Object.freeze(["result_btts"]) }),\n'
+          if old_category not in text:
+              raise SystemExit('combo category not found')
+          text = text.replace(old_category, '', 1)
+          model.write_text(text, encoding='utf-8')
+
+          runtime = Path('src/football/betting-runtime.js')
+          text = runtime.read_text(encoding='utf-8')
+          old_render = '''  } else if (marketType === "result_btts") {\n    fields.push(\n      createSelectField("不讓分結果", "football-betting-selection", resultOptions(match)),\n      createSelectField("兩隊是否都進球", "football-betting-btts", [["YES", "是"], ["NO", "否"]])\n    );\n  }\n'''
+          if old_render not in text:
+              raise SystemExit('result_btts render branch not found')
+          text = text.replace(old_render, '  }\n', 1)
+          old_build = '''  if (marketType === "result_btts") {\n    bet.selection = readValue("football-betting-selection");\n    bet.btts = readValue("football-betting-btts");\n  }\n'''
+          if old_build not in text:
+              raise SystemExit('result_btts build branch not found')
+          text = text.replace(old_build, '', 1)
+          old_note = '第一版只開放可由 90 分鐘正式比分自動結算的台灣運彩足球玩法；半場、首球、角球等需要額外賽況的玩法後續再加。'
+          new_note = '每一筆只記錄一個獨立投注項目，不串關、不合併市場；第一版只開放可由 90 分鐘正式比分自動結算的玩法。半場、首球、角球等需要額外賽況的玩法後續再加。'
+          if old_note in text:
+              text = text.replace(old_note, new_note, 1)
+          runtime.write_text(text, encoding='utf-8')
+
+          tests = Path('tests/football-betting-model.test.cjs')
+          text = tests.read_text(encoding='utf-8')
+          old_test = '''  const combo = { marketType: "result_btts", selection: "H", btts: "YES", odds: 2.25, stake: 400 };\n  assert.equal(model.settleBet(combo, { homeGoals: 2, awayGoals: 1 }).status, "won");\n\n'''
+          new_test = '''  const btts = { marketType: "both_teams_score", selection: "YES", odds: 1.94, stake: 60 };\n  assert.equal(model.settleBet(btts, { homeGoals: 2, awayGoals: 1 }).status, "won");\n\n  const selectableMarkets = model.FOOTBALL_BET_CATEGORIES.flatMap((category) => category.markets);\n  assert.equal(selectableMarkets.includes("result_btts"), false);\n  assert.equal(model.FOOTBALL_BET_CATEGORIES.some((category) => category.id === "combo"), false);\n  // 舊版錯誤組合若已鎖定仍可讀取與結算，避免破壞歷史資料。\n  const legacyCombo = { marketType: "result_btts", selection: "H", btts: "YES", odds: 2.25, stake: 400 };\n  assert.equal(model.settleBet(legacyCombo, { homeGoals: 2, awayGoals: 1 }).status, "won");\n\n'''
+          if old_test not in text:
+              raise SystemExit('combo model test not found')
+          tests.write_text(text.replace(old_test, new_test, 1), encoding='utf-8')
+
+          version = '20260810-single-bet-markets-v2'
+          loader = Path('JS/football-lab.js')
+          text = loader.read_text(encoding='utf-8')
+          import re
+          text, count = re.subn(r'const ROOT_LOADER_VERSION = "[^"]+";', f'const ROOT_LOADER_VERSION = "{version}";', text, count=1)
+          if count != 1:
+              raise SystemExit('root loader version not found')
+          loader.write_text(text, encoding='utf-8')
+
+          html = Path('football-lab.html')
+          text = html.read_text(encoding='utf-8')
+          text, count = re.subn(r'JS/football-lab\.js\?v=[^"\']+', f'JS/football-lab.js?v={version}', text, count=1)
+          if count != 1:
+              raise SystemExit('football HTML loader version not found')
+          html.write_text(text, encoding='utf-8')
+
+          bundle = Path('tests/football-bundle.test.cjs')
+          text = bundle.read_text(encoding='utf-8')
+          text, count = re.subn(r'const FOOTBALL_SCRIPT_VERSION = "[^"]+";', f'const FOOTBALL_SCRIPT_VERSION = "{version}";', text, count=1)
+          if count != 1:
+              raise SystemExit('bundle script version not found')
+          bundle.write_text(text, encoding='utf-8')
+          PY
+      - name: Run targeted checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check src/football/betting-model.js
+          node --check src/football/betting-runtime.js
+          node tests/football-betting-model.test.cjs
+          npm install --no-audit --no-fund
+          npm run test:build
+          node tests/football-bundle.test.cjs
+      - name: Commit cleanup
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/football/betting-model.js src/football/betting-runtime.js tests/football-betting-model.test.cjs JS/football-lab.js football-lab.html tests/football-bundle.test.cjs
+          git commit -m "fix: keep football betting markets as separate single bets"
+          git push origin main
