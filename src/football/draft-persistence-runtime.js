@@ -140,6 +140,11 @@ function saveNow(force = false) {
 /** 單一去抖計時器：排程時間／空間 O(1)。 */
 function scheduleSave() {
   if (restoring) return;
+  if (observer) {
+    observer.disconnect();
+    observer = null;
+  }
+  pendingSnapshot = null;
   dirty = true;
   if (saveTimer) window.clearTimeout(saveTimer);
   saveTimer = window.setTimeout(() => saveNow(true), SAVE_DELAY_MS);
@@ -197,7 +202,14 @@ function restoreSnapshot() {
     });
     window.setTimeout(() => {
       restoring = true;
-      try { restoreFields(snapshot.fields); } finally { restoring = false; }
+      try {
+        restoreFields(snapshot.fields);
+      } finally {
+        restoring = false;
+        observer?.disconnect();
+        observer = null;
+        pendingSnapshot = null;
+      }
     }, 0);
     dirty = Boolean(snapshot.dirty || snapshot.draft || Object.keys(snapshot.fields || {}).length);
     showRestoredMessage();
@@ -212,7 +224,7 @@ function restoreSnapshot() {
 
 /** 動態欄位出現時補填：每批 DOM 變更排程 O(1)，恢復掃描 O(f)。 */
 function observeDynamicFields() {
-  if (observer || !document.body) return;
+  if (!pendingSnapshot || observer || !document.body) return;
   observer = new MutationObserver(() => {
     if (!pendingSnapshot || restoring) return;
     window.queueMicrotask(() => {
