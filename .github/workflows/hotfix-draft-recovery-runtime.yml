@@ -1,0 +1,104 @@
+name: One-time football draft recovery runtime
+
+on:
+  push:
+    paths:
+      - .github/workflows/hotfix-draft-recovery-runtime.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Wire draft recovery into betting and workflow runtimes
+        shell: bash
+        run: |
+          set -euo pipefail
+          python - <<'PY'
+          from pathlib import Path
+
+          VERSION = '20260810-auth-draft-recovery-v2'
+
+          betting = Path('src/football/betting-runtime.js')
+          text = betting.read_text(encoding='utf-8')
+          marker = '''window.FootballLabCore = bettingCore;\nwindow.FootballLabRender = bettingRender;\n\nexport const footballBettingRuntime = Object.freeze({\n'''
+          addition = '''/**\n * 恢復尚未鎖定的投注：時間／空間 O(b)，b 為草稿投注數。\n * 更快替代方案比較：逐筆模擬 UI 點擊會反覆重建市場欄位；直接還原 module state 後只重畫一次 O(b)。\n */\nfunction restoreDraftBets(bets, draft = bettingCore.getDraft()) {\n  draftBets = Array.isArray(bets) ? bets.map((bet) => ({ ...bet })) : [];\n  activeDraftKey = getDraftKey(draft);\n  if (draft) renderBetEditor(draft);\n  else {\n    ensureBetEditor();\n    renderDraftBetList();\n  }\n  return draftBets.map((bet) => ({ ...bet }));\n}\n\nwindow.FootballLabCore = bettingCore;\nwindow.FootballLabRender = bettingRender;\n\nexport const footballBettingRuntime = Object.freeze({\n'''
+          if marker not in text:
+              raise SystemExit('betting runtime export marker not found')
+          text = text.replace(marker, addition, 1)
+          old = '''  getDraftBets: () => draftBets.map((bet) => ({ ...bet })),\n  renderBetEditor,\n'''
+          new = '''  getDraftBets: () => draftBets.map((bet) => ({ ...bet })),\n  restoreDraftBets,\n  renderBetEditor,\n'''
+          if old not in text:
+              raise SystemExit('betting runtime API marker not found')
+          betting.write_text(text.replace(old, new, 1), encoding='utf-8')
+
+          workflow = Path('src/football/workflow-runtime.js')
+          text = workflow.read_text(encoding='utf-8')
+          import_marker = 'import { footballBettingRuntime } from "./betting-runtime.js?v=20260806-football-betting-v1";\n'
+          import_new = import_marker + f'import {{ footballDraftPersistenceRuntime }} from "./draft-persistence-runtime.js?v={VERSION}";\n'
+          if import_marker not in text:
+              raise SystemExit('workflow betting import marker not found')
+          text = text.replace(import_marker, import_new, 1)
+          object_marker = '''  fieldContext: footballFieldContextRuntime,\n  core: workflowCore,\n'''
+          object_new = '''  fieldContext: footballFieldContextRuntime,\n  draftPersistence: footballDraftPersistenceRuntime,\n  core: workflowCore,\n'''
+          if object_marker not in text:
+              raise SystemExit('workflow export marker not found')
+          workflow.write_text(text.replace(object_marker, object_new, 1), encoding='utf-8')
+
+          entry = Path('src/football/entry.js')
+          text = entry.read_text(encoding='utf-8')
+          text = text.replace('M = 37 個相依元件', 'M = 38 個相依元件', 1)
+          text = text.replace('const MODULE_COUNT = 37;', 'const MODULE_COUNT = 38;', 1)
+          entry.write_text(text, encoding='utf-8')
+
+          site = Path('tests/e2e/site.spec.js')
+          text = site.read_text(encoding='utf-8')
+          text = text.replace('test("世足 37 個元件完整啟動且決勝編輯層依賴 review 快照"', 'test("世足 38 個元件完整啟動且決勝編輯層依賴 review 快照"', 1)
+          text = text.replace('window.FootballLabBundle.moduleCount)).toBe(37)', 'window.FootballLabBundle.moduleCount)).toBe(38)', 1)
+          anchor = '    && window.FootballWorkflowRuntime\n'
+          if anchor in text and 'window.FootballDraftPersistenceRuntime' not in text:
+              text = text.replace(anchor, anchor + '    && window.FootballDraftPersistenceRuntime\n', 1)
+          site.write_text(text, encoding='utf-8')
+
+          bundle = Path('tests/football-bundle.test.cjs')
+          text = bundle.read_text(encoding='utf-8')
+          text = text.replace('const FOOTBALL_SCRIPT_VERSION = "20260810-auth-expiry-reload-v1";', f'const FOOTBALL_SCRIPT_VERSION = "{VERSION}";', 1)
+          bundle.write_text(text, encoding='utf-8')
+
+          loader = Path('JS/football-lab.js')
+          text = loader.read_text(encoding='utf-8')
+          text = text.replace('const ROOT_LOADER_VERSION = "20260810-auth-expiry-reload-v1";', f'const ROOT_LOADER_VERSION = "{VERSION}";', 1)
+          loader.write_text(text, encoding='utf-8')
+
+          html = Path('football-lab.html')
+          text = html.read_text(encoding='utf-8')
+          text = text.replace('JS/football-lab.js?v=20260810-auth-expiry-reload-v1', f'JS/football-lab.js?v={VERSION}', 1)
+          html.write_text(text, encoding='utf-8')
+          PY
+      - name: Run targeted checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check src/football/draft-persistence-runtime.js
+          node --check src/football/betting-runtime.js
+          node --check src/football/workflow-runtime.js
+          node --check src/football/entry.js
+          npm install --no-audit --no-fund
+          node tests/football-betting-model.test.cjs
+          npm run test:build
+          node tests/football-bundle.test.cjs
+      - name: Commit runtime integration
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/football/betting-runtime.js src/football/workflow-runtime.js src/football/entry.js tests/e2e/site.spec.js tests/football-bundle.test.cjs JS/football-lab.js football-lab.html
+          git commit -m "feat: recover unfinished football drafts after auth expiry"
+          git push origin main
