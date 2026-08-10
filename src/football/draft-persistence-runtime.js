@@ -112,7 +112,7 @@ function clearSavedDraft() {
 
 /**
  * 立即保存：時間 O(f + p + b)、空間 O(f + p + b)。
- * force=true 用於頁面離開與登入狀態失效，確保去抖尚未落盤的最後輸入也被保存。
+ * force=true 只代表略過去抖、立即 flush；沒有任何未完成內容時仍不建立空草稿。
  */
 function saveNow(force = false) {
   if (restoring) return null;
@@ -122,7 +122,7 @@ function saveNow(force = false) {
   const core = window.FootballLabCore;
   const draft = core?.getDraft?.() || null;
   const bets = window.FootballBettingRuntime?.getDraftBets?.() || [];
-  if (!force && !dirty && !draft && !bets.length) return null;
+  if (!dirty && !draft && !bets.length) return null;
 
   const snapshot = {
     schema: "evan-football-pending-draft-v2",
