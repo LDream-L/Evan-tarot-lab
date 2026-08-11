@@ -1,0 +1,43 @@
+name: One-time profit stats upgrade v2
+
+on:
+  push:
+    paths:
+      - .github/workflows/hotfix-profit-stats-sections-v2.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply profit stats patch
+        run: python scripts/one-time-profit-stats-patch.py
+      - name: Run targeted checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check src/football/betting-model.js
+          node --check src/football/source-comparison-metrics.js
+          node --check JS/football-performance-trends.js
+          node --check src/football/workflow-runtime.js
+          node --check src/football/entry.js
+          node tests/football-betting-model.test.cjs
+          npm install --no-audit --no-fund
+          npm run test:build
+          node tests/football-bundle.test.cjs
+      - name: Commit upgrade
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm scripts/one-time-profit-stats-patch.py
+          git add src/football/betting-model.js src/football/source-comparison-metrics.js src/football/workflow-runtime.js src/football/entry.js JS/football-performance-trends.js JS/football-lab.js football-lab.html tests/football-betting-model.test.cjs tests/football-bundle.test.cjs tests/e2e/football-profit-stats.spec.js
+          git commit -m "feat: add period betting P&L and collapsible stat sections"
+          git push origin main
