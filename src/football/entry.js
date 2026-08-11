@@ -37,7 +37,7 @@ import {
   footballRecordKnockoutInputGuard,
 } from "./knockout-edit-runtime.js";
 import "../../JS/football-record-status-visibility-fix.js";
-import "../../JS/football-performance-trends.js";
+import "../../JS/football-performance-trends.js?v=20260812-profit-stats-sections-v1";
 import "../../JS/football-layout-optimizer.js";
 
 const MODULE_COUNT = 38;

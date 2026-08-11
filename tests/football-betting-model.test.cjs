@@ -61,6 +61,7 @@ async function run() {
 
   const summary = model.summarizeBets([awayWin, exact], { homeGoals: 0, awayGoals: 1 });
   assert.equal(summary.totalStake, 700);
+  assert.equal(summary.settledStake, 700);
   assert.equal(summary.actualProfit, 1775);
   assert.equal(summary.won, 2);
 

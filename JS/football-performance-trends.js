@@ -3,7 +3,7 @@
 // 世足賽事驗證：日期／場次滾動績效觀察
 // ==============================
 // 主要函式複雜度：
-// - buildIndexes：O(r * m) 時間／O(r * m) 空間，r 為紀錄數、m 為固定統計欄位數。
+// - buildIndexes：O(r * m + B) 時間／O(r * m) 空間，r 為紀錄數、m 為固定統計欄位數、B 為期間內投注總筆數。
 // - resolveWindow：O(log r + m) 時間／O(m) 空間。
 // - decorateKpis：O(k) 時間／O(1) 額外空間，k 為固定 KPI 卡數。
 //
@@ -45,7 +45,17 @@
     "marketHits",
     "advanceEligible",
     "advanceHits",
+    "betCount",
+    "betStake",
+    "betProfit",
+    "manualBetCount",
+    "manualBetStake",
+    "manualBetProfit",
+    "randomBetCount",
+    "randomBetStake",
+    "randomBetProfit",
   ]);
+  const SIGNED_METRIC_KEYS = new Set(["betProfit", "manualBetProfit", "randomBetProfit"]);
 
   let indexes = null;
   let gridObserver = null;
@@ -85,7 +95,13 @@
     return record?.prediction?.directModel === "energy-v1";
   }
 
-  /** 單筆只建立固定欄位貢獻：O(1) 時間／O(1) 空間。 */
+  /**
+   * 單筆建立固定欄位與該筆投注貢獻。
+   * 時間複雜度：O(b)，b 為該紀錄投注筆數。
+   * 空間複雜度：O(1)。
+   * 更快替代方案比較：另外逐筆重掃歷史投注會使每次切換區間回到 O(r+B)；
+   * 本版在建立前綴表時只結算一次，後續區間查詢仍維持 O(log r + m)。
+   */
   function recordContribution(record) {
     const out = emptyVector();
     out.total = 1;
@@ -93,6 +109,28 @@
     if (!evaluation) return out;
 
     out.completed = 1;
+
+    const bets = Array.isArray(record?.prediction?.bets) ? record.prediction.bets : [];
+    if (record.actual && bets.length && typeof core.summarizeBets === "function") {
+      const betting = core.summarizeBets(bets, record.actual);
+      const settledCount = Number(betting.settled || 0);
+      const settledStake = Number(betting.settledStake ?? betting.totalStake ?? 0);
+      const actualProfit = Number(betting.actualProfit || 0);
+      out.betCount = settledCount;
+      out.betStake = settledStake;
+      out.betProfit = actualProfit;
+
+      if (record.match?.cardSource === "manual") {
+        out.manualBetCount = settledCount;
+        out.manualBetStake = settledStake;
+        out.manualBetProfit = actualProfit;
+      } else if (record.match?.cardSource === "random") {
+        out.randomBetCount = settledCount;
+        out.randomBetStake = settledStake;
+        out.randomBetProfit = actualProfit;
+      }
+    }
+
     if (evaluation.type === "legacy5") return out;
 
     if (core.modeIncludesDirect(evaluation.type)) {
@@ -139,7 +177,7 @@
     return out;
   }
 
-  /** 建立固定欄位前綴表：O(r * m) 時間／O(r * m) 空間。 */
+  /** 建立固定欄位前綴表：O(r * m + B) 時間／O(r * m) 空間，B 為投注總筆數。 */
   function createIndex(records) {
     const rows = records
       .slice()
@@ -159,7 +197,7 @@
     return { rows, timestamps, prefix };
   }
 
-  /** 只在資料有變動時重建：O(r * m) 時間／O(r * m) 空間。 */
+  /** 只在資料有變動時重建：O(r * m + B) 時間／O(r * m) 空間。 */
   function buildIndexes() {
     const records = core.getRecords();
     indexes = {
@@ -207,10 +245,14 @@
     return querySlice(index, start, end);
   }
 
+  /**
+   * 向量相減：時間 O(m)、空間 O(m)。損益允許負值，其餘計數欄位避免浮點誤差落到負數。
+   */
   function subtractVectors(source, removed) {
     const result = emptyVector();
     METRIC_KEYS.forEach((key) => {
-      result[key] = Math.max(0, source[key] - removed[key]);
+      const difference = source[key] - removed[key];
+      result[key] = SIGNED_METRIC_KEYS.has(key) ? difference : Math.max(0, difference);
     });
     return result;
   }
@@ -342,6 +384,23 @@
   function formatNumber(value, digits = 2) {
     if (!Number.isFinite(value)) return "—";
     return String(Math.round(value * 10 ** digits) / 10 ** digits);
+  }
+
+  /** 金額格式：時間／空間 O(1)，損益不包含本金。 */
+  function formatMoney(value, signed = false) {
+    const number = Number(value);
+    if (!Number.isFinite(number)) return "—";
+    const normalized = Math.round((number + Number.EPSILON) * 100) / 100;
+    const prefix = signed && normalized > 0 ? "+" : "";
+    return `${prefix}$${normalized.toLocaleString("zh-TW", { maximumFractionDigits: 2 })}`;
+  }
+
+  /** ROI = 淨損益／已結算成本：時間／空間 O(1)。 */
+  function formatRoi(profit, stake) {
+    const cost = Number(stake);
+    if (!Number.isFinite(cost) || cost <= 0) return "—";
+    const value = (Number(profit) / cost) * 100;
+    return `${value > 0 ? "+" : ""}${formatNumber(value, 1)}%`;
   }
 
   function wilsonInterval(hits, total) {
@@ -517,12 +576,85 @@
     }
   }
 
+
+  /** 固定建立三張期間投注卡：時間／DOM 空間 O(1)。 */
+  function createBettingPerformanceCard(scope, label) {
+    const card = createElement("article", "football-trend-betting-card");
+    card.dataset.bettingScope = scope;
+    card.append(
+      createElement("small", "", label),
+      createElement("strong", "", "—"),
+      createElement("span", "", "此期間尚無已結算投注")
+    );
+    return card;
+  }
+
+  /** 固定三組牌源損益：時間／DOM 空間 O(1)。 */
+  function ensureBettingPerformanceSummary() {
+    let block = byId("football-trend-betting-block");
+    if (block) return block;
+    const body = byId("football-performance-body");
+    const periodSummary = byId("football-trend-summary");
+    if (!body || !periodSummary) return null;
+
+    block = createElement("section", "football-trend-betting-block");
+    block.id = "football-trend-betting-block";
+    const heading = createElement("div", "football-trend-betting-heading");
+    heading.append(
+      createElement("h4", "", "運彩期間損益"),
+      createElement("p", "", "依目前觀察區間累計；總損益與 ROI 都不把本金當成獲利。")
+    );
+    const grid = createElement("div", "football-trend-betting-grid");
+    grid.id = "football-trend-betting-summary";
+    grid.append(
+      createBettingPerformanceCard("all", "全部投注｜總損益"),
+      createBettingPerformanceCard("manual", "自己抽牌｜總損益"),
+      createBettingPerformanceCard("random", "網站隨機抽牌｜總損益")
+    );
+    block.append(heading, grid);
+    periodSummary.insertAdjacentElement("afterend", block);
+    return block;
+  }
+
+  /**
+   * 以目前時間視窗更新總成本、總損益與 ROI。
+   * 時間複雜度：O(1)，前綴查詢已在 resolveWindow 完成。
+   * DOM 空間複雜度：O(1)。
+   * 更快替代方案比較：每次切日期重新掃全部投注為 O(r+B)；本版只讀前綴向量的固定 9 個數值。
+   */
+  function renderBettingPerformance(windowState) {
+    if (!ensureBettingPerformanceSummary()) return;
+    const vector = windowState.current;
+    const scopes = [
+      ["all", vector.betCount, vector.betStake, vector.betProfit],
+      ["manual", vector.manualBetCount, vector.manualBetStake, vector.manualBetProfit],
+      ["random", vector.randomBetCount, vector.randomBetStake, vector.randomBetProfit],
+    ];
+
+    scopes.forEach(([scope, count, stake, profit]) => {
+      const card = document.querySelector(`[data-betting-scope="${scope}"]`);
+      if (!card) return;
+      const strong = card.querySelector(":scope > strong");
+      const detail = card.querySelector(":scope > span");
+      if (Number(count) <= 0) {
+        if (strong) strong.textContent = "—";
+        if (detail) detail.textContent = "此期間尚無已結算投注";
+        return;
+      }
+      if (strong) strong.textContent = formatMoney(profit, true);
+      if (detail) {
+        detail.textContent = `總成本 ${formatMoney(stake)}｜已結算 ${Number(count)} 筆｜ROI ${formatRoi(profit, stake)}`;
+      }
+    });
+  }
+
   /** 固定 KPI 卡數，直接更新現有卡片：O(k) 時間／O(1) 額外空間。 */
   function decorateKpis() {
     const grid = byId("football-kpis");
     if (!grid?.children.length) return;
     const windowState = resolveWindow();
     Array.from(grid.querySelectorAll(":scope > .football-kpi")).forEach((card) => decorateCard(card, windowState));
+    renderBettingPerformance(windowState);
 
     const summary = byId("football-trend-summary");
     if (summary) {
@@ -587,18 +719,56 @@
     style.id = "football-performance-trends-style";
     style.textContent = `
       .football-trend-panel {
-        display: grid;
-        gap: 1rem;
         margin: 1.2rem 0;
-        padding: 1rem;
         border: 1px solid rgba(176, 145, 255, 0.3);
         border-radius: 18px;
         background: linear-gradient(145deg, rgba(24, 20, 66, 0.72), rgba(9, 8, 34, 0.82));
+        overflow: hidden;
       }
-      .football-trend-heading { display: grid; gap: 0.35rem; }
+      .football-trend-panel > summary { list-style: none; cursor: pointer; user-select: none; }
+      .football-trend-panel > summary::-webkit-details-marker { display: none; }
+      .football-trend-heading {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem;
+      }
+      .football-trend-heading-copy { display: grid; gap: 0.35rem; min-width: 0; }
       .football-trend-heading h3,
       .football-trend-heading p { margin: 0; }
       .football-trend-heading p { max-width: 920px; font-size: 0.86rem; line-height: 1.6; opacity: 0.76; }
+      .football-trend-toggle {
+        flex: 0 0 auto;
+        padding: .4rem .72rem;
+        border: 1px solid rgba(176, 145, 255, 0.28);
+        border-radius: 999px;
+        background: rgba(142, 125, 255, 0.1);
+        font-size: .78rem;
+        white-space: nowrap;
+      }
+      .football-trend-body { display: grid; gap: 1rem; padding: 0 1rem 1rem; }
+      .football-trend-betting-block { display: grid; gap: .7rem; }
+      .football-trend-betting-heading { display: grid; gap: .22rem; }
+      .football-trend-betting-heading h4,
+      .football-trend-betting-heading p { margin: 0; }
+      .football-trend-betting-heading p { font-size: .78rem; line-height: 1.5; opacity: .72; }
+      .football-trend-betting-grid {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: .7rem;
+      }
+      .football-trend-betting-card {
+        display: grid;
+        gap: .28rem;
+        padding: .78rem .82rem;
+        border: 1px solid rgba(142, 125, 255, .25);
+        border-radius: 14px;
+        background: rgba(16, 12, 47, .42);
+      }
+      .football-trend-betting-card small { opacity: .74; }
+      .football-trend-betting-card strong { font-size: 1.08rem; }
+      .football-trend-betting-card span { font-size: .76rem; line-height: 1.45; opacity: .82; }
       .football-trend-controls {
         display: grid;
         grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -634,8 +804,11 @@
       .football-trend-no-compare { font-size: 0.72rem; line-height: 1.4; opacity: 0.68; }
       @media (max-width: 980px) {
         .football-trend-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .football-trend-betting-grid { grid-template-columns: 1fr; }
       }
       @media (max-width: 620px) {
+        .football-trend-heading { display: grid; align-items: stretch; }
+        .football-trend-toggle { justify-self: start; }
         .football-trend-controls { grid-template-columns: 1fr; }
       }
     `;
@@ -650,14 +823,19 @@
     const latest = latestVerifiedDate();
     const endMs = dateEnd(latest) ?? Date.now();
     const start = formatDateInput(endMs - 29 * DAY_MS);
-    const panel = createElement("section", "football-trend-panel");
+    const parent = grid.parentElement;
+    if (!parent) return;
+    const panel = createElement("details", "football-trend-panel football-stats-subsection");
     panel.id = "football-performance-observer";
 
-    const heading = createElement("div", "football-trend-heading");
-    heading.append(
+    const heading = createElement("summary", "football-trend-heading");
+    const headingCopy = createElement("div", "football-trend-heading-copy");
+    headingCopy.append(
       createElement("h3", "", "滾動績效觀察"),
-      createElement("p", "", "可依單日、日期區間、截至日期、最近已核對場次或最近天數回看。此處只比較時間與樣本，不使用程式修改、模型版本或權重調整日期作為切點。")
+      createElement("p", "", "可依單日、日期區間、截至日期、最近已核對場次或最近天數回看；同一區間也會累計運彩總成本、總損益與 ROI。")
     );
+    const toggle = createElement("span", "football-trend-toggle", "展開");
+    heading.append(headingCopy, toggle);
 
     const controls = createElement("div", "football-trend-controls");
     controls.append(
@@ -679,8 +857,16 @@
 
     const summary = createElement("p", "football-trend-summary");
     summary.id = "football-trend-summary";
-    panel.append(heading, controls, summary);
-    grid.insertAdjacentElement("beforebegin", panel);
+    const body = createElement("div", "football-trend-body");
+    body.id = "football-performance-body";
+
+    parent.insertBefore(panel, grid);
+    body.append(controls, summary, grid);
+    panel.append(heading, body);
+    panel.addEventListener("toggle", () => {
+      toggle.textContent = panel.open ? "收合" : "展開";
+    });
+    ensureBettingPerformanceSummary();
 
     controls.addEventListener("change", () => {
       refreshFieldVisibility();

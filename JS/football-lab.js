@@ -13,7 +13,7 @@
 (function bootstrapFootballLabRootEntry() {
   "use strict";
 
-  const ROOT_LOADER_VERSION = "20260810-single-bet-markets-v2";
+  const ROOT_LOADER_VERSION = "20260812-profit-stats-sections-v1";
   const LOAD_TIMEOUT_MS = 15_000;
   const currentScriptUrl = document.currentScript?.src || document.baseURI;
   const entryBaseUrl = new URL("../src/football/entry.js", currentScriptUrl);

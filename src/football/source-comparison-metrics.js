@@ -7,7 +7,7 @@
 // 主要函式複雜度：
 // - calculateSourceComparison：時間 O(r)，空間 O(g)，r = 紀錄數、g = 對照組數。
 // - renderSourceComparison：時間 O(r)，DOM 額外空間 O(1)，固定建立 6 張摘要卡。
-// - ensureStatsAccordion：時間／空間 O(1)，固定建立單一收合容器。
+// - ensureStatsAccordion：時間／空間 O(1)，固定建立外層收合與維持子區塊位置。
 // - observeLegacyMetricRender：每次變動只檢查單一摘要面板，時間／空間 O(1)。
 //
 // 更快替代方案比較：
@@ -170,6 +170,24 @@ function injectStatsAccordionStyles() {
       margin-top: .85rem;
     }
 
+    .football-source-comparison { overflow: hidden; }
+    .football-source-comparison > summary {
+      list-style: none;
+      cursor: pointer;
+      user-select: none;
+    }
+    .football-source-comparison > summary::-webkit-details-marker { display: none; }
+    .football-source-comparison[open] > summary { margin-bottom: .9rem; }
+    .football-source-toggle {
+      flex: 0 0 auto;
+      padding: .4rem .72rem;
+      border: 1px solid rgba(142, 125, 255, .28);
+      border-radius: 999px;
+      background: rgba(142, 125, 255, .1);
+      font-size: .78rem;
+      white-space: nowrap;
+    }
+
     @media (max-width: 620px) {
       .football-stats-summary {
         display: grid;
@@ -260,13 +278,16 @@ function ensureStatsAccordion() {
   const content = byId(STATS_ACCORDION_CONTENT_ID);
   if (!content) return details;
 
-  if (kpis.parentElement !== content) {
+  const performance = byId("football-performance-observer");
+  if (performance) {
+    if (performance.parentElement !== content) content.appendChild(performance);
+  } else if (kpis.parentElement !== content) {
     content.appendChild(kpis);
   }
 
   const comparison = byId("football-source-comparison");
   if (comparison && comparison.parentElement !== content) {
-    content.insertBefore(comparison, kpis);
+    content.insertBefore(comparison, performance || content.firstChild);
   }
 
   keepOperationalPanelsVisible(details);
@@ -356,6 +377,46 @@ function createMetricCard(label, value, detail) {
   return article;
 }
 
+
+/** 來源比較子區塊切換文案：時間／空間 O(1)。 */
+function updateSourceDetailsLabel(panel) {
+  const toggle = panel?.querySelector(".football-source-toggle");
+  if (toggle) toggle.textContent = panel.open ? "收合" : "展開";
+}
+
+/**
+ * 將舊 section 相容轉成獨立 details；只在首次遇到舊節點時搬一次。
+ * 時間複雜度：O(1)；空間複雜度：O(1)。
+ * 更快替代方案比較：每次 render 重建整個面板會遺失使用者展開狀態；
+ * 本版只做一次節點型別遷移，後續 replaceChildren 不改 details.open。
+ */
+function ensureSourceComparisonDetails(kpis) {
+  let panel = byId("football-source-comparison");
+  if (panel && panel.tagName !== "DETAILS") {
+    const migrated = document.createElement("details");
+    migrated.id = panel.id;
+    migrated.className = panel.className;
+    panel.parentElement?.replaceChild(migrated, panel);
+    panel = migrated;
+  }
+
+  if (!panel) {
+    panel = document.createElement("details");
+    panel.id = "football-source-comparison";
+    panel.className = "football-panel football-source-comparison football-stats-subsection";
+    const content = byId(STATS_ACCORDION_CONTENT_ID);
+    const performance = byId("football-performance-observer");
+    if (content) content.insertBefore(panel, performance || content.firstChild);
+    else kpis?.parentElement?.insertBefore(panel, kpis);
+  }
+
+  if (!panel.dataset.toggleBound) {
+    panel.dataset.toggleBound = "true";
+    panel.addEventListener("toggle", () => updateSourceDetailsLabel(panel));
+  }
+  return panel;
+}
+
 /**
  * 以現行單張能量欄位重畫固定 6 張摘要卡。
  * 時間複雜度：O(r)
@@ -370,13 +431,8 @@ function renderSourceComparison() {
 
   rendering = true;
   try {
-    let panel = byId("football-source-comparison");
-    if (!panel) {
-      panel = document.createElement("section");
-      panel.id = "football-source-comparison";
-      panel.className = "football-panel football-source-comparison";
-      kpis.parentElement.insertBefore(panel, kpis);
-    }
+    const panel = ensureSourceComparisonDetails(kpis);
+    if (!panel) return;
 
     const summary = calculateSourceComparison();
     const manualMae = summary.manual.structureEligible
@@ -386,7 +442,7 @@ function renderSourceComparison() {
       ? Math.round((summary.random.absoluteErrorTotal / summary.random.structureEligible) * 100) / 100
       : null;
 
-    const heading = document.createElement("div");
+    const heading = document.createElement("summary");
     heading.className = "football-source-heading";
     const copy = document.createElement("div");
     const eyebrow = document.createElement("p");
@@ -403,7 +459,9 @@ function renderSourceComparison() {
     const badge = document.createElement("span");
     badge.className = "football-version";
     badge.textContent = `${summary.completedPairs} 場已核對`;
-    heading.append(copy, badge);
+    const toggle = document.createElement("span");
+    toggle.className = "football-source-toggle";
+    heading.append(copy, badge, toggle);
 
     const grid = document.createElement("div");
     grid.className = "football-source-grid";
@@ -442,6 +500,7 @@ function renderSourceComparison() {
 
     panel.dataset.metricModel = "energy-v1";
     panel.replaceChildren(heading, grid);
+    updateSourceDetailsLabel(panel);
     ensureStatsAccordion();
   } finally {
     rendering = false;

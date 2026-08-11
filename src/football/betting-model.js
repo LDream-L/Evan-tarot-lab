@@ -349,6 +349,7 @@ export function summarizeBets(bets, actual = null) {
   let totalStake = 0;
   let potentialProfit = 0;
   let actualProfit = 0;
+  let settledStake = 0;
   let won = 0;
   let lost = 0;
   let voided = 0;
@@ -356,11 +357,13 @@ export function summarizeBets(bets, actual = null) {
 
   for (let index = 0; index < source.length; index += 1) {
     const bet = source[index];
-    totalStake += Number(bet.stake) || 0;
-    potentialProfit += calculatePotentialProfit(bet.stake, bet.odds) || 0;
+    const stake = Number(bet.stake) || 0;
+    totalStake += stake;
+    potentialProfit += calculatePotentialProfit(stake, bet.odds) || 0;
     const settlement = settleBet(bet, actual);
     if (settlement.status === "won" || settlement.status === "lost" || settlement.status === "void") {
       settled += 1;
+      settledStake += stake;
       actualProfit += Number(settlement.profit) || 0;
       if (settlement.status === "won") won += 1;
       if (settlement.status === "lost") lost += 1;
@@ -373,6 +376,7 @@ export function summarizeBets(bets, actual = null) {
     totalStake: roundMoney(totalStake),
     potentialProfit: roundMoney(potentialProfit),
     actualProfit: roundMoney(actualProfit),
+    settledStake: roundMoney(settledStake),
     settled,
     won,
     lost,
