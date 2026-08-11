@@ -22,7 +22,7 @@ test("雙牌源統計預設收合，現行場域只做質性對照", async ({ pa
   ).toBe(true);
 
   const accordion = page.locator("#football-stats-accordion");
-  const summary = accordion.locator("summary");
+  const summary = accordion.locator(":scope > summary");
   const panel = page.locator("#football-source-comparison");
 
   await expect(accordion).toBeVisible();
@@ -37,6 +37,9 @@ test("雙牌源統計預設收合，現行場域只做質性對照", async ({ pa
   await expect(accordion).toHaveAttribute("open", "");
   await expect(accordion).toContainText("收合數據");
   await expect(panel).toBeVisible();
+  await expect(panel).not.toHaveAttribute("open", "");
+  await panel.locator(":scope > summary").click();
+  await expect(panel).toHaveAttribute("open", "");
   await expect(panel.locator(".football-source-metric small")).toContainText([
     "同場對照",
     "自己抽牌｜整體場域",
@@ -54,8 +57,9 @@ test("雙牌源統計預設收合，現行場域只做質性對照", async ({ pa
     sport: document.getElementById("football-sport-type")?.value,
     source: document.getElementById("football-card-source")?.value,
     accordionOpen: document.getElementById("football-stats-accordion")?.open === true,
-    kpisInsideAccordion: document.getElementById("football-kpis")?.parentElement?.id
-      === "football-stats-accordion-content",
+    sourceOpen: document.getElementById("football-source-comparison")?.open === true,
+    kpisInsidePerformance: document.getElementById("football-kpis")?.parentElement?.id
+      === "football-performance-body",
   }));
 
   expect(runtime).toEqual({
@@ -65,7 +69,8 @@ test("雙牌源統計預設收合，現行場域只做質性對照", async ({ pa
     sport: "football",
     source: "compare",
     accordionOpen: true,
-    kpisInsideAccordion: true,
+    sourceOpen: true,
+    kpisInsidePerformance: true,
   });
 
   await summary.click();

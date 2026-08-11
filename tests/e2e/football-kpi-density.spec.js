@@ -18,6 +18,7 @@ test("滾動績效 KPI 依桌機與手機使用 3／1 欄寬版配置", async ({
   await expect(page.locator("#football-kpi-density-style")).toHaveCount(1);
   await expect.poll(() => page.locator("#football-kpis > .football-kpi").count()).toBeGreaterThanOrEqual(7);
   await page.locator("#football-stats-accordion > summary").click();
+  await page.locator("#football-performance-observer > summary").click();
   await expect(page.locator("#football-kpis .football-kpi-readable-label").first()).toBeVisible();
 
   const layout = await page.evaluate(() => {
