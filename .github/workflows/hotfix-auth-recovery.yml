@@ -1,0 +1,42 @@
+name: One-time Google auth recovery
+
+on:
+  push:
+    paths:
+      - .github/workflows/hotfix-auth-recovery.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Apply auth recovery patch
+        run: python scripts/one-time-auth-recovery-patch.py
+      - name: Run targeted checks
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check JS/google-auth.js
+          node --check JS/site-account.js
+          node --check JS/main.js
+          node --check tests/e2e/site.spec.js
+          npm install --no-audit --no-fund
+          npm run test:build
+          node tests/main-loader.test.cjs
+          node tests/football-bundle.test.cjs
+      - name: Commit auth recovery
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm scripts/one-time-auth-recovery-patch.py
+          git add JS/google-auth.js JS/site-account.js JS/main.js tests/e2e/site.spec.js *.html
+          git commit -m "fix: keep Google re-login available during session restore"
+          git push origin main
