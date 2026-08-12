@@ -1,0 +1,49 @@
+name: One-time Google auth resilience hotfix
+
+on:
+  push:
+    paths:
+      - .github/workflows/hotfix-google-auth-resilience.yml
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Apply Google auth patch
+        run: python scripts/one-time-google-auth-resilience.py
+      - name: Check patched JavaScript and static contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          node --check JS/google-auth.js
+          node --check JS/site-account.js
+          node --check JS/main.js
+          npm install --no-audit --no-fund
+          npm run test:build
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+      - name: Run Google auth regressions first
+        run: npx playwright test tests/e2e/site.spec.js --grep "Google 舊工作階段驗證慢時仍可直接重新登入|Google 新登入驗證期間保留按鈕且只初始化 Identity 一次" --project=desktop-chromium --reporter=line
+      - name: Run full browser regression
+        run: npx playwright test --reporter=line
+      - name: Commit validated auth fix and remove diagnostics
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm scripts/one-time-google-auth-resilience.py
+          git rm -f .github/workflows/diagnose-live-auth-backend.yml .github/workflows/diagnose-browser-auth-fetch.yml
+          git add JS/google-auth.js JS/site-account.js JS/main.js tests/e2e/site.spec.js *.html
+          git commit -m "fix: stabilize Google Identity login verification"
+          git push origin main
