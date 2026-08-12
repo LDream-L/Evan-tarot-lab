@@ -642,3 +642,79 @@ test("Google 舊工作階段驗證慢時仍可直接重新登入", async ({ page
   await expect.poll(() => page.evaluate(() => window.EvanGoogleAuth?.getCredential?.())).toBe(freshToken);
   await expect.poll(() => page.evaluate(() => sessionStorage.getItem("evanGoogleIdToken"))).toBe(freshToken);
 });
+
+
+/**
+ * 固定單次 fresh login：時間／額外空間 O(1)。
+ * 更快替代方案比較：只驗證最終登入成功會漏掉驗證途中 iframe 被 replaceChildren 摧毀；
+ * 本案例同時檢查按鈕持續存在與 Google Identity initialize 僅呼叫一次。
+ */
+test("Google 新登入驗證期間保留按鈕且只初始化 Identity 一次", async ({ page }) => {
+  const payload = Buffer.from(JSON.stringify({
+    sub: "fresh-only-user",
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  })).toString("base64url");
+  const freshToken = `header.${payload}.signature`;
+
+  await page.addInitScript((token) => {
+    sessionStorage.removeItem("evanGoogleIdToken");
+    window.__fakeFreshGoogleToken = token;
+    window.__fakeGoogleCallback = null;
+    window.__fakeGoogleInitializeCount = 0;
+    window.google = {
+      accounts: {
+        id: {
+          initialize(options) {
+            window.__fakeGoogleInitializeCount += 1;
+            window.__fakeGoogleCallback = options.callback;
+          },
+          renderButton(container) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.id = "fake-google-fresh-login";
+            button.textContent = "使用 Google 登入";
+            button.addEventListener("click", () => {
+              window.__fakeGoogleCallback?.({ credential: window.__fakeFreshGoogleToken });
+            });
+            container.replaceChildren(button);
+          },
+          disableAutoSelect() {},
+        },
+      },
+    };
+  }, freshToken);
+
+  await page.route("https://script.google.com/macros/s/**", async (route) => {
+    const request = route.request();
+    if (request.method() === "POST") {
+      const body = JSON.parse(request.postData() || "{}");
+      if (body.action === "authStatus") {
+        await new Promise((resolve) => setTimeout(resolve, 900));
+        return route.fulfill({
+          status: 200,
+          contentType: "application/json",
+          body: JSON.stringify({ success: true, isAdmin: false, profile: null }),
+        });
+      }
+    }
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ success: true, profile: null }),
+    });
+  });
+
+  await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
+  await expect.poll(() => page.evaluate(() => Boolean(window.EvanGoogleAuth))).toBe(true);
+  await page.locator("#site-account-trigger").click();
+  await expect(page.locator("#fake-google-fresh-login")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__fakeGoogleInitializeCount)).toBe(1);
+
+  await page.locator("#fake-google-fresh-login").click();
+  await expect(page.locator("#google-auth-status")).toContainText("正在驗證 Google 工作階段");
+  await expect(page.locator("#fake-google-fresh-login")).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.__fakeGoogleInitializeCount)).toBe(1);
+
+  await expect.poll(() => page.evaluate(() => window.EvanGoogleAuth?.isSignedIn?.())).toBe(true);
+  await expect.poll(() => page.evaluate(() => window.EvanGoogleAuth?.getCredential?.())).toBe(freshToken);
+});
