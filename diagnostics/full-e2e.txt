@@ -1,0 +1,322 @@
+exit_code=1
+--- failure summary / tail ---
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/site-shell.js?v=20260712-structured-shell-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /images/branding/evan-tarot-logo.svg?v=20260625-brand-v4 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/site-hardening.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/site-layout-optimizer.js?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/site-account.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/core/script-loader.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[102/94] [mobile-chromium] › tests/e2e/site.spec.js:567:1 › Google 舊工作階段驗證慢時仍可直接重新登入
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /site-layout-optimizer.css?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/google-auth.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /site-account.css?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/core/dialog.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/security/link-sanitizer.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/articles/article-fallback.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/timeflow/import-export.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/bootstrap/optional-modules.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/admin-navigation.js?v=20260710-hardening-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /privacy.html HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /football-lab.html HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /style.css?v=20260627-lab-layout-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /lab.css?v=20260627-lab-layout-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /style.css?v=20260505-dialog-v6 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /site-shell.css?v=20260712-structured-shell-v1 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /lab.css?v=20260625-lab-v3 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/utils.js?v=20260629-stability-v1 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/main.js?v=20260714-account-layout-v1 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /trust.css?v=20260710-trust-architecture-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/ripple-effect.js?v=20260505-polish-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /football-lab.css?v=20260625-football-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /football-lab-v11.css?v=20260625-football-v11 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/site-shell.js?v=20260712-structured-shell-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /football-lab-v12.css?v=20260625-football-v12 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /football-layout-optimizer.css?v=20260706-football-v176-layout-density-b HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /football-layout-final.css?v=20260710-football-esm-entry-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /football-kpi-density.css?v=20260712-football-kpi-density-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /site-shell.css?v=20260712-structured-shell-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /images/branding/evan-tarot-logo.svg?v=20260625-brand-v4 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/site-hardening.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/utils.js?v=20260505-dialog-v6 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/ripple-effect.js?v=20260720-football-scroll-anchor-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/site-layout-optimizer.js?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/football-lab.js?v=20260812-profit-stats-sections-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /images/branding/evan-tarot-logo.svg?v=20260625-brand-v4 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/site-shell.js?v=20260712-structured-shell-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/main.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/site-account.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /site-layout-optimizer.css?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/core/script-loader.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /site-account.css?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/security/link-sanitizer.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/cloud-config.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/core/dialog.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/articles/article-fallback.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/timeflow/import-export.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/bootstrap/optional-modules.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/site-hardening.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:13] "GET /JS/google-auth.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /football-ipad-layout.css?v=20260808-ipad-layout-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /JS/football-scroll-stability.js?v=20260720-football-scroll-anchor-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /JS/site-layout-optimizer.js?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /site-account.css?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /JS/google-auth.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /JS/core/script-loader.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /site-layout-optimizer.css?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /JS/core/dialog.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /JS/security/link-sanitizer.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /JS/articles/article-fallback.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /JS/bootstrap/optional-modules.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /JS/timeflow/import-export.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:14] "GET /JS/admin-navigation.js?v=20260710-hardening-v2 HTTP/1.1" 200 -
+
+[103/94] [mobile-chromium] › tests/e2e/source-comparison.spec.js:18:1 › 雙牌源統計預設收合，現行場域只做質性對照
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /football-lab.html HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /style.css?v=20260505-dialog-v6 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /lab.css?v=20260625-lab-v3 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /football-lab.css?v=20260625-football-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /football-lab-v11.css?v=20260625-football-v11 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /football-layout-optimizer.css?v=20260706-football-v176-layout-density-b HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /football-lab-v12.css?v=20260625-football-v12 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /football-layout-final.css?v=20260710-football-esm-entry-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /site-shell.css?v=20260712-structured-shell-v1 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/utils.js?v=20260505-dialog-v6 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /football-kpi-density.css?v=20260712-football-kpi-density-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/football-lab.js?v=20260812-profit-stats-sections-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/ripple-effect.js?v=20260720-football-scroll-anchor-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/main.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /images/branding/evan-tarot-logo.svg?v=20260625-brand-v4 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/site-shell.js?v=20260712-structured-shell-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/site-hardening.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /football-ipad-layout.css?v=20260808-ipad-layout-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/football-scroll-stability.js?v=20260720-football-scroll-anchor-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/site-layout-optimizer.js?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /site-account.css?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/google-auth.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/core/script-loader.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /site-layout-optimizer.css?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/core/dialog.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/security/link-sanitizer.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/articles/article-fallback.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/timeflow/import-export.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/bootstrap/optional-modules.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:15] "GET /JS/admin-navigation.js?v=20260710-hardening-v2 HTTP/1.1" 200 -
+
+[104/94] [mobile-chromium] › tests/e2e/source-comparison.spec.js:82:1 › 完整模型移除單張量化欄位與單張獨立模式
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-lab.html HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /style.css?v=20260505-dialog-v6 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-layout-optimizer.css?v=20260706-football-v176-layout-density-b HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-lab-v11.css?v=20260625-football-v11 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-lab.css?v=20260625-football-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-lab-v12.css?v=20260625-football-v12 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /lab.css?v=20260625-lab-v3 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-layout-final.css?v=20260710-football-esm-entry-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/utils.js?v=20260505-dialog-v6 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-kpi-density.css?v=20260712-football-kpi-density-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /site-shell.css?v=20260712-structured-shell-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/ripple-effect.js?v=20260720-football-scroll-anchor-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/football-lab.js?v=20260812-profit-stats-sections-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/main.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /images/branding/evan-tarot-logo.svg?v=20260625-brand-v4 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/site-shell.js?v=20260712-structured-shell-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/site-hardening.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-ipad-layout.css?v=20260808-ipad-layout-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/football-scroll-stability.js?v=20260720-football-scroll-anchor-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/site-layout-optimizer.js?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /site-account.css?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/google-auth.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/core/script-loader.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[105/94] [mobile-chromium] › tests/e2e/source-review-separation.spec.js:22:1 › 同場雙牌源共用賽果但分開保存賽後回顧
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-lab.html HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /site-layout-optimizer.css?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /lab.css?v=20260625-lab-v3 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/core/dialog.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /style.css?v=20260505-dialog-v6 HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-lab-v11.css?v=20260625-football-v11 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-lab.css?v=20260625-football-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-lab-v12.css?v=20260625-football-v12 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/security/link-sanitizer.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/bootstrap/optional-modules.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/timeflow/import-export.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/articles/article-fallback.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-layout-optimizer.css?v=20260706-football-v176-layout-density-b HTTP/1.1" 200 -
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-layout-final.css?v=20260710-football-esm-entry-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-kpi-density.css?v=20260712-football-kpi-density-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/football-lab.js?v=20260812-profit-stats-sections-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/utils.js?v=20260505-dialog-v6 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /site-shell.css?v=20260712-structured-shell-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/main.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/ripple-effect.js?v=20260720-football-scroll-anchor-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/site-shell.js?v=20260712-structured-shell-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /images/branding/evan-tarot-logo.svg?v=20260625-brand-v4 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/admin-navigation.js?v=20260710-hardening-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/site-hardening.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /football-ipad-layout.css?v=20260808-ipad-layout-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/football-scroll-stability.js?v=20260720-football-scroll-anchor-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/site-layout-optimizer.js?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /site-account.css?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/google-auth.js?v=20260812-auth-recovery-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/core/script-loader.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /site-layout-optimizer.css?v=20260706-layout-density-v2 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/core/dialog.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/security/link-sanitizer.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/articles/article-fallback.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/timeflow/import-export.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/bootstrap/optional-modules.js?v=20260712-modular-v1 HTTP/1.1" 200 -
+
+[WebServer] 127.0.0.1 - - [12/Aug/2026 05:39:16] "GET /JS/admin-navigation.js?v=20260710-hardening-v2 HTTP/1.1" 200 -
+
+  11 failed
+    [desktop-chromium] › tests/e2e/football-betting.spec.js:21:1 › 運彩投注綁定牌源並以 90 分鐘比分計算不含本金的損益 ─────
+    [desktop-chromium] › tests/e2e/football-ipad-layout.spec.js:57:7 › football lab stays inside iPad pro-landscape viewport 
+    [desktop-chromium] › tests/e2e/football-ipad-layout.spec.js:57:7 › football lab stays inside iPad 11-landscape viewport 
+    [desktop-chromium] › tests/e2e/football-ipad-layout.spec.js:57:7 › football lab stays inside iPad classic-landscape viewport 
+    [desktop-chromium] › tests/e2e/football-ipad-layout.spec.js:57:7 › football lab stays inside iPad portrait viewport 
+    [mobile-chromium] › tests/e2e/football-betting.spec.js:21:1 › 運彩投注綁定牌源並以 90 分鐘比分計算不含本金的損益 ──────
+    [mobile-chromium] › tests/e2e/football-ipad-layout.spec.js:57:7 › football lab stays inside iPad pro-landscape viewport 
+    [mobile-chromium] › tests/e2e/football-ipad-layout.spec.js:57:7 › football lab stays inside iPad 11-landscape viewport 
+    [mobile-chromium] › tests/e2e/football-ipad-layout.spec.js:57:7 › football lab stays inside iPad classic-landscape viewport 
+    [mobile-chromium] › tests/e2e/football-ipad-layout.spec.js:57:7 › football lab stays inside iPad portrait viewport 
+    [mobile-chromium] › tests/e2e/football-kpi-density.spec.js:15:1 › 滾動績效 KPI 依桌機與手機使用 3／1 欄寬版配置 ──
+  1 skipped
+  82 passed (5.6m)
