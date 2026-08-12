@@ -60,7 +60,13 @@ for (const viewport of IPAD_VIEWPORTS) {
     await page.route(/googleapis|accounts\.google|script\.google|gstatic/, (route) => route.abort());
     await page.goto("/football-lab.html", { waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => Boolean(window.FootballLabBundle?.ready));
-    await page.locator("#football-source-comparison").waitFor({ state: "visible" });
+
+    const stats = page.locator("#football-stats-accordion");
+    const source = page.locator("#football-source-comparison");
+    await source.waitFor({ state: "attached" });
+    await stats.locator(":scope > summary").click();
+    await source.locator(":scope > summary").click();
+    await expect(source).toBeVisible();
 
     await expect(page.locator("#football-match-form")).toBeVisible();
     await expect(page.locator("#football-records")).toBeVisible();

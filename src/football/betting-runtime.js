@@ -529,12 +529,16 @@ function createTotal(label, value) {
  * 建立一次下注編輯器。
  * 時間複雜度：O(c + m)，c=4 個分類、m<=7。
  * DOM 空間複雜度：O(c + m)。
+ *
+ * 更快替代方案比較：掃描整份表單尋找任意按鈕會隨 DOM 節點增加；
+ * 本版只查固定舊 class 與現行 lock-button ID，兩個固定錨點即可兼容新舊版結構。
  */
 function ensureBetEditor() {
   if (byId("football-betting-editor")) return true;
   const form = byId("football-reading-form");
   const actions = form?.querySelector(".football-actions");
-  if (!form || !actions) return false;
+  const anchor = actions || byId("football-lock-button");
+  if (!form || !anchor?.parentElement) return false;
 
   injectStyles();
   const section = document.createElement("section");
@@ -597,7 +601,7 @@ function ensureBetEditor() {
   totals.className = "football-betting-totals";
 
   section.append(heading, grid, message, list, totals);
-  actions.parentElement.insertBefore(section, actions);
+  anchor.parentElement.insertBefore(section, anchor);
 
   byId("football-betting-category")?.addEventListener("change", renderMarketOptions);
   byId("football-betting-market")?.addEventListener("change", renderMarketFields);

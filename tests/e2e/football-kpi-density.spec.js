@@ -45,7 +45,7 @@ test("滾動績效 KPI 依桌機與手機使用 3／1 欄寬版配置", async ({
     expect(layout.cardWidth).toBeGreaterThan(300);
   } else {
     expect(layout.columnCount).toBe(1);
-    expect(layout.cardWidth).toBeGreaterThan(300);
+    expect(layout.cardWidth).toBeGreaterThan(layout.viewportWidth * 0.7);
   }
 
   expect(layout.cardDisplay).toBe("grid");

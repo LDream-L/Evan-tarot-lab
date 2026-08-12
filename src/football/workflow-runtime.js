@@ -22,7 +22,7 @@ import "./ipad-layout-runtime.js?v=20260808-ipad-layout-v2";
 import "./source-review-adapter.js?v=20260803-source-review-v1";
 import "./source-comparison-runtime.js?v=20260801-source-comparison-v1";
 import "./source-comparison-metrics.js?v=20260812-profit-stats-sections-v1";
-import { footballBettingRuntime } from "./betting-runtime.js?v=20260806-football-betting-v1";
+import { footballBettingRuntime } from "./betting-runtime.js?v=20260812-betting-anchor-v2";
 import { footballDraftPersistenceRuntime } from "./draft-persistence-runtime.js?v=20260810-auth-draft-recovery-v2";
 
 const workflowCore = window.FootballLabCore;
