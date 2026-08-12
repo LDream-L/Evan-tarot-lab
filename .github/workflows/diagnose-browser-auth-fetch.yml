@@ -31,50 +31,58 @@ jobs:
             page.on('console', msg => console.log('[console]', msg.type(), msg.text()));
             page.on('pageerror', err => console.log('[pageerror]', err.message));
             page.on('requestfailed', req => {
-              if (/script\.google|googleusercontent/.test(req.url())) {
+              if (/script\.google|googleusercontent|oauth2\.googleapis/.test(req.url())) {
                 console.log('[requestfailed]', req.method(), req.url(), req.failure()?.errorText);
               }
             });
             await page.goto('https://ldream-l.github.io/Evan-tarot-lab/football-lab.html', { waitUntil: 'domcontentloaded', timeout: 30000 });
             console.log('page=', page.url());
             const result = await page.evaluate(async () => {
-              const url = 'https://script.google.com/macros/s/AKfycbzswz6AgA2DnXKNVwfSgCHBUwgiqZCT6w8McUVw8EOCBxvnPb2--SxAZJelKsakdbrv/exec';
-              const payload = {
-                action: 'authStatus',
-                credential: 'header.eyJzdWIiOiJkaWFnbm9zdGljIiwiZXhwIjo0MTAyNDQ0ODAwfQ.signature',
-                requestId: 'browser_diagnostic',
-                website: '',
+              const appsScriptUrl = 'https://script.google.com/macros/s/AKfycbzswz6AgA2DnXKNVwfSgCHBUwgiqZCT6w8McUVw8EOCBxvnPb2--SxAZJelKsakdbrv/exec';
+              const credential = ['header', 'eyJzdWIiOiJkaWFnbm9zdGljIiwiZXhwIjo0MTAyNDQ0ODAwfQ', 'signature'].join('.');
+              const runFetch = async (url, options, timeoutMs = 15000) => {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeoutMs);
+                const started = performance.now();
+                try {
+                  const response = await fetch(url, { ...options, signal: controller.signal });
+                  const text = await response.text();
+                  return {
+                    ok: response.ok,
+                    status: response.status,
+                    type: response.type,
+                    finalUrl: response.url,
+                    elapsedMs: Math.round(performance.now() - started),
+                    text,
+                  };
+                } catch (error) {
+                  return {
+                    errorName: error?.name || '',
+                    errorMessage: error?.message || String(error),
+                    elapsedMs: Math.round(performance.now() - started),
+                  };
+                } finally {
+                  clearTimeout(timer);
+                }
               };
-              const controller = new AbortController();
-              const timer = setTimeout(() => controller.abort(), 15000);
-              const started = performance.now();
-              try {
-                const response = await fetch(url, {
-                  method: 'POST',
-                  cache: 'no-store',
-                  redirect: 'follow',
-                  headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
-                  body: JSON.stringify(payload),
-                  signal: controller.signal,
-                });
-                const text = await response.text();
-                return {
-                  ok: response.ok,
-                  status: response.status,
-                  type: response.type,
-                  finalUrl: response.url,
-                  elapsedMs: Math.round(performance.now() - started),
-                  text,
-                };
-              } catch (error) {
-                return {
-                  errorName: error?.name || '',
-                  errorMessage: error?.message || String(error),
-                  elapsedMs: Math.round(performance.now() - started),
-                };
-              } finally {
-                clearTimeout(timer);
-              }
+              const appsScript = await runFetch(appsScriptUrl, {
+                method: 'POST',
+                cache: 'no-store',
+                redirect: 'follow',
+                headers: { 'Content-Type': 'text/plain;charset=UTF-8' },
+                body: JSON.stringify({
+                  action: 'authStatus',
+                  credential,
+                  requestId: 'browser_diagnostic',
+                  website: '',
+                }),
+              });
+              const tokenInfo = await runFetch('https://oauth2.googleapis.com/tokeninfo', {
+                method: 'GET',
+                cache: 'no-store',
+                mode: 'cors',
+              });
+              return { appsScript, tokenInfo };
             });
             console.log('RESULT', JSON.stringify(result, null, 2));
             await browser.close();
