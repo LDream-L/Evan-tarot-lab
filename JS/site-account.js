@@ -19,7 +19,7 @@
 
   if (window.EvanSiteAccount) return;
 
-  const SCRIPT_VERSION = "20260810-auth-expiry-reload-v1";
+  const SCRIPT_VERSION = "20260812-auth-recovery-v2";
   const DESKTOP_WIDTH = 380;
   const VIEWPORT_MARGIN = 16;
   const TRIGGER_GAP = 10;

@@ -18,6 +18,7 @@
 
   const listeners = new Set();
   const REQUEST_TIMEOUT_MS = 12000;
+  const RESTORE_TIMEOUT_MS = 5000;
   const CREDENTIAL_STORAGE_KEY = "evanGoogleIdToken";
   const EXPIRY_SAFETY_MS = 5000;
   const MAX_TIMER_MS = 2147483647;
@@ -33,6 +34,8 @@
   let expiryTimer = 0;
   let reloadScheduled = false;
   let lifecycleBound = false;
+  let restoringSession = false;
+  let verificationAttempt = 0;
 
   function getClientId() {
     return String(window.EVAN_CLOUD_CONFIG?.googleClientId || "").trim();
@@ -165,9 +168,17 @@
     return { subject: String(payload.sub), userKey };
   }
 
-  async function fetchWithTimeout(url, options = {}) {
+  /**
+   * 單次網路請求逾時控制：時間／空間 O(1)（不含網路等待）。
+   * 更快替代方案比較：所有驗證共用 12 秒會讓舊工作階段恢復卡住介面過久；
+   * 本版允許恢復流程使用較短逾時，但新登入仍保留完整驗證時間。
+   */
+  async function fetchWithTimeout(url, options = {}, timeoutMs = REQUEST_TIMEOUT_MS) {
     const controller = new AbortController();
-    const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+    const timer = window.setTimeout(
+      () => controller.abort(),
+      Math.max(1, Number(timeoutMs) || REQUEST_TIMEOUT_MS)
+    );
     try {
       return await fetch(url, { ...options, signal: controller.signal, redirect: "follow" });
     } finally {
@@ -230,7 +241,7 @@
     signedInPanel?.classList.toggle("hidden", !isSignedIn);
     form?.classList.toggle("is-auth-locked", !canComment);
 
-    if (signInContainer && authVerifying && !isSignedIn) {
+    if (signInContainer && authVerifying && !isSignedIn && !restoringSession) {
       signInContainer.textContent = "正在向後端確認 Google 登入…";
       signInContainer.classList.add("site-account-loading");
     }
@@ -256,7 +267,9 @@
     const status = document.getElementById("google-auth-status");
     if (status) {
       if (authVerifying) {
-        status.textContent = "正在向 Apps Script 驗證 Google 工作階段…";
+        status.textContent = restoringSession
+          ? "正在恢復上次 Google 工作階段；若等待過久，可直接重新登入。"
+          : "正在向 Apps Script 驗證 Google 工作階段…";
       } else if (authError && !isSignedIn) {
         status.textContent = authError;
       } else if (!isSignedIn) {
@@ -269,7 +282,7 @@
     }
   }
 
-  async function verifyCredentialWithBackend(nextCredential) {
+  async function verifyCredentialWithBackend(nextCredential, timeoutMs = REQUEST_TIMEOUT_MS) {
     const response = await fetchWithTimeout(getApiUrl(), {
       method: "POST",
       cache: "no-store",
@@ -280,7 +293,7 @@
         requestId: window.crypto?.randomUUID?.() || `auth_${Date.now().toString(36)}`,
         website: "",
       }),
-    });
+    }, timeoutMs);
     return readJsonResponse(response, "Google 登入後端驗證失敗。");
   }
 
@@ -377,13 +390,23 @@
     }
   }
 
-  async function setCredential(nextCredential, persist) {
+  /**
+   * 後端驗證並套用單次 Google 憑證。
+   * 時間複雜度：O(m)＋一次後端請求，m = JWT payload 長度。
+   * 空間複雜度：O(m)。
+   * 更快替代方案比較：直接信任瀏覽器 JWT 可省一次請求，但會失去 audience／issuer 的後端安全驗證；
+   * 本版保留後端驗證，並用 attempt 編號 O(1) 丟棄較舊的非同步結果，讓重新登入不必等待舊恢復請求。
+   */
+  async function setCredential(nextCredential, persist, options = {}) {
     const payload = decodeJwtPayload(nextCredential);
     if (!nextCredential || !isCredentialFresh(payload)) {
       authError = "Google 登入資料無效或已過期，請重新登入。";
       return false;
     }
 
+    const attempt = ++verificationAttempt;
+    const isRestore = Boolean(options.restore);
+    restoringSession = isRestore;
     authVerifying = true;
     authError = "";
     credential = "";
@@ -391,12 +414,19 @@
     nickname = "";
     updateUI();
     notify();
+    if (isRestore) renderButton();
 
     try {
-      await verifyCredentialWithBackend(nextCredential);
+      await verifyCredentialWithBackend(
+        nextCredential,
+        isRestore ? RESTORE_TIMEOUT_MS : REQUEST_TIMEOUT_MS
+      );
+      if (attempt !== verificationAttempt) return false;
       const nextUser = await createUser(payload);
+      if (attempt !== verificationAttempt) return false;
       credential = nextCredential;
       user = nextUser;
+      restoringSession = false;
       scheduleCredentialExpiry(payload);
       if (persist) sessionStorage.setItem(CREDENTIAL_STORAGE_KEY, nextCredential);
       authVerifying = false;
@@ -405,16 +435,22 @@
       await loadProfile();
       return true;
     } catch (error) {
+      if (attempt !== verificationAttempt) return false;
       console.error("[google-auth] 後端驗證失敗：", error);
       clearCredentialExpiryTimer();
       credentialExpiresAt = 0;
-      sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
+      if (sessionStorage.getItem(CREDENTIAL_STORAGE_KEY) === nextCredential) {
+        sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
+      }
       credential = "";
       user = null;
       nickname = "";
+      restoringSession = false;
       authVerifying = false;
       authError = error?.name === "AbortError"
-        ? "Google 登入驗證逾時，請稍後重新登入。"
+        ? (isRestore
+          ? "上次登入恢復逾時，請直接重新登入。"
+          : "Google 登入驗證逾時，請稍後重新登入。")
         : error?.message || "Google 登入驗證失敗，請重新操作。";
       updateUI();
       notify();
@@ -433,17 +469,29 @@
     }
   }
 
+  /**
+   * 背景恢復舊工作階段：時間 O(m)＋一次後端請求，空間 O(m)。
+   * 重新登入若已寫入新 Token，不得由較舊恢復流程刪除。
+   */
   async function restoreCredential() {
     const storedCredential = String(sessionStorage.getItem(CREDENTIAL_STORAGE_KEY) || "");
     if (!storedCredential) return false;
-    const accepted = await setCredential(storedCredential, false);
-    if (!accepted) sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
+    const accepted = await setCredential(storedCredential, false, { restore: true });
+    if (!accepted && sessionStorage.getItem(CREDENTIAL_STORAGE_KEY) === storedCredential) {
+      sessionStorage.removeItem(CREDENTIAL_STORAGE_KEY);
+    }
     return accepted;
   }
 
   function renderButton() {
     const container = document.getElementById("google-signin-button");
-    if (!container || !window.google?.accounts?.id || !isConfigured() || authVerifying) return false;
+    if (
+      !container
+      || !window.google?.accounts?.id
+      || !isConfigured()
+      || Boolean(credential && user)
+      || (authVerifying && !restoringSession)
+    ) return false;
     container.replaceChildren();
     container.classList.remove("site-account-loading", "hidden");
     window.google.accounts.id.initialize({
