@@ -1,0 +1,39 @@
+name: Export Pre-cleanup Devil Assets
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  export:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout historical recovery branch
+        uses: actions/checkout@v4
+        with:
+          ref: recover-devil-all-assets
+          fetch-depth: 0
+
+      - name: Inventory assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          {
+            echo '=== ALL ARTICLE MEDIA FILES ==='
+            find assets/article-media -type f -printf '%p\t%s bytes\n' | sort
+            echo
+            echo '=== FILE TYPES ==='
+            find assets/article-media -type f -print0 | xargs -0 file || true
+          } | tee assets/article-media/inventory.txt
+
+      - name: Upload pre-cleanup article media
+        uses: actions/upload-artifact@v4
+        with:
+          name: pre-cleanup-article-media
+          path: assets/article-media
+          if-no-files-found: error
+          retention-days: 1
