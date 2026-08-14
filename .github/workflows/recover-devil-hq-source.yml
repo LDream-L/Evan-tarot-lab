@@ -1,0 +1,155 @@
+name: Recover Original Devil Image
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  recover:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout recovery branch
+        uses: actions/checkout@v4
+        with:
+          ref: recover-devil-hq-source
+          fetch-depth: 0
+
+      - name: Rebuild all historical image candidates
+        shell: bash
+        run: |
+          set -u
+          mkdir -p recovered-candidates
+
+          python - <<'PY'
+          from pathlib import Path
+          import base64
+          import re
+
+          out = Path('recovered-candidates')
+
+          source_paths = [
+              'part_00.txt', 'part_01.txt', 'part_02.txt', 'part_03.txt',
+              'part_04.txt', 'part_05.txt', 'part_06.txt',
+              'p07_00.txt', 'p07_01.txt', 'p07_02.txt', 'p07_03.txt',
+              'p08_00.txt', 'p08_01.txt', 'p08_02.txt', 'p08_03.txt',
+              'p09_00.txt', 'p09_01.txt', 'p09_02.txt', 'p09_03.txt',
+              'p09_04.txt', 'p09_05.txt', 'p09_06.txt', 'p09_07.txt',
+              'p10_00.txt', 'p10_01.txt', 'p10_02.txt',
+          ]
+
+          parts = []
+          for name in source_paths:
+              path = Path('assets/article-media/devil-v2') / name
+              raw = path.read_text(encoding='utf-8', errors='ignore')
+              clean = re.sub(r'\s+', '', raw)
+              parts.append(clean)
+
+          methods = {}
+          joined = ''.join(parts)
+          methods['joined'] = joined
+
+          no_internal_padding = ''.join(part.rstrip('=') for part in parts)
+          no_internal_padding += '=' * ((4 - len(no_internal_padding) % 4) % 4)
+          methods['joined-no-internal-padding'] = no_internal_padding
+
+          for name, encoded in methods.items():
+              try:
+                  (out / f'{name}.webp').write_bytes(base64.b64decode(encoded, validate=False))
+              except Exception as error:
+                  (out / f'{name}.error.txt').write_text(repr(error), encoding='utf-8')
+
+          decoded_parts = []
+          for part in parts:
+              padded = part + '=' * ((4 - len(part) % 4) % 4)
+              try:
+                  decoded_parts.append(base64.b64decode(padded, validate=False))
+              except Exception:
+                  decoded_parts.append(b'')
+          (out / 'decoded-each-part.webp').write_bytes(b''.join(decoded_parts))
+
+          payload_paths = [
+              Path('assets/article-media/devil-payload/part_00.txt'),
+              Path('assets/article-media/devil-payload/part_01.txt'),
+          ]
+          if all(path.exists() for path in payload_paths):
+              payload = ''.join(re.sub(r'\s+', '', path.read_text(encoding='utf-8', errors='ignore')) for path in payload_paths)
+              try:
+                  (out / 'legacy-two-part.webp').write_bytes(base64.b64decode(payload, validate=False))
+              except Exception as error:
+                  (out / 'legacy-two-part.error.txt').write_text(repr(error), encoding='utf-8')
+
+          existing = Path('assets/article-media/tarot-devil-xv.webp')
+          if existing.exists():
+              (out / 'existing-file.webp').write_bytes(existing.read_bytes())
+          PY
+
+          {
+            echo '=== FILE INSPECTION ==='
+            file recovered-candidates/* || true
+            echo
+            echo '=== IMAGE DIMENSIONS ==='
+            for file in recovered-candidates/*.webp; do
+              [ -f "$file" ] || continue
+              printf '%s: ' "$file"
+              identify -format '%w x %h\n' "$file" 2>&1 || true
+            done
+            echo
+            echo '=== SIZES AND HASHES ==='
+            sha256sum recovered-candidates/*.webp 2>/dev/null || true
+            stat -c '%n %s bytes' recovered-candidates/*.webp 2>/dev/null || true
+          } | tee recovered-candidates/recovery-report.txt
+
+      - name: Select largest completely decodable original
+        shell: bash
+        run: |
+          set -euo pipefail
+          BEST=''
+          BEST_PIXELS=0
+
+          for file in recovered-candidates/*.webp; do
+            [ -f "$file" ] || continue
+            dimensions="$(identify -format '%w %h' "$file" 2>/dev/null || true)"
+            [ -n "$dimensions" ] || continue
+            width="${dimensions%% *}"
+            height="${dimensions##* }"
+            pixels=$((width * height))
+            if [ "$pixels" -gt "$BEST_PIXELS" ]; then
+              BEST="$file"
+              BEST_PIXELS="$pixels"
+            fi
+          done
+
+          if [ -z "$BEST" ]; then
+            echo 'No completely decodable historical image candidate was found.' >&2
+            exit 1
+          fi
+
+          cp "$BEST" assets/article-media/tarot-devil-xv-hq.webp
+          echo "Selected $BEST with $BEST_PIXELS pixels"
+          identify -verbose assets/article-media/tarot-devil-xv-hq.webp | head -40
+
+      - name: Commit recovered original image
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add assets/article-media/tarot-devil-xv-hq.webp
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m 'asset: recover original high-resolution Devil image'
+          git push origin HEAD:recover-devil-hq-source
+
+      - name: Upload diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: recovered-devil-candidates
+          path: recovered-candidates
+          if-no-files-found: warn
+          retention-days: 1
