@@ -1,0 +1,48 @@
+{
+  "total": 60,
+  "sources": {
+    "manual": 11,
+    "random": 49
+  },
+  "completed": 59,
+  "unique_fixtures": 50,
+  "cards": 300,
+  "duplicate_record_ids": 0,
+  "numeric_direction_conflict_count": 0,
+  "source_stats": {
+    "manual": {
+      "n": 11,
+      "direction_hits": 5,
+      "exact_hits": 2
+    },
+    "random": {
+      "n": 48,
+      "direction_hits": 16,
+      "exact_hits": 3
+    }
+  },
+  "source_reversals": {
+    "manual": {
+      "n": 55,
+      "reversed": 31
+    },
+    "random": {
+      "n": 245,
+      "reversed": 119
+    }
+  },
+  "paired": {
+    "n": 10,
+    "manual_hits": 5,
+    "random_hits": 2,
+    "manual_only": 5,
+    "random_only": 2,
+    "both": 0,
+    "neither": 3,
+    "exact_mcnemar_p": 0.453125
+  },
+  "duplicate_pair_groups": 0,
+  "actual_conflict_groups": 0,
+  "reader_identity": "原始欄位未獨立記錄，不補造作者",
+  "scope": "歷史數字欄描述統計；非同解牌者前向驗證，非外部官方比分核實"
+}

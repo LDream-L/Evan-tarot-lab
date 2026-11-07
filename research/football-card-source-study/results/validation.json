@@ -1,0 +1,7 @@
+{
+  "unit_tests": 16,
+  "unit_tests_passed": 16,
+  "exact_mcnemar_crosschecks_with_scipy": 441,
+  "crosschecks_passed": 441,
+  "synthetic_inputs_only": true
+}
