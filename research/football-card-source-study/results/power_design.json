@@ -1,0 +1,18 @@
+{
+  "assumptions": {
+    "manual_rate": 0.75,
+    "website_rate": 0.5,
+    "both_correct": 0.4,
+    "manual_only": 0.35,
+    "website_only": 0.1,
+    "neither": 0.15
+  },
+  "test": "two-sided exact McNemar; alpha .05",
+  "computed_power": {
+    "30": 0.446,
+    "60": 0.8014,
+    "100": 0.9661,
+    "150": 0.997
+  },
+  "status": "design calculation, not observed study effect"
+}

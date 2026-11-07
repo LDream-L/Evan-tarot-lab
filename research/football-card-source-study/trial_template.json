@@ -1,0 +1,67 @@
+{
+  "trial_id": null,
+  "match_id": null,
+  "reader_id": "Evan",
+  "protocol_version": "FTS-01-1.1",
+  "experiment": "P1",
+  "block": "pilot",
+  "source": null,
+  "competition": null,
+  "home_team": null,
+  "away_team": null,
+  "kickoff": null,
+  "information_snapshot_at": null,
+  "known_information": null,
+  "draw_policy": null,
+  "physical_method_version": null,
+  "preparation_condition": "habitual",
+  "order_in_pair": null,
+  "repeat_question_count": null,
+  "gap_minutes": null,
+  "fatigue_before_0_10": null,
+  "connection_before_0_10": null,
+  "drawn_at": null,
+  "cards": [
+    {
+      "position": "field",
+      "name": null,
+      "orientation": null
+    },
+    {
+      "position": "homeAttack",
+      "name": null,
+      "orientation": null
+    },
+    {
+      "position": "awayDefense",
+      "name": null,
+      "orientation": null
+    },
+    {
+      "position": "awayAttack",
+      "name": null,
+      "orientation": null
+    },
+    {
+      "position": "homeDefense",
+      "name": null,
+      "orientation": null
+    }
+  ],
+  "original_reading": null,
+  "prediction": null,
+  "confidence_1_5": null,
+  "predicted_home_goals": null,
+  "predicted_away_goals": null,
+  "locked_at": null,
+  "result_known_at_reading": false,
+  "ai_involvement": "none_before_lock",
+  "actual": null,
+  "actual_home_goals": null,
+  "actual_away_goals": null,
+  "actual_source_url": null,
+  "result_verified_at": null,
+  "amendments": [],
+  "focus_before_draw_0_10": null,
+  "reading_method_control": "Evan沿用既有方法，暫不研究解讀因素"
+}

@@ -1,0 +1,15 @@
+{
+  "date": "2026-11-07 Asia/Taipei",
+  "source_commit": "07df41481dbd91bd6207b05f53b7453cf2adda8e",
+  "source_files": {
+    "src/football/cloud.js": "ab1197ac8757a05e6aec5441e54852cbd2555ae6e7f09f6f2ad56b13202cacd2",
+    "src/football/core.js": "a92fccea446cb47db0dcfeb934ed82b682fcf0edd8ac1a97cdb99add8eaee6dd",
+    "src/football/data.js": "1efbb7d31409b2d0da4eb905643d4919f0dfa0c457577b0e3a8f466d54579eea",
+    "src/football/draft-persistence-runtime.js": "11483e651fa852479ebf5ba24e5448be53b999f1df7ee5b57d1347319a74b648",
+    "src/football/events.js": "244d90b583473a559ebf88d17991607ebeb6e98ef7e70d28344bcdd5b8ab9759",
+    "src/football/field-context-runtime.js": "5853850c14e1882626a5f1a2336aafac7e2383a0d300d58a0d554da8546467c1"
+  },
+  "sheet_snapshot_sha256": "83c98d01069d579c7eedfc4a11d29dbdfea13aa1d0eeb4509f7a0fb7fe586c16",
+  "raw_sheet_in_public_repo": false,
+  "verification": "offline core + JSON + historical numerical fields; no live-browser/cloud roundtrip claim"
+}

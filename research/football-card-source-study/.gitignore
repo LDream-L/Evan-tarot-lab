@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+trials*.jsonl
+raw/
+private/
+sheet_snapshot.txt

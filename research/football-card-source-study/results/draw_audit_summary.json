@@ -1,0 +1,80 @@
+{
+  "trials": 100000,
+  "positions": [
+    "directResult",
+    "homeAttack",
+    "awayDefense",
+    "awayAttack",
+    "homeDefense"
+  ],
+  "reversed": 249380,
+  "totalCards": 500000,
+  "duplicatesAcrossGroups": 5100,
+  "expectedCrossDuplicateRate": 0.05128205128205128,
+  "roundTrips": 1000,
+  "structuralChecks": "passed",
+  "scope": "離線核心與JSON序列化；未宣稱完成手機畫面或正式Apps Script往返驗證",
+  "reversal_rate": 0.49876,
+  "cross_group_duplicate_rate": 0.051,
+  "diagnostics": [
+    {
+      "test": "card_frequency_directResult",
+      "statistic": 80.0684,
+      "p": 0.38299369210961387,
+      "min": 1199,
+      "max": 1373,
+      "holm_threshold": 0.0033333333333333335,
+      "flag": false
+    },
+    {
+      "test": "card_frequency_homeAttack",
+      "statistic": 93.59204,
+      "p": 0.09605592218294945,
+      "min": 1203,
+      "max": 1390,
+      "holm_threshold": 0.0016666666666666668,
+      "flag": false
+    },
+    {
+      "test": "card_frequency_awayDefense",
+      "statistic": 80.02628000000001,
+      "p": 0.3842557612928236,
+      "min": 1200,
+      "max": 1401,
+      "holm_threshold": 0.005,
+      "flag": false
+    },
+    {
+      "test": "card_frequency_awayAttack",
+      "statistic": 88.87460000000002,
+      "p": 0.16732477307663465,
+      "min": 1195,
+      "max": 1380,
+      "holm_threshold": 0.002,
+      "flag": false
+    },
+    {
+      "test": "card_frequency_homeDefense",
+      "statistic": 81.28208000000002,
+      "p": 0.347390999468956,
+      "min": 1196,
+      "max": 1386,
+      "holm_threshold": 0.0025,
+      "flag": false
+    },
+    {
+      "test": "reversal_rate",
+      "p": 0.0797374970622474,
+      "holm_threshold": 0.0014285714285714286,
+      "flag": false
+    },
+    {
+      "test": "cross_group_duplicates",
+      "p": 0.6933874855573573,
+      "holm_threshold": 0.01,
+      "flag": false
+    }
+  ],
+  "any_sampling_flag": false,
+  "source_commit": "07df41481dbd91bd6207b05f53b7453cf2adda8e"
+}
