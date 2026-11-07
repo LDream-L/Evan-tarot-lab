@@ -52,7 +52,7 @@ def paired_ci(diffs, repeats=5000, seed=20261107):
 def eligibility(row):
     """前向資格與輸入檢查；時間／空間 O(P)，P=5；不自動補牌或補時間。"""
     reasons=[]
-    for key in ['trial_id','match_id','reader_id','protocol_version','source','experiment','block','original_reading','falsifying_condition']:
+    for key in ['trial_id','match_id','reader_id','protocol_version','source','experiment','block','original_reading']:
         if not row.get(key):reasons.append('missing_'+key)
     if row.get('source') not in ('manual','website'):reasons.append('invalid_source')
     lock, kickoff, drawn = (parse_time(row.get(k)) for k in ('locked_at','kickoff','drawn_at'))
@@ -62,7 +62,7 @@ def eligibility(row):
     info=parse_time(row.get('information_snapshot_at'))
     if not info or (drawn and info>drawn):reasons.append('invalid_information_snapshot_time')
     confidence=row.get('confidence_1_5')
-    if type(confidence) is not int or not 1<=confidence<=5:reasons.append('invalid_confidence')
+    if confidence is not None and (type(confidence) is not int or not 1<=confidence<=5):reasons.append('invalid_confidence')
     if row.get('ai_involvement')!='none_before_lock':reasons.append('ai_involved_before_lock')
     if row.get('prediction') not in ('H','D','A','ABSTAIN'):reasons.append('invalid_prediction')
     cards=row.get('cards')

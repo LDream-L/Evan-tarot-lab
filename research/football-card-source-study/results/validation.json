@@ -1,7 +1,8 @@
 {
-  "unit_tests": 16,
-  "unit_tests_passed": 16,
+  "unit_tests": 18,
+  "unit_tests_passed": 18,
   "exact_mcnemar_crosschecks_with_scipy": 441,
   "crosschecks_passed": 441,
-  "synthetic_inputs_only": true
+  "synthetic_inputs_only": true,
+  "scope_version": "FTS-01-1.1"
 }

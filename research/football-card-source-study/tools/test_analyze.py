@@ -50,6 +50,10 @@ class AnalysisTests(unittest.TestCase):
         r=row('manual');r['actual_source_url']=None;self.assertIn('missing_actual_source',eligibility(r))
     def test_information_after_draw(self):
         r=row('manual');r['information_snapshot_at']='2026-11-07T03:00:00+08:00';self.assertIn('invalid_information_snapshot_time',eligibility(r))
+    def test_interpretation_metrics_not_required(self):
+        r=row('manual');r.pop('falsifying_condition');r.pop('confidence_1_5');self.assertEqual(eligibility(r),[])
+    def test_optional_confidence_still_validated(self):
+        r=row('manual');r['confidence_1_5']=7;self.assertIn('invalid_confidence',eligibility(r))
 
 
 if __name__=='__main__':unittest.main()
